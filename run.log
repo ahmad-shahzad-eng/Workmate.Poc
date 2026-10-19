@@ -1,0 +1,985 @@
+Using launch settings from /Users/m5/Downloads/Workmate.Poc/Properties/launchSettings.json...
+/Users/m5/Downloads/Workmate.Poc/Workmate.Poc.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.10 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+/Users/m5/Downloads/Workmate.Poc/Workmate.Poc.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.10 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+info: Volo.Abp.AbpApplicationBase[0]
+      Loaded ABP modules:
+info: Volo.Abp.AbpApplicationBase[0]
+      - Workmate.Poc.WorkmatePocModule
+info: Volo.Abp.AbpApplicationBase[0]
+        - Volo.Abp.Autofac.AbpAutofacModule
+info: Volo.Abp.AbpApplicationBase[0]
+          - Volo.Abp.Castle.AbpCastleCoreModule
+info: Volo.Abp.AbpApplicationBase[0]
+        - Volo.Abp.AspNetCore.Mvc.AbpAspNetCoreMvcModule
+info: Volo.Abp.AbpApplicationBase[0]
+          - Volo.Abp.AspNetCore.AbpAspNetCoreModule
+info: Volo.Abp.AbpApplicationBase[0]
+            - Volo.Abp.Auditing.AbpAuditingModule
+info: Volo.Abp.AbpApplicationBase[0]
+              - Volo.Abp.Data.AbpDataModule
+info: Volo.Abp.AbpApplicationBase[0]
+                - Volo.Abp.ObjectExtending.AbpObjectExtendingModule
+info: Volo.Abp.AbpApplicationBase[0]
+                  - Volo.Abp.Localization.AbpLocalizationAbstractionsModule
+info: Volo.Abp.AbpApplicationBase[0]
+                  - Volo.Abp.Validation.AbpValidationAbstractionsModule
+info: Volo.Abp.AbpApplicationBase[0]
+                - Volo.Abp.Uow.AbpUnitOfWorkModule
+info: Volo.Abp.AbpApplicationBase[0]
+                - Volo.Abp.EventBus.Abstractions.AbpEventBusAbstractionsModule
+info: Volo.Abp.AbpApplicationBase[0]
+              - Volo.Abp.Json.AbpJsonModule
+info: Volo.Abp.AbpApplicationBase[0]
+                - Volo.Abp.Json.SystemTextJson.AbpJsonSystemTextJsonModule
+info: Volo.Abp.AbpApplicationBase[0]
+                  - Volo.Abp.Json.AbpJsonAbstractionsModule
+info: Volo.Abp.AbpApplicationBase[0]
+                  - Volo.Abp.Timing.AbpTimingModule
+info: Volo.Abp.AbpApplicationBase[0]
+                    - Volo.Abp.Localization.AbpLocalizationModule
+info: Volo.Abp.AbpApplicationBase[0]
+                      - Volo.Abp.VirtualFileSystem.AbpVirtualFileSystemModule
+info: Volo.Abp.AbpApplicationBase[0]
+                      - Volo.Abp.Settings.AbpSettingsModule
+info: Volo.Abp.AbpApplicationBase[0]
+                        - Volo.Abp.Security.AbpSecurityModule
+info: Volo.Abp.AbpApplicationBase[0]
+                      - Volo.Abp.Threading.AbpThreadingModule
+info: Volo.Abp.AbpApplicationBase[0]
+              - Volo.Abp.MultiTenancy.AbpMultiTenancyModule
+info: Volo.Abp.AbpApplicationBase[0]
+                - Volo.Abp.MultiTenancy.AbpMultiTenancyAbstractionsModule
+info: Volo.Abp.AbpApplicationBase[0]
+              - Volo.Abp.Auditing.AbpAuditingContractsModule
+info: Volo.Abp.AbpApplicationBase[0]
+            - Volo.Abp.Http.AbpHttpModule
+info: Volo.Abp.AbpApplicationBase[0]
+              - Volo.Abp.Http.AbpHttpAbstractionsModule
+info: Volo.Abp.AbpApplicationBase[0]
+              - Volo.Abp.Minify.AbpMinifyModule
+info: Volo.Abp.AbpApplicationBase[0]
+            - Volo.Abp.Authorization.AbpAuthorizationModule
+info: Volo.Abp.AbpApplicationBase[0]
+              - Volo.Abp.Authorization.AbpAuthorizationAbstractionsModule
+info: Volo.Abp.AbpApplicationBase[0]
+            - Volo.Abp.Validation.AbpValidationModule
+info: Volo.Abp.AbpApplicationBase[0]
+            - Volo.Abp.ExceptionHandling.AbpExceptionHandlingModule
+info: Volo.Abp.AbpApplicationBase[0]
+            - Volo.Abp.AspNetCore.AbpAspNetCoreAbstractionsModule
+info: Volo.Abp.AbpApplicationBase[0]
+          - Volo.Abp.ApiVersioning.AbpApiVersioningAbstractionsModule
+info: Volo.Abp.AbpApplicationBase[0]
+          - Volo.Abp.AspNetCore.Mvc.AbpAspNetCoreMvcContractsModule
+info: Volo.Abp.AbpApplicationBase[0]
+            - Volo.Abp.Application.AbpDddApplicationContractsModule
+info: Volo.Abp.AbpApplicationBase[0]
+          - Volo.Abp.UI.Navigation.AbpUiNavigationModule
+info: Volo.Abp.AbpApplicationBase[0]
+            - Volo.Abp.UI.AbpUiModule
+info: Volo.Abp.AbpApplicationBase[0]
+          - Volo.Abp.GlobalFeatures.AbpGlobalFeaturesModule
+info: Volo.Abp.AbpApplicationBase[0]
+          - Volo.Abp.Application.AbpDddApplicationModule
+info: Volo.Abp.AbpApplicationBase[0]
+            - Volo.Abp.Domain.AbpDddDomainModule
+info: Volo.Abp.AbpApplicationBase[0]
+              - Volo.Abp.EventBus.AbpEventBusModule
+info: Volo.Abp.AbpApplicationBase[0]
+                - Volo.Abp.Guids.AbpGuidsModule
+info: Volo.Abp.AbpApplicationBase[0]
+                - Volo.Abp.BackgroundWorkers.AbpBackgroundWorkersModule
+info: Volo.Abp.AbpApplicationBase[0]
+                - Volo.Abp.DistributedLocking.AbpDistributedLockingAbstractionsModule
+info: Volo.Abp.AbpApplicationBase[0]
+              - Volo.Abp.ObjectMapping.AbpObjectMappingModule
+info: Volo.Abp.AbpApplicationBase[0]
+              - Volo.Abp.Specifications.AbpSpecificationsModule
+info: Volo.Abp.AbpApplicationBase[0]
+              - Volo.Abp.Caching.AbpCachingModule
+info: Volo.Abp.AbpApplicationBase[0]
+                - Volo.Abp.Serialization.AbpSerializationModule
+info: Volo.Abp.AbpApplicationBase[0]
+              - Volo.Abp.Domain.AbpDddDomainSharedModule
+info: Volo.Abp.AbpApplicationBase[0]
+            - Volo.Abp.Features.AbpFeaturesModule
+info: Volo.Abp.AbpApplicationBase[0]
+        - Volo.Abp.AspNetCore.MultiTenancy.AbpAspNetCoreMultiTenancyModule
+info: Volo.Abp.AbpApplicationBase[0]
+        - Volo.Abp.EntityFrameworkCore.Sqlite.AbpEntityFrameworkCoreSqliteModule
+info: Volo.Abp.AbpApplicationBase[0]
+          - Volo.Abp.EntityFrameworkCore.AbpEntityFrameworkCoreModule
+info: Volo.Abp.Modularity.ModuleManager[0]
+      Initialized all ABP modules.
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://0.0.0.0:5080
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: /Users/m5/Downloads/Workmate.Poc
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/submissions
+      - UserName - UserId                 :  - 54030bdb-ae99-36d3-7241-3a2467c6bf5a
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 102
+      - Actions:
+        - Castle.Proxies.SubmissionAppServiceProxy.SubmitAsync (78 ms.)
+          {"input":{"formKey":"leave-request","data":{"leaveType":"Annual","startDate":"2026-11-01","endDate":"2026-11-03","days":"3","reason":"Family trip"}}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/tasks/42b37bf6-ecb2-02c3-d7b1-3a2467c7132e/complete
+      - UserName - UserId                 :  - 7527621c-1f17-f631-5005-3a2467c6bf33
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 12
+      - Actions:
+        - Castle.Proxies.TaskAppServiceProxy.CompleteAsync (10 ms.)
+          {"id":"42b37bf6-ecb2-02c3-d7b1-3a2467c7132e","input":{"outcome":"Approved","comment":"OK"}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/tasks/26c5ffa2-866c-c26b-ddf9-3a2467c713cd/complete
+      - UserName - UserId                 :  - 994bbd7a-26aa-da90-d784-3a2467c6bf5a
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 3
+      - Actions:
+        - Castle.Proxies.TaskAppServiceProxy.CompleteAsync (3 ms.)
+          {"id":"26c5ffa2-866c-c26b-ddf9-3a2467c713cd","input":{"outcome":"Approved","comment":null}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/submissions
+      - UserName - UserId                 :  - 54030bdb-ae99-36d3-7241-3a2467c6bf5a
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 4
+      - Actions:
+        - Castle.Proxies.SubmissionAppServiceProxy.SubmitAsync (3 ms.)
+          {"input":{"formKey":"leave-request","data":{"leaveType":"Sick","startDate":"2026-11-05","endDate":"2026-11-05","days":"1"}}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/tasks/e425a5b5-e368-d50e-30b5-3a2467c71436/complete
+      - UserName - UserId                 :  - 994bbd7a-26aa-da90-d784-3a2467c6bf5a
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 3
+      - Actions:
+        - Castle.Proxies.TaskAppServiceProxy.CompleteAsync (2 ms.)
+          {"id":"e425a5b5-e368-d50e-30b5-3a2467c71436","input":{"outcome":"Approved","comment":null}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/submissions
+      - UserName - UserId                 :  - 54030bdb-ae99-36d3-7241-3a2467c6bf5a
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 4
+      - Actions:
+        - Castle.Proxies.SubmissionAppServiceProxy.SubmitAsync (3 ms.)
+          {"input":{"formKey":"leave-request","data":{"leaveType":"Annual","startDate":"2026-11-01","endDate":"2026-11-03","days":"3","reason":"Family trip"}}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/tasks/2c0e1872-8acf-d6ca-9bb3-3a2467c7204e/complete
+      - UserName - UserId                 :  - 7527621c-1f17-f631-5005-3a2467c6bf33
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 3
+      - Actions:
+        - Castle.Proxies.TaskAppServiceProxy.CompleteAsync (2 ms.)
+          {"id":"2c0e1872-8acf-d6ca-9bb3-3a2467c7204e","input":{"outcome":"Rejected","comment":"Busy period"}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: PUT    ] /api/poc/forms/leave-request/draft
+      - UserName - UserId                 :  - 193f8768-25ed-9a5d-41c6-3a2467c6bf5b
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 3
+      - Actions:
+        - Castle.Proxies.FormAppServiceProxy.SaveDraftAsync (2 ms.)
+          {"key":"leave-request","schemaJson":"{\u0022title\u0022: \u0022Leave request\u0022, \u0022fields\u0022: [{\u0022key\u0022: \u0022leaveType\u0022, \u0022label\u0022: \u0022Leave type\u0022, \u0022type\u0022: \u0022select\u0022, \u0022options\u0022: [\u0022Annual\u0022, \u0022Sick\u0022, \u0022Unpaid\u0022], \u0022required\u0022: true, \u0022reportable\u0022: true, \u0022workflowVariable\u0022: true}, {\u0022key\u0022: \u0022startDate\u0022, \u0022label\u0022: \u0022First day\u0022, \u0022type\u0022: \u0022date\u0022, \u0022required\u0022: true, \u0022reportable\u0022: true}, {\u0022key\u0022: \u0022endDate\u0022, \u0022label\u0022: \u0022Last day\u0022, \u0022type\u0022: \u0022date\u0022, \u0022required\u0022: true, \u0022reportable\u0022: true}, {\u0022key\u0022: \u0022days\u0022, \u0022label\u0022: \u0022Working days\u0022, \u0022type\u0022: \u0022number\u0022, \u0022required\u0022: true, \u0022reportable\u0022: true, \u0022workflowVariable\u0022: true}, {\u0022key\u0022: \u0022reason\u0022, \u0022label\u0022: \u0022Reason\u0022, \u0022type\u0022: \u0022textarea\u0022, \u0022required\u0022: false}, {\u0022key\u0022: \u0022handoverTo\u0022, \u0022label\u0022: \u0022Handover to\u0022, \u0022type\u0022: \u0022text\u0022, \u0022required\u0022: true}]}"}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/forms/leave-request/publish
+      - UserName - UserId                 :  - 193f8768-25ed-9a5d-41c6-3a2467c6bf5b
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 4
+      - Actions:
+        - Castle.Proxies.FormAppServiceProxy.PublishAsync (3 ms.)
+          {"key":"leave-request"}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [403: POST   ] /api/poc/submissions
+      - UserName - UserId                 :  - 54030bdb-ae99-36d3-7241-3a2467c6bf5a
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 1
+      - Actions:
+        - Castle.Proxies.SubmissionAppServiceProxy.SubmitAsync (1 ms.)
+          {"input":{"formKey":"leave-request","data":{"leaveType":"Annual","startDate":"2026-11-01","endDate":"2026-11-03","days":"3","reason":"Family trip"}}}
+      - Exceptions:
+        - Handover to is required.
+          Volo.Abp.UserFriendlyException: Handover to is required.
+         at Workmate.Poc.Application.SubmissionAppService.Validate(FormSchema schema, Dictionary`2 raw) in /Users/m5/Downloads/Workmate.Poc/Application/SubmissionAppService.cs:line 134
+         at Workmate.Poc.Application.SubmissionAppService.SubmitAsync(SubmitFormInput input) in /Users/m5/Downloads/Workmate.Poc/Application/SubmissionAppService.cs:line 44
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      ---------- RemoteServiceErrorInfo ----------
+      {
+        "code": null,
+        "message": "Handover to is required.",
+        "details": null,
+        "data": {},
+        "validationErrors": null
+      }
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Handover to is required.
+      Volo.Abp.UserFriendlyException: Handover to is required.
+         at Workmate.Poc.Application.SubmissionAppService.Validate(FormSchema schema, Dictionary`2 raw) in /Users/m5/Downloads/Workmate.Poc/Application/SubmissionAppService.cs:line 134
+         at Workmate.Poc.Application.SubmissionAppService.SubmitAsync(SubmitFormInput input) in /Users/m5/Downloads/Workmate.Poc/Application/SubmissionAppService.cs:line 44
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Uow.UnitOfWorkInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at lambda_method2056(Closure, Object)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+      --- End of stack trace from previous location ---
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeNextExceptionFilterAsync>g__Awaited|26_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Code:
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Details:
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/submissions
+      - UserName - UserId                 :  - 54030bdb-ae99-36d3-7241-3a2467c6bf5a
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 3
+      - Actions:
+        - Castle.Proxies.SubmissionAppServiceProxy.SubmitAsync (2 ms.)
+          {"input":{"formKey":"leave-request","data":{"leaveType":"Annual","startDate":"2026-11-01","endDate":"2026-11-03","days":"3","reason":"Family trip","handoverTo":"Omar"}}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/submissions
+      - UserName - UserId                 :  - 6fb189d2-e9f7-91f2-57c8-3a2467c6bfe5
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 8
+      - Actions:
+        - Castle.Proxies.SubmissionAppServiceProxy.SubmitAsync (8 ms.)
+          {"input":{"formKey":"leave-request","data":{"leaveType":"Sick","startDate":"2026-11-05","endDate":"2026-11-05","days":"1"}}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [403: GET    ] /api/poc/submissions/mine
+      - UserName - UserId                 :  - 54030bdb-ae99-36d3-7241-3a2467c6bf5a
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 1
+      - Actions:
+        - Castle.Proxies.SubmissionAppServiceProxy.GetMineAsync (1 ms.)
+          {}
+      - Exceptions:
+        - This user does not belong to the selected company.
+          Volo.Abp.UserFriendlyException: This user does not belong to the selected company.
+         at Workmate.Poc.Application.CurrentEmployeeProvider.GetAsync() in /Users/m5/Downloads/Workmate.Poc/Application/CurrentEmployeeProvider.cs:line 27
+         at Workmate.Poc.Application.SubmissionAppService.GetMineAsync() in /Users/m5/Downloads/Workmate.Poc/Application/SubmissionAppService.cs:line 66
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      ---------- RemoteServiceErrorInfo ----------
+      {
+        "code": null,
+        "message": "This user does not belong to the selected company.",
+        "details": null,
+        "data": {},
+        "validationErrors": null
+      }
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      This user does not belong to the selected company.
+      Volo.Abp.UserFriendlyException: This user does not belong to the selected company.
+         at Workmate.Poc.Application.CurrentEmployeeProvider.GetAsync() in /Users/m5/Downloads/Workmate.Poc/Application/CurrentEmployeeProvider.cs:line 27
+         at Workmate.Poc.Application.SubmissionAppService.GetMineAsync() in /Users/m5/Downloads/Workmate.Poc/Application/SubmissionAppService.cs:line 66
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Uow.UnitOfWorkInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at lambda_method3197(Closure, Object)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+      --- End of stack trace from previous location ---
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeNextExceptionFilterAsync>g__Awaited|26_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Code:
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Details:
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [403: GET    ] /api/poc/forms/all
+      - UserName - UserId                 :  - 994bbd7a-26aa-da90-d784-3a2467c6bf5a
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 1
+      - Actions:
+        - Castle.Proxies.FormAppServiceProxy.GetAllAsync (1 ms.)
+          {}
+      - Exceptions:
+        - Only Admin users can design forms and routing.
+          Volo.Abp.UserFriendlyException: Only Admin users can design forms and routing.
+         at Workmate.Poc.Application.CurrentEmployeeProvider.EnsureAdminAsync() in /Users/m5/Downloads/Workmate.Poc/Application/CurrentEmployeeProvider.cs:line 40
+         at Workmate.Poc.Application.FormAppService.GetAllAsync() in /Users/m5/Downloads/Workmate.Poc/Application/FormAppService.cs:line 40
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      ---------- RemoteServiceErrorInfo ----------
+      {
+        "code": null,
+        "message": "Only Admin users can design forms and routing.",
+        "details": null,
+        "data": {},
+        "validationErrors": null
+      }
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Only Admin users can design forms and routing.
+      Volo.Abp.UserFriendlyException: Only Admin users can design forms and routing.
+         at Workmate.Poc.Application.CurrentEmployeeProvider.EnsureAdminAsync() in /Users/m5/Downloads/Workmate.Poc/Application/CurrentEmployeeProvider.cs:line 40
+         at Workmate.Poc.Application.FormAppService.GetAllAsync() in /Users/m5/Downloads/Workmate.Poc/Application/FormAppService.cs:line 40
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Uow.UnitOfWorkInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at lambda_method3245(Closure, Object)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+      --- End of stack trace from previous location ---
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeNextExceptionFilterAsync>g__Awaited|26_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Code:
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Details:
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [403: POST   ] /api/poc/forms
+      - UserName - UserId                 :  - 54030bdb-ae99-36d3-7241-3a2467c6bf5a
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 2
+      - Actions:
+        - Castle.Proxies.FormAppServiceProxy.CreateAsync (2 ms.)
+          {"input":{"key":"nope","name":"Nope","category":"X"}}
+      - Exceptions:
+        - Only Admin users can design forms and routing.
+          Volo.Abp.UserFriendlyException: Only Admin users can design forms and routing.
+         at Workmate.Poc.Application.CurrentEmployeeProvider.EnsureAdminAsync() in /Users/m5/Downloads/Workmate.Poc/Application/CurrentEmployeeProvider.cs:line 40
+         at Workmate.Poc.Application.FormAppService.CreateAsync(CreateFormInput input) in /Users/m5/Downloads/Workmate.Poc/Application/FormAppService.cs:line 57
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      ---------- RemoteServiceErrorInfo ----------
+      {
+        "code": null,
+        "message": "Only Admin users can design forms and routing.",
+        "details": null,
+        "data": {},
+        "validationErrors": null
+      }
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Only Admin users can design forms and routing.
+      Volo.Abp.UserFriendlyException: Only Admin users can design forms and routing.
+         at Workmate.Poc.Application.CurrentEmployeeProvider.EnsureAdminAsync() in /Users/m5/Downloads/Workmate.Poc/Application/CurrentEmployeeProvider.cs:line 40
+         at Workmate.Poc.Application.FormAppService.CreateAsync(CreateFormInput input) in /Users/m5/Downloads/Workmate.Poc/Application/FormAppService.cs:line 57
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Uow.UnitOfWorkInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at lambda_method3252(Closure, Object)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+      --- End of stack trace from previous location ---
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeNextExceptionFilterAsync>g__Awaited|26_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Code:
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Details:
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/forms
+      - UserName - UserId                 :  - 193f8768-25ed-9a5d-41c6-3a2467c6bf5b
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 12
+      - Actions:
+        - Castle.Proxies.FormAppServiceProxy.GetDesignAsync (0 ms.)
+          {"key":"business-trip"}
+        - Castle.Proxies.FormAppServiceProxy.CreateAsync (12 ms.)
+          {"input":{"key":"business-trip","name":"Business trip","category":"Travel"}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [403: POST   ] /api/poc/forms
+      - UserName - UserId                 :  - 193f8768-25ed-9a5d-41c6-3a2467c6bf5b
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 1
+      - Actions:
+        - Castle.Proxies.FormAppServiceProxy.CreateAsync (1 ms.)
+          {"input":{"key":"business-trip","name":"Again","category":"Travel"}}
+      - Exceptions:
+        - A form with key 'business-trip' already exists.
+          Volo.Abp.UserFriendlyException: A form with key 'business-trip' already exists.
+         at Workmate.Poc.Application.FormAppService.CreateAsync(CreateFormInput input) in /Users/m5/Downloads/Workmate.Poc/Application/FormAppService.cs:line 64
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      ---------- RemoteServiceErrorInfo ----------
+      {
+        "code": null,
+        "message": "A form with key 'business-trip' already exists.",
+        "details": null,
+        "data": {},
+        "validationErrors": null
+      }
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      A form with key 'business-trip' already exists.
+      Volo.Abp.UserFriendlyException: A form with key 'business-trip' already exists.
+         at Workmate.Poc.Application.FormAppService.CreateAsync(CreateFormInput input) in /Users/m5/Downloads/Workmate.Poc/Application/FormAppService.cs:line 64
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Uow.UnitOfWorkInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at lambda_method3252(Closure, Object)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+      --- End of stack trace from previous location ---
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeNextExceptionFilterAsync>g__Awaited|26_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Code:
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Details:
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [403: POST   ] /api/poc/submissions
+      - UserName - UserId                 :  - 54030bdb-ae99-36d3-7241-3a2467c6bf5a
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 1
+      - Actions:
+        - Castle.Proxies.SubmissionAppServiceProxy.SubmitAsync (1 ms.)
+          {"input":{"formKey":"business-trip","data":{"details":"x"}}}
+      - Exceptions:
+        - Form 'business-trip' is not available.
+          Volo.Abp.UserFriendlyException: Form 'business-trip' is not available.
+         at Workmate.Poc.Application.SubmissionAppService.SubmitAsync(SubmitFormInput input) in /Users/m5/Downloads/Workmate.Poc/Application/SubmissionAppService.cs:line 39
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      ---------- RemoteServiceErrorInfo ----------
+      {
+        "code": null,
+        "message": "Form 'business-trip' is not available.",
+        "details": null,
+        "data": {},
+        "validationErrors": null
+      }
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Form 'business-trip' is not available.
+      Volo.Abp.UserFriendlyException: Form 'business-trip' is not available.
+         at Workmate.Poc.Application.SubmissionAppService.SubmitAsync(SubmitFormInput input) in /Users/m5/Downloads/Workmate.Poc/Application/SubmissionAppService.cs:line 39
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Uow.UnitOfWorkInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at lambda_method2056(Closure, Object)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+      --- End of stack trace from previous location ---
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeNextExceptionFilterAsync>g__Awaited|26_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Code:
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Details:
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: PUT    ] /api/poc/forms/business-trip/draft
+      - UserName - UserId                 :  - 193f8768-25ed-9a5d-41c6-3a2467c6bf5b
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 2
+      - Actions:
+        - Castle.Proxies.FormAppServiceProxy.SaveDraftAsync (1 ms.)
+          {"key":"business-trip","schemaJson":"{\u0022title\u0022: \u0022Business trip\u0022, \u0022fields\u0022: [{\u0022key\u0022: \u0022tripType\u0022, \u0022label\u0022: \u0022Trip type\u0022, \u0022type\u0022: \u0022select\u0022, \u0022options\u0022: [\u0022Domestic\u0022, \u0022International\u0022], \u0022required\u0022: true, \u0022reportable\u0022: true, \u0022workflowVariable\u0022: true}, {\u0022key\u0022: \u0022destination\u0022, \u0022label\u0022: \u0022Destination\u0022, \u0022type\u0022: \u0022text\u0022, \u0022required\u0022: true, \u0022reportable\u0022: true}, {\u0022key\u0022: \u0022days\u0022, \u0022label\u0022: \u0022Days\u0022, \u0022type\u0022: \u0022number\u0022, \u0022required\u0022: true, \u0022reportable\u0022: true}]}"}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/forms/business-trip/publish
+      - UserName - UserId                 :  - 193f8768-25ed-9a5d-41c6-3a2467c6bf5b
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 2
+      - Actions:
+        - Castle.Proxies.FormAppServiceProxy.PublishAsync (1 ms.)
+          {"key":"business-trip"}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [403: POST   ] /api/poc/forms/business-trip/bindings
+      - UserName - UserId                 :  - 193f8768-25ed-9a5d-41c6-3a2467c6bf5b
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 3
+      - Actions:
+        - Castle.Proxies.RoutingAppServiceProxy.CreateBindingAsync (3 ms.)
+          {"formKey":"business-trip","input":{"workflowDefinitionId":"made-up","conditionField":null,"conditionValue":null,"priority":10,"isActive":true}}
+      - Exceptions:
+        - Workflow 'made-up' is not published.
+          Volo.Abp.UserFriendlyException: Workflow 'made-up' is not published.
+         at Workmate.Poc.Application.RoutingAppService.ValidateAsync(FormDefinition form, SaveBindingInput input) in /Users/m5/Downloads/Workmate.Poc/Application/RoutingAppService.cs:line 81
+         at Workmate.Poc.Application.RoutingAppService.CreateBindingAsync(String formKey, SaveBindingInput input) in /Users/m5/Downloads/Workmate.Poc/Application/RoutingAppService.cs:line 46
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      ---------- RemoteServiceErrorInfo ----------
+      {
+        "code": null,
+        "message": "Workflow 'made-up' is not published.",
+        "details": null,
+        "data": {},
+        "validationErrors": null
+      }
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Workflow 'made-up' is not published.
+      Volo.Abp.UserFriendlyException: Workflow 'made-up' is not published.
+         at Workmate.Poc.Application.RoutingAppService.ValidateAsync(FormDefinition form, SaveBindingInput input) in /Users/m5/Downloads/Workmate.Poc/Application/RoutingAppService.cs:line 81
+         at Workmate.Poc.Application.RoutingAppService.CreateBindingAsync(String formKey, SaveBindingInput input) in /Users/m5/Downloads/Workmate.Poc/Application/RoutingAppService.cs:line 46
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Uow.UnitOfWorkInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at lambda_method3274(Closure, Object)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+      --- End of stack trace from previous location ---
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeNextExceptionFilterAsync>g__Awaited|26_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Code:
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Details:
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [403: POST   ] /api/poc/forms/business-trip/bindings
+      - UserName - UserId                 :  - 193f8768-25ed-9a5d-41c6-3a2467c6bf5b
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 5
+      - Actions:
+        - Castle.Proxies.RoutingAppServiceProxy.CreateBindingAsync (5 ms.)
+          {"formKey":"business-trip","input":{"workflowDefinitionId":"leave-approval","conditionField":"nope","conditionValue":"x","priority":1,"isActive":true}}
+      - Exceptions:
+        - Field 'nope' is not on the form.
+          Volo.Abp.UserFriendlyException: Field 'nope' is not on the form.
+         at Workmate.Poc.Application.RoutingAppService.ValidateAsync(FormDefinition form, SaveBindingInput input) in /Users/m5/Downloads/Workmate.Poc/Application/RoutingAppService.cs:line 97
+         at Workmate.Poc.Application.RoutingAppService.CreateBindingAsync(String formKey, SaveBindingInput input) in /Users/m5/Downloads/Workmate.Poc/Application/RoutingAppService.cs:line 46
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      ---------- RemoteServiceErrorInfo ----------
+      {
+        "code": null,
+        "message": "Field 'nope' is not on the form.",
+        "details": null,
+        "data": {},
+        "validationErrors": null
+      }
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Field 'nope' is not on the form.
+      Volo.Abp.UserFriendlyException: Field 'nope' is not on the form.
+         at Workmate.Poc.Application.RoutingAppService.ValidateAsync(FormDefinition form, SaveBindingInput input) in /Users/m5/Downloads/Workmate.Poc/Application/RoutingAppService.cs:line 97
+         at Workmate.Poc.Application.RoutingAppService.CreateBindingAsync(String formKey, SaveBindingInput input) in /Users/m5/Downloads/Workmate.Poc/Application/RoutingAppService.cs:line 46
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Uow.UnitOfWorkInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at lambda_method3274(Closure, Object)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+      --- End of stack trace from previous location ---
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeNextExceptionFilterAsync>g__Awaited|26_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Code:
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Details:
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/forms/business-trip/bindings
+      - UserName - UserId                 :  - 193f8768-25ed-9a5d-41c6-3a2467c6bf5b
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 2
+      - Actions:
+        - Castle.Proxies.RoutingAppServiceProxy.CreateBindingAsync (2 ms.)
+          {"formKey":"business-trip","input":{"workflowDefinitionId":"leave-approval","conditionField":null,"conditionValue":null,"priority":10,"isActive":true}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/forms/business-trip/bindings
+      - UserName - UserId                 :  - 193f8768-25ed-9a5d-41c6-3a2467c6bf5b
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 2
+      - Actions:
+        - Castle.Proxies.RoutingAppServiceProxy.CreateBindingAsync (2 ms.)
+          {"formKey":"business-trip","input":{"workflowDefinitionId":"hr-only-approval","conditionField":"tripType","conditionValue":"Domestic","priority":1,"isActive":true}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/submissions
+      - UserName - UserId                 :  - 54030bdb-ae99-36d3-7241-3a2467c6bf5a
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 2
+      - Actions:
+        - Castle.Proxies.SubmissionAppServiceProxy.SubmitAsync (1 ms.)
+          {"input":{"formKey":"business-trip","data":{"tripType":"Domestic","destination":"Riyadh","days":"2"}}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/submissions
+      - UserName - UserId                 :  - 54030bdb-ae99-36d3-7241-3a2467c6bf5a
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 1
+      - Actions:
+        - Castle.Proxies.SubmissionAppServiceProxy.SubmitAsync (1 ms.)
+          {"input":{"formKey":"business-trip","data":{"tripType":"International","destination":"London","days":"4"}}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/submissions
+      - UserName - UserId                 :  - 193f8768-25ed-9a5d-41c6-3a2467c6bf5b
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 2
+      - Actions:
+        - Castle.Proxies.SubmissionAppServiceProxy.SubmitAsync (1 ms.)
+          {"input":{"formKey":"leave-request","data":{"leaveType":"Annual","startDate":"2026-11-01","endDate":"2026-11-03","days":"3","reason":"Family trip","handoverTo":"Sara"}}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/forms
+      - UserName - UserId                 :  - 00000000-0000-0000-0000-00000000a001
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 8
+      - Actions:
+        - Castle.Proxies.FormAppServiceProxy.GetDesignAsync (5 ms.)
+          {"key":"asset-request"}
+        - Castle.Proxies.FormAppServiceProxy.CreateAsync (8 ms.)
+          {"input":{"key":"asset-request","name":"Asset request","category":"IT"}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [403: POST   ] /api/poc/submissions
+      - UserName - UserId                 :  - 00000000-0000-0000-0000-00000000a001
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 1
+      - Actions:
+        - Castle.Proxies.SubmissionAppServiceProxy.SubmitAsync (1 ms.)
+          {"input":{"formKey":"leave-request","data":{"leaveType":"Annual","startDate":"2026-11-01","endDate":"2026-11-03","days":"3","reason":"Family trip"}}}
+      - Exceptions:
+        - This user does not belong to the selected company.
+          Volo.Abp.UserFriendlyException: This user does not belong to the selected company.
+         at Workmate.Poc.Application.CurrentEmployeeProvider.GetAsync() in /Users/m5/Downloads/Workmate.Poc/Application/CurrentEmployeeProvider.cs:line 27
+         at Workmate.Poc.Application.SubmissionAppService.SubmitAsync(SubmitFormInput input) in /Users/m5/Downloads/Workmate.Poc/Application/SubmissionAppService.cs:line 38
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      ---------- RemoteServiceErrorInfo ----------
+      {
+        "code": null,
+        "message": "This user does not belong to the selected company.",
+        "details": null,
+        "data": {},
+        "validationErrors": null
+      }
+      
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      This user does not belong to the selected company.
+      Volo.Abp.UserFriendlyException: This user does not belong to the selected company.
+         at Workmate.Poc.Application.CurrentEmployeeProvider.GetAsync() in /Users/m5/Downloads/Workmate.Poc/Application/CurrentEmployeeProvider.cs:line 27
+         at Workmate.Poc.Application.SubmissionAppService.SubmitAsync(SubmitFormInput input) in /Users/m5/Downloads/Workmate.Poc/Application/SubmissionAppService.cs:line 38
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.GlobalFeatures.GlobalFeatureInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Auditing.AuditingInterceptor.ProceedByLoggingAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, IAuditingHelper auditingHelper, IAuditLogScope auditLogScope)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.ProcessWithNewAuditingScopeAsync(IAbpMethodInvocation invocation, AbpAuditingOptions options, ICurrentUser currentUser, IAuditingManager auditingManager, IAuditingHelper auditingHelper, IUnitOfWorkManager unitOfWorkManager)
+         at Volo.Abp.Auditing.AuditingInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+         at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+         at Volo.Abp.Uow.UnitOfWorkInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+         at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+         at lambda_method2056(Closure, Object)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+      --- End of stack trace from previous location ---
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeNextExceptionFilterAsync>g__Awaited|26_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Code:
+warn: Volo.Abp.AspNetCore.Mvc.ExceptionHandling.AbpExceptionFilter[0]
+      Details:
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/tasks/f7b5a0dd-4620-e576-497b-3a2467c73181/complete
+      - UserName - UserId                 :  - 7527621c-1f17-f631-5005-3a2467c6bf33
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 7
+      - Actions:
+        - Castle.Proxies.TaskAppServiceProxy.CompleteAsync (6 ms.)
+          {"id":"f7b5a0dd-4620-e576-497b-3a2467c73181","input":{"outcome":"Rejected","comment":""}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/tasks/4df2b6a9-8970-11ea-86b4-3a2467c728ae/complete
+      - UserName - UserId                 :  - 7527621c-1f17-f631-5005-3a2467c6bf33
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 3
+      - Actions:
+        - Castle.Proxies.TaskAppServiceProxy.CompleteAsync (2 ms.)
+          {"id":"4df2b6a9-8970-11ea-86b4-3a2467c728ae","input":{"outcome":"Rejected","comment":""}}
+      
+info: Volo.Abp.Auditing.SimpleLogAuditingStore[0]
+      AUDIT LOG: [200: POST   ] /api/poc/tasks/e9660780-a0b2-a7e8-771a-3a2467c73170/complete
+      - UserName - UserId                 :  - 7527621c-1f17-f631-5005-3a2467c6bf33
+      - ClientIpAddress        : 127.0.0.1
+      - ExecutionDuration      : 5
+      - Actions:
+        - Castle.Proxies.TaskAppServiceProxy.CompleteAsync (3 ms.)
+          {"id":"e9660780-a0b2-a7e8-771a-3a2467c73170","input":{"outcome":"Rejected","comment":""}}
+      

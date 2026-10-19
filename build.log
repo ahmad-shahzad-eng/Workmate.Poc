@@ -1,0 +1,14 @@
+  Determining projects to restore...
+/Users/m5/Downloads/Workmate.Poc/Workmate.Poc.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.10 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+  All projects are up-to-date for restore.
+/Users/m5/Downloads/Workmate.Poc/Workmate.Poc.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.10 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+  Workmate.Poc -> /Users/m5/Downloads/Workmate.Poc/bin/Debug/net10.0/Workmate.Poc.dll
+
+Build succeeded.
+
+/Users/m5/Downloads/Workmate.Poc/Workmate.Poc.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.10 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+/Users/m5/Downloads/Workmate.Poc/Workmate.Poc.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.10 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+    2 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.92

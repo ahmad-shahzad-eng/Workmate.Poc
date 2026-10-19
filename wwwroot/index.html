@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workmate HRM (PoC)</title>
+<style>
+  :root {
+    --paper: #f3f5f7; --surface: #ffffff; --ink: #1d2b3a; --muted: #5b6b7b; --line: #d5dce3;
+    --tenant: #0f6e6e; --tenant-soft: #e3f1f0;
+    --pending: #9a6416; --pending-soft: #fbf0dc;
+    --approved: #2f7a4b; --approved-soft: #e2f2e7;
+    --rejected: #b23b2e; --rejected-soft: #f8e4e1;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #141b22; --surface: #1c252e; --ink: #e4e9ee; --muted: #9aa8b5; --line: #2f3b47;
+      --tenant: #5cc2bd; --tenant-soft: #17302f;
+      --pending: #e3b25e; --pending-soft: #33291a;
+      --approved: #74c693; --approved-soft: #1b3024;
+      --rejected: #ec8a7e; --rejected-soft: #3a2220;
+      color-scheme: dark;
+    }
+  }
+  body[data-tenant="globex"] { --tenant: #4a4fb0; --tenant-soft: #e7e8f7; }
+  @media (prefers-color-scheme: dark) { body[data-tenant="globex"] { --tenant: #9ea2ee; --tenant-soft: #24264a; } }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font: 15px/1.5 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--tenant); outline-offset: 2px; }
+
+  .identity { background: var(--tenant); color: #fff; padding: 14px 24px; display: flex; flex-wrap: wrap;
+    gap: 12px 28px; align-items: center; }
+  @media (prefers-color-scheme: dark) { .identity { color: #0e1418; } }
+  .identity h1 { margin: 0 auto 0 0; font-size: 17px; font-weight: 600; }
+  .identity label { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+  .identity select { background: rgba(255,255,255,.95); color: #1d2b3a; border: 0; border-radius: 4px; padding: 5px 8px; min-width: 190px; }
+
+  .shell { display: grid; grid-template-columns: 200px 1fr; min-height: calc(100vh - 60px); }
+  nav { border-right: 1px solid var(--line); padding: 20px 12px; display: flex; flex-direction: column; gap: 2px; }
+  nav button { text-align: left; background: none; border: 0; padding: 9px 12px; border-radius: 4px; cursor: pointer;
+    display: flex; justify-content: space-between; }
+  nav button[aria-current="page"] { background: var(--tenant-soft); color: var(--tenant); font-weight: 600; }
+  .count { background: var(--tenant); color: var(--surface); border-radius: 10px; padding: 0 7px; font-size: 12px; }
+  main { padding: 28px 32px; max-width: 1100px; }
+  h2 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
+  .lead { color: var(--muted); margin: 0 0 22px; max-width: 70ch; }
+
+  .split { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.3fr); gap: 28px; align-items: start; }
+  @media (max-width: 860px) { .shell { grid-template-columns: 1fr; } nav { flex-direction: row; flex-wrap: wrap; border: 0; }
+    .split { grid-template-columns: 1fr; } main { padding: 20px; } }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 20px; }
+  .rows { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+  .rows li + li { border-top: 1px solid var(--line); }
+  .rows button { width: 100%; background: none; border: 0; padding: 12px 16px; text-align: left; cursor: pointer;
+    display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; }
+  .rows button[aria-pressed="true"] { background: var(--tenant-soft); }
+  .rows small { color: var(--muted); }
+  .empty { color: var(--muted); padding: 18px 16px; }
+
+  .status { font-size: 13px; font-weight: 600; padding: 1px 8px; border-radius: 3px; align-self: start; white-space: nowrap; }
+  .status.Pending, .status.InProcess, .status.Submitted, .status.Draft { background: var(--pending-soft); color: var(--pending); }
+  .status.Approved, .status.Completed, .status.Published { background: var(--approved-soft); color: var(--approved); }
+  .status.Rejected { background: var(--rejected-soft); color: var(--rejected); }
+  .status.Retired { background: var(--paper); color: var(--muted); }
+
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .field .req { color: var(--rejected); }
+  .field input, .field select, .field textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line);
+    border-radius: 4px; background: var(--surface); }
+  .field input[type=checkbox] { width: auto; }
+  .field textarea { min-height: 70px; resize: vertical; }
+  .field .value { padding: 6px 0; border-bottom: 1px dashed var(--line); min-height: 34px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; align-items: center; }
+  .btn { border: 1px solid var(--tenant); background: var(--tenant); color: var(--surface); padding: 8px 16px;
+    border-radius: 4px; cursor: pointer; font-weight: 600; }
+  .btn.secondary { background: transparent; color: var(--tenant); }
+  .btn.approve { background: var(--approved); border-color: var(--approved); }
+  .btn.reject { background: var(--rejected); border-color: var(--rejected); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .message { margin: 0 0 16px; padding: 10px 14px; border-radius: 4px; }
+  .message.error { background: var(--rejected-soft); color: var(--rejected); }
+  .message.ok { background: var(--approved-soft); color: var(--approved); }
+
+  .meta { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+  h3 { font-size: 16px; margin: 22px 0 10px; }
+  .timeline { list-style: none; margin: 0; padding: 0 0 0 16px; border-left: 2px solid var(--line); }
+  .timeline li { position: relative; padding: 0 0 12px 8px; }
+  .timeline li::before { content: ""; position: absolute; left: -22px; top: 7px; width: 10px; height: 10px;
+    border-radius: 50%; background: var(--tenant); }
+  .timeline time { color: var(--muted); font-size: 13px; display: block; }
+  .steps { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .steps th, .steps td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .steps th { color: var(--muted); font-weight: 600; }
+  textarea.schema { width: 100%; min-height: 420px; font: 13px/1.45 Consolas, "Cascadia Mono", monospace;
+    padding: 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+  .versions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .versions span { border: 1px solid var(--line); border-radius: 4px; padding: 3px 10px; font-size: 14px; }
+  .fieldrows { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .fieldrows td, .fieldrows th { padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
+  .fieldrows th { color: var(--muted); font-weight: 600; }
+  .fieldrows input[type=text], .fieldrows select { width: 100%; padding: 5px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+  .fieldrows .flags label { display: block; font-size: 13px; white-space: nowrap; }
+  .icon { background: none; border: 1px solid var(--line); border-radius: 4px; padding: 2px 7px; cursor: pointer; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .tabs button { border: 1px solid var(--line); background: var(--surface); padding: 5px 12px; border-radius: 4px; cursor: pointer; }
+  .tabs button[aria-pressed="true"] { border-color: var(--tenant); color: var(--tenant); font-weight: 600; }
+  .inline { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end; }
+  .inline .field { margin: 0; }
+  @media (prefers-reduced-motion: no-preference) { .flash { animation: flash .6s ease-out; } }
+  @keyframes flash { from { background: var(--tenant-soft); } }
+</style>
+</head>
+<body data-tenant="acme">
+<header class="identity">
+  <h1>Workmate HRM</h1>
+  <label>Company <select id="tenant"></select></label>
+  <label>Acting as <select id="user"></select></label>
+</header>
+<div class="shell">
+  <nav aria-label="Sections">
+    <button data-view="new" aria-current="page">New request</button>
+    <button data-view="mine">My requests</button>
+    <button data-view="inbox">Inbox <span class="count" id="inboxCount" hidden></span></button>
+    <button data-view="designer" id="designerNav" hidden>Form designer</button>
+  </nav>
+  <main id="main"></main>
+</div>
+
+<script>
+const state = { tenants: [], users: [], view: "new", selected: null, formKey: null, designKey: null, editMode: "visual" };
+const isAdmin = () => state.users.find(u => u.id === $("#user").value)?.isAdmin === true;
+const $ = (s, el = document) => el.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const when = d => new Date(d).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+const statusLabel = s => ({ InProcess: "In approval" }[s] || s);
+
+async function api(path, options = {}) {
+  const headers = { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest", "Content-Type": "application/json" };
+  if ($("#tenant").value) headers["__tenant"] = $("#tenant").value;
+  if ($("#user").value) headers["X-Demo-User"] = $("#user").value;
+  const res = await fetch(path, { ...options, headers });
+  const text = await res.text();
+  const body = text ? JSON.parse(text) : null;
+  if (!res.ok) throw new Error(body?.error?.message || `Request failed (${res.status})`);
+  return body;
+}
+
+function message(kind, text) { return `<p class="message ${kind}" role="${kind === "error" ? "alert" : "status"}">${esc(text)}</p>`; }
+
+// ---------- Form renderer: renders the JSON schema, editable or read-only ----------
+function renderForm(schema, values = {}, readOnly = false) {
+  return schema.fields.map(f => {
+    const id = `f_${f.key}`, v = values[f.key] ?? "";
+    const label = `<label for="${id}">${esc(f.label)}${f.required && !readOnly ? ' <span class="req" aria-hidden="true">*</span>' : ""}</label>`;
+    if (readOnly) {
+      const shown = f.type === "checkbox" ? (v === "true" ? "Yes" : "No") : (v || "Not provided");
+      return `<div class="field"><label>${esc(f.label)}</label><div class="value">${esc(shown)}</div></div>`;
+    }
+    const req = f.required ? "required" : "";
+    let input;
+    switch (f.type) {
+      case "textarea": input = `<textarea id="${id}" name="${f.key}" ${req}>${esc(v)}</textarea>`; break;
+      case "select": input = `<select id="${id}" name="${f.key}" ${req}><option value="">Choose…</option>${
+        f.options.map(o => `<option ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`; break;
+      case "checkbox": input = `<input type="checkbox" id="${id}" name="${f.key}" ${v === "true" ? "checked" : ""}>`; break;
+      case "number": input = `<input type="number" step="any" id="${id}" name="${f.key}" value="${esc(v)}" ${req}>`; break;
+      case "date": input = `<input type="date" id="${id}" name="${f.key}" value="${esc(v)}" ${req}>`; break;
+      default: input = `<input type="text" id="${id}" name="${f.key}" value="${esc(v)}" ${req}>`;
+    }
+    return `<div class="field">${label}${input}</div>`;
+  }).join("");
+}
+
+function readForm(form, schema) {
+  const data = {};
+  for (const f of schema.fields) {
+    const el = form.elements[f.key];
+    data[f.key] = f.type === "checkbox" ? String(el.checked) : el.value;
+  }
+  return data;
+}
+
+// ---------- Views ----------
+async function viewNew(main) {
+  const forms = await api("/api/poc/forms");
+  if (!forms.length) { main.innerHTML = `<h2>New request</h2><p class="lead">No forms are published for this company yet.</p>`; return; }
+  const f = forms.find(x => x.key === state.formKey) || forms[0], schema = JSON.parse(f.schemaJson);
+  state.formKey = f.key;
+  main.innerHTML = `
+    <h2>New request</h2>
+    <div class="field" style="max-width:560px"><label for="formPick">Request type</label>
+      <select id="formPick">${forms.map(x => `<option value="${esc(x.key)}" ${x.key === f.key ? "selected" : ""}>${esc(x.category)}: ${esc(x.name)}</option>`).join("")}</select></div>
+    <p class="lead">${esc(f.name)}, form version ${f.versionNo}. Your request is routed by the workflow your company set for this form.</p>
+    <div id="msg"></div>
+    <form class="panel" id="requestForm" novalidate style="max-width:560px">
+      ${renderForm(schema)}
+      <div class="actions"><button class="btn" type="submit">Send request</button></div>
+    </form>`;
+  $("#formPick").addEventListener("change", e => { state.formKey = e.target.value; viewNew(main); });
+  $("#requestForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const btn = e.submitter; btn.disabled = true;
+    try {
+      const id = await api("/api/poc/submissions", { method: "POST", body: JSON.stringify({ formKey: f.key, data: readForm(e.target, schema) }) });
+      state.selected = id; state.view = "mine"; render();
+    } catch (err) { $("#msg").innerHTML = message("error", err.message); btn.disabled = false; }
+  });
+}
+
+async function viewMine(main) {
+  const items = await api("/api/poc/submissions/mine");
+  main.innerHTML = `
+    <h2>My requests</h2>
+    <p class="lead">Each request shows the form exactly as it was when you sent it, and every step of its approval.</p>
+    <div class="split">
+      <ul class="rows" id="list">${items.length ? items.map(s => `
+        <li><button data-id="${s.id}" aria-pressed="${s.id === state.selected}">
+          <span>${esc(s.formName)} <small>v${s.versionNo}</small></span>
+          <span class="status ${s.status}">${statusLabel(s.status)}</span>
+          <small>${when(s.submittedAt)}</small></button></li>`).join("")
+        : `<li class="empty">You have not sent any requests. Start one from New request.</li>`}</ul>
+      <div id="detail"></div>
+    </div>`;
+  bindList(main, id => showDetail(id, $("#detail")));
+  if (state.selected && items.some(s => s.id === state.selected)) showDetail(state.selected, $("#detail"));
+}
+
+async function viewInbox(main) {
+  const items = await api("/api/poc/tasks/inbox");
+  main.innerHTML = `
+    <h2>Inbox</h2>
+    <p class="lead">Requests waiting for your decision. Who sees a task comes from HR data: line manager or HR role.</p>
+    <div class="split">
+      <ul class="rows" id="list">${items.length ? items.map(t => `
+        <li><button data-id="${t.taskId}" data-submission="${t.submissionId}">
+          <span>${esc(t.title)}</span><span class="status Pending">Waiting</span>
+          <small>${esc(t.submitterName)} · ${esc(t.formName)} v${t.versionNo} · ${when(t.createdAt)}</small></button></li>`).join("")
+        : `<li class="empty">Nothing is waiting for you. Switch to a manager or HR user to see their tasks.</li>`}</ul>
+      <div id="detail"></div>
+    </div>`;
+  bindList(main, (taskId, btn) => showDetail(btn.dataset.submission, $("#detail"), taskId));
+}
+
+function bindList(main, onPick) {
+  main.querySelectorAll("#list button").forEach(btn => btn.addEventListener("click", () => {
+    main.querySelectorAll("#list button").forEach(b => b.setAttribute("aria-pressed", "false"));
+    btn.setAttribute("aria-pressed", "true");
+    state.selected = btn.dataset.id;
+    onPick(btn.dataset.id, btn);
+  }));
+}
+
+async function showDetail(submissionId, target, taskId = null) {
+  target.innerHTML = `<div class="panel">Loading…</div>`;
+  try {
+    const d = await api(`/api/poc/submissions/${submissionId}`);
+    const schema = JSON.parse(d.schemaJson);
+    target.innerHTML = `
+      <div class="panel flash">
+        <h2 style="font-size:19px">${esc(d.formName)} from ${esc(d.submitterName)}</h2>
+        <p class="meta">Sent ${when(d.submittedAt)} on form version ${d.versionNo}${d.versionStatus === "Retired" ? " (since replaced by a newer version)" : ""}.
+          Status <span class="status ${d.status}">${statusLabel(d.status)}</span></p>
+        ${renderForm(schema, d.data, true)}
+        ${taskId ? `
+          <h3>Your decision</h3>
+          <div id="taskMsg"></div>
+          <div class="field"><label for="comment">Comment for the requester</label><textarea id="comment"></textarea></div>
+          <div class="actions">
+            <button class="btn approve" data-outcome="Approved">Approve</button>
+            <button class="btn reject" data-outcome="Rejected">Reject</button>
+          </div>` : ""}
+        <h3>Approval steps</h3>
+        ${d.tasks.length ? `<table class="steps"><thead><tr><th>Step</th><th>Assigned to</th><th>Result</th></tr></thead><tbody>${
+          d.tasks.map(t => `<tr><td>${esc(t.title)}</td><td>${esc(t.candidateNames.join(", ") || "Nobody matched")}</td>
+            <td><span class="status ${t.outcome || t.status}">${esc(t.outcome || "Waiting")}</span>${
+              t.completedByName ? `<br><small>${esc(t.completedByName)}, ${when(t.completedAt)}</small>` : ""}${
+              t.comment ? `<br><small>“${esc(t.comment)}”</small>` : ""}</td></tr>`).join("")}</tbody></table>`
+          : `<p class="meta">No approval steps yet.</p>`}
+        <h3>Timeline</h3>
+        <ol class="timeline">${d.events.map(e => `<li><time>${when(e.occurredAt)}</time>${e.actor ? `<strong>${esc(e.actor)}</strong>: ` : ""}${esc(e.detail)}</li>`).join("")}</ol>
+        ${d.workflowDefinitionId ? `<p class="meta">Workflow: ${esc(d.workflowDefinitionId)}</p>` : ""}
+      </div>`;
+    target.querySelectorAll("[data-outcome]").forEach(btn => btn.addEventListener("click", async () => {
+      target.querySelectorAll("[data-outcome]").forEach(b => b.disabled = true);
+      try {
+        await api(`/api/poc/tasks/${taskId}/complete`, { method: "POST", body: JSON.stringify({ outcome: btn.dataset.outcome, comment: $("#comment").value }) });
+        state.selected = null; await render();
+        $("#detail").innerHTML = message("ok", `${btn.dataset.outcome}. The workflow has moved to its next step.`);
+      } catch (err) {
+        $("#taskMsg").innerHTML = message("error", err.message);
+        target.querySelectorAll("[data-outcome]").forEach(b => b.disabled = false);
+      }
+    }));
+  } catch (err) { target.innerHTML = message("error", err.message); }
+}
+
+// ---------- Form designer (Admin only): forms, fields, routing ----------
+const FIELD_TYPES = ["text", "textarea", "number", "date", "select", "checkbox"];
+
+async function viewDesigner(main) {
+  const forms = await api("/api/poc/forms/all");
+  if (!state.designKey || !forms.some(f => f.key === state.designKey)) state.designKey = forms[0]?.key || null;
+  main.innerHTML = `
+    <h2>Form designer</h2>
+    <p class="lead">Admins create request forms, edit fields, publish versions and choose which workflow each form starts.
+      Published versions never change, so earlier requests keep rendering as they were sent.</p>
+    <div id="msg"></div>
+    <div class="inline panel" style="margin-bottom:20px">
+      <div class="field"><label for="designPick">Form</label>
+        <select id="designPick">${forms.map(f => `<option value="${esc(f.key)}" ${f.key === state.designKey ? "selected" : ""}>${esc(f.category)}: ${esc(f.name)}${
+          f.publishedVersionNo ? ` (v${f.publishedVersionNo})` : " (not published)"}${f.hasDraft ? " · draft" : ""}</option>`).join("")}</select></div>
+      <div class="field"><label for="newName">New form name</label><input id="newName" placeholder="Business trip"></div>
+      <div class="field"><label for="newKey">Key</label><input id="newKey" placeholder="business-trip"></div>
+      <div class="field"><label for="newCategory">Category</label><input id="newCategory" placeholder="Travel"></div>
+      <div class="actions" style="margin:0"><button class="btn secondary" id="create">Create form</button></div>
+    </div>
+    <div id="designer"></div>`;
+  $("#designPick").addEventListener("change", e => { state.designKey = e.target.value; viewDesigner(main); });
+  $("#newName").addEventListener("input", e => {
+    if (!$("#newKey").dataset.touched) $("#newKey").value = e.target.value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  });
+  $("#newKey").addEventListener("input", e => e.target.dataset.touched = "1");
+  $("#create").addEventListener("click", async () => {
+    try {
+      const d = await api("/api/poc/forms", { method: "POST", body: JSON.stringify({ key: $("#newKey").value, name: $("#newName").value, category: $("#newCategory").value }) });
+      state.designKey = d.key; await viewDesigner(main);
+      $("#msg").innerHTML = message("ok", `Created "${d.name}" with a starter draft. Add fields, publish it, then set its routing.`);
+    } catch (err) { $("#msg").innerHTML = message("error", err.message); }
+  });
+  if (state.designKey) await renderFormEditor(main, state.designKey);
+}
+
+async function renderFormEditor(main, key) {
+  const [d, bindings, workflows] = await Promise.all([
+    api(`/api/poc/forms/${key}/design`), api(`/api/poc/forms/${key}/bindings`), api("/api/poc/workflows")]);
+  const latest = d.versions[0];
+  let schema = JSON.parse(latest.schemaJson);
+  const host = $("#designer");
+  host.innerHTML = `
+    <div class="versions">${d.versions.map(v => `<span>v${v.versionNo} <span class="status ${v.status}">${v.status}</span></span>`).join("")}</div>
+    <div class="split">
+      <div>
+        <div class="tabs" role="group" aria-label="Editor">
+          <button data-mode="visual" aria-pressed="${state.editMode === "visual"}">Fields</button>
+          <button data-mode="json" aria-pressed="${state.editMode === "json"}">JSON</button>
+        </div>
+        <div class="field"><label for="formTitle">Form title</label><input id="formTitle" value="${esc(schema.title || "")}"></div>
+        <div id="editor"></div>
+        <div class="actions">
+          <button class="btn secondary" id="save">Save draft</button>
+          <button class="btn" id="publish" ${latest.status === "Draft" ? "" : "disabled"}>Publish draft</button>
+          <small class="meta" style="margin:0">Editing ${latest.status === "Draft" ? `draft v${latest.versionNo}` : `a copy of v${latest.versionNo}; saving creates v${latest.versionNo + 1}`}</small>
+        </div>
+      </div>
+      <div><h3 style="margin-top:0">Preview</h3><form class="panel" id="preview"></form></div>
+    </div>
+    <h3>Routing</h3>
+    <p class="meta">When an employee submits this form, the first active route with the lowest priority whose condition matches starts its workflow.
+      Keep one route without a condition as the default. Who approves comes from HR data (line manager, HR role), never from the workflow.</p>
+    <div id="routeMsg"></div>
+    <table class="steps"><thead><tr><th>Priority</th><th>Condition</th><th>Workflow</th><th>Active</th><th></th></tr></thead><tbody>${
+      bindings.length ? bindings.map(b => `<tr>
+        <td>${b.priority}</td>
+        <td>${b.conditionField ? `${esc(b.conditionField)} = ${esc(b.conditionValue)}` : "<em>Default (always)</em>"}</td>
+        <td>${esc(workflows.find(w => w.definitionId === b.workflowDefinitionId)?.name || b.workflowDefinitionId)}</td>
+        <td>${b.isActive ? "Yes" : "No"}</td>
+        <td><button class="icon" data-toggle="${b.id}">${b.isActive ? "Disable" : "Enable"}</button>
+            <button class="icon" data-delete="${b.id}">Delete</button></td></tr>`).join("")
+      : `<tr><td colspan="5" class="meta">No routes yet. Submissions are recorded but no workflow starts.</td></tr>`}</tbody></table>
+    ${bindings.length && !bindings.some(b => b.isActive && !b.conditionField) ? message("error", "There is no active default route, so some submissions may start no workflow.") : ""}
+    <div class="inline panel" style="margin-top:12px">
+      <div class="field"><label for="rWorkflow">Workflow</label><select id="rWorkflow">${workflows.map(w => `<option value="${esc(w.definitionId)}">${esc(w.name)}</option>`).join("")}</select></div>
+      <div class="field"><label for="rField">When field</label><select id="rField"><option value="">(default route)</option>${
+        schema.fields.map(f => `<option value="${esc(f.key)}">${esc(f.label)}</option>`).join("")}</select></div>
+      <div class="field"><label for="rValue">equals</label><input id="rValue"></div>
+      <div class="field"><label for="rPriority">Priority</label><input id="rPriority" type="number" value="${bindings.some(b => !b.conditionField) ? 1 : 10}"></div>
+      <div class="actions" style="margin:0"><button class="btn secondary" id="addRoute">Add route</button></div>
+    </div>`;
+
+  const sync = () => { schema.title = $("#formTitle").value; drawPreview(); };
+  const drawPreview = () => {
+    try { $("#preview").innerHTML = renderForm(schema); } catch { $("#preview").innerHTML = `<p class="meta">The schema is not valid yet.</p>`; }
+  };
+  const drawEditor = () => {
+    const ed = $("#editor");
+    if (state.editMode === "json") {
+      ed.innerHTML = `<textarea class="schema" id="schema" spellcheck="false" aria-label="Form schema JSON">${esc(clean())}</textarea>`;
+      $("#schema").addEventListener("input", e => { try { schema = JSON.parse(e.target.value); $("#formTitle").value = schema.title || ""; drawPreview(); } catch { $("#preview").innerHTML = `<p class="meta">The JSON is not valid yet.</p>`; } });
+    } else {
+      ed.innerHTML = `
+        <table class="fieldrows"><thead><tr><th>Label</th><th>Key</th><th>Type</th><th>Options</th><th>Flags</th><th></th></tr></thead><tbody>${
+          schema.fields.map((f, i) => `<tr data-i="${i}">
+            <td><input type="text" data-p="label" value="${esc(f.label)}" aria-label="Label"></td>
+            <td><input type="text" data-p="key" value="${esc(f.key)}" aria-label="Key"></td>
+            <td><select data-p="type" aria-label="Type">${FIELD_TYPES.map(t => `<option ${t === f.type ? "selected" : ""}>${t}</option>`).join("")}</select></td>
+            <td><input type="text" data-p="options" value="${esc((f.options || []).join(", "))}" ${f.type === "select" ? "" : "disabled"} placeholder="A, B, C" aria-label="Options"></td>
+            <td class="flags">
+              <label><input type="checkbox" data-p="required" ${f.required ? "checked" : ""}> Required</label>
+              <label title="Stored typed in Forms_SubmissionValues for reports"><input type="checkbox" data-p="reportable" ${f.reportable ? "checked" : ""}> Reportable</label>
+              <label title="Passed into the workflow; usable in routing conditions"><input type="checkbox" data-p="workflowVariable" ${f.workflowVariable ? "checked" : ""}> Workflow</label></td>
+            <td><button class="icon" data-move="-1" aria-label="Move up">↑</button> <button class="icon" data-move="1" aria-label="Move down">↓</button>
+                <button class="icon" data-remove aria-label="Remove field">✕</button></td></tr>`).join("")}</tbody></table>
+        <div class="actions"><button class="btn secondary" id="addField">Add field</button></div>`;
+      ed.querySelectorAll("tr[data-i]").forEach(row => {
+        const i = +row.dataset.i, f = schema.fields[i];
+        row.querySelectorAll("[data-p]").forEach(input => input.addEventListener(input.type === "checkbox" || input.tagName === "SELECT" ? "change" : "input", () => {
+          const p = input.dataset.p;
+          if (input.type === "checkbox") f[p] = input.checked;
+          else if (p === "options") f.options = input.value.split(",").map(x => x.trim()).filter(Boolean);
+          else f[p] = input.value;
+          if (p === "label" && !f._keyTouched && f._new) { f.key = input.value.replace(/[^A-Za-z0-9]+(.)?/g, (_, c) => c ? c.toUpperCase() : "").replace(/^./, c => c.toLowerCase()); row.querySelector('[data-p="key"]').value = f.key; }
+          if (p === "key") f._keyTouched = true;
+          if (p === "type") { if (f.type === "select" && !f.options) f.options = ["Option 1"]; if (f.type !== "select") delete f.options; drawEditor(); }
+          sync();
+        }));
+        row.querySelector("[data-remove]").addEventListener("click", () => { schema.fields.splice(i, 1); drawEditor(); sync(); });
+        row.querySelectorAll("[data-move]").forEach(btn => btn.addEventListener("click", () => {
+          const j = i + +btn.dataset.move; if (j < 0 || j >= schema.fields.length) return;
+          [schema.fields[i], schema.fields[j]] = [schema.fields[j], schema.fields[i]]; drawEditor(); sync();
+        }));
+      });
+      $("#addField").addEventListener("click", () => {
+        schema.fields.push({ key: `field${schema.fields.length + 1}`, label: "New field", type: "text", required: false, _new: true });
+        drawEditor(); sync();
+      });
+    }
+  };
+  const clean = () => JSON.stringify({ ...schema, fields: schema.fields.map(({ _new, _keyTouched, ...f }) => f) }, null, 2);
+
+  host.querySelectorAll("[data-mode]").forEach(b => b.addEventListener("click", () => {
+    state.editMode = b.dataset.mode; host.querySelectorAll("[data-mode]").forEach(x => x.setAttribute("aria-pressed", x === b)); drawEditor();
+  }));
+  $("#formTitle").addEventListener("input", sync);
+  drawEditor(); drawPreview();
+
+  const done = async (text, target = "#msg", kind = "ok") => { await viewDesigner(main); $(target).innerHTML = message(kind, text); };
+  $("#save").addEventListener("click", async () => {
+    try { await api(`/api/poc/forms/${key}/draft`, { method: "PUT", body: JSON.stringify({ schemaJson: clean() }) }); await done("Draft saved."); }
+    catch (err) { $("#msg").innerHTML = message("error", err.message); }
+  });
+  $("#publish").addEventListener("click", async () => {
+    try { const v = await api(`/api/poc/forms/${key}/publish`, { method: "POST" }); await done(`Published v${v.versionNo}. New requests use it from now on.`); }
+    catch (err) { $("#msg").innerHTML = message("error", err.message); }
+  });
+  $("#addRoute").addEventListener("click", async () => {
+    try {
+      await api(`/api/poc/forms/${key}/bindings`, { method: "POST", body: JSON.stringify({
+        workflowDefinitionId: $("#rWorkflow").value, conditionField: $("#rField").value || null,
+        conditionValue: $("#rValue").value || null, priority: +$("#rPriority").value, isActive: true }) });
+      await done("Route added.", "#routeMsg");
+    } catch (err) { $("#routeMsg").innerHTML = message("error", err.message); }
+  });
+  host.querySelectorAll("[data-toggle]").forEach(btn => btn.addEventListener("click", async () => {
+    const b = bindings.find(x => x.id === btn.dataset.toggle);
+    try { await api(`/api/poc/bindings/${b.id}`, { method: "PUT", body: JSON.stringify({ ...b, isActive: !b.isActive }) }); await done("Route updated.", "#routeMsg"); }
+    catch (err) { $("#routeMsg").innerHTML = message("error", err.message); }
+  }));
+  host.querySelectorAll("[data-delete]").forEach(btn => btn.addEventListener("click", async () => {
+    try { await api(`/api/poc/bindings/${btn.dataset.delete}`, { method: "DELETE" }); await done("Route deleted.", "#routeMsg"); }
+    catch (err) { $("#routeMsg").innerHTML = message("error", err.message); }
+  }));
+}
+
+// ---------- Shell ----------
+const views = { new: viewNew, mine: viewMine, inbox: viewInbox, designer: viewDesigner };
+
+async function refreshInboxCount() {
+  try { const n = (await api("/api/poc/tasks/inbox")).length; const el = $("#inboxCount"); el.textContent = n; el.hidden = n === 0; }
+  catch { $("#inboxCount").hidden = true; }
+}
+
+async function render() {
+  $("#designerNav").hidden = !isAdmin();
+  if (state.view === "designer" && !isAdmin()) state.view = "new";
+  document.querySelectorAll("nav button").forEach(b => b.toggleAttribute("aria-current", b.dataset.view === state.view));
+  document.querySelectorAll("nav button[aria-current]").forEach(b => b.setAttribute("aria-current", "page"));
+  const main = $("#main");
+  try { await views[state.view](main); } catch (err) { main.innerHTML = message("error", err.message); }
+  refreshInboxCount();
+}
+
+async function loadUsers() {
+  const tenant = state.tenants.find(t => t.id === $("#tenant").value);
+  document.body.dataset.tenant = tenant.name;
+  $("#user").value = "";
+  state.users = await api("/api/poc/users");
+  $("#user").innerHTML = state.users.map(u => `<option value="${u.id}">${esc(u.name)}, ${esc(u.role)}${u.isAdmin && u.role !== "Vendor admin" ? " + admin" : ""}${u.managerName ? ` (reports to ${esc(u.managerName)})` : ""}</option>`).join("");
+  const employee = state.users.find(u => u.role === "Employee" && !u.isAdmin);
+  if (employee) $("#user").value = employee.id;
+}
+
+document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => { state.view = b.dataset.view; state.selected = null; render(); }));
+$("#tenant").addEventListener("change", async () => { state.selected = null; await loadUsers(); render(); });
+$("#user").addEventListener("change", () => { state.selected = null; render(); });
+
+(async () => {
+  state.tenants = await api("/api/poc/tenants");
+  $("#tenant").innerHTML = state.tenants.map(t => `<option value="${t.id}">${esc(t.displayName)}</option>`).join("");
+  await loadUsers();
+  render();
+})();
+</script>
+</body>
+</html>

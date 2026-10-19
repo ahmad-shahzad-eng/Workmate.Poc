@@ -1,0 +1,163 @@
+
+=== Step 1 happy path
+  GET /users -> 200 [{"id":"193f8768-25ed-9a5d-41c6-3a2467c6bf5b","name":"Khalid Mansour","role":"Employee","managerName":"Omar Khalid","isAdmin":true},{"id":"54030bdb-ae99-36d3-7241-3a2467c6bf5a","name":"Sara Ahmed","role":"Employee","managerName":"Omar Khalid","isAdmin":false},{"id":"994bbd7a-26aa-da90-d784-3a2467c6bf5a","name":"Huda Ali","role":"HR","managerName":null,"isAdmin":false},{"id":"7527621c-1f17-f631-5005-3a2467c6bf33","name":"Omar Khalid","role":"Manager","managerName":null,"isAdmin":false},{"id":"00000000-0000-0000-0000-00000000a001","name":"Aramis Support","role":"Vendor admin","managerName":null,
+  POST /submissions -> 200 "1fbafa4e-ef9d-d9aa-278f-3a2467c71279"
+  GET /tasks/inbox -> 200 [{"taskId":"42b37bf6-ecb2-02c3-d7b1-3a2467c7132e","title":"Line manager approval","submissionId":"1fbafa4e-ef9d-d9aa-278f-3a2467c71279","formName":"Leave request","versionNo":1,"submitterName":"Sara Ahmed","createdAt":"2026-10-20T00:18:53.507653"}]
+[PASS] 1a Omar gets task 
+  POST /tasks/42b37bf6-ecb2-02c3-d7b1-3a2467c7132e/complete -> 204 
+  GET /tasks/inbox -> 200 [{"taskId":"26c5ffa2-866c-c26b-ddf9-3a2467c713cd","title":"HR approval","submissionId":"1fbafa4e-ef9d-d9aa-278f-3a2467c71279","formName":"Leave request","versionNo":1,"submitterName":"Sara Ahmed","createdAt":"2026-10-20T00:18:53.64575"}]
+[PASS] 1b Huda gets task after Omar 
+  POST /tasks/26c5ffa2-866c-c26b-ddf9-3a2467c713cd/complete -> 204 
+  GET /submissions/1fbafa4e-ef9d-d9aa-278f-3a2467c71279 -> 200 {"id":"1fbafa4e-ef9d-d9aa-278f-3a2467c71279","formName":"Leave request","versionNo":1,"versionStatus":"Published","schemaJson":"{\n  \"title\": \"Leave request\",\n  \"fields\": [\n    { \"key\": \"leaveType\", \"label\": \"Leave type\", \"type\": \"select\", \"options\": [\"Annual\", \"Sick\", \"Unpaid\"], \"required\": true, \"reportable\": true, \"workflowVariable\": true },\n    { \"key\": \"startDate\", \"label\": \"First day\", \"type\": \"date\", \"required\": true, \"reportable\": true },\n    { \"key\": \"endDate\", \"label\": \"Last day\", \"type\": \"date\", \"required\": true, \"re
+[PASS] 1c Sara sees Approved + timeline status=Approved events=7
+
+=== Step 2 conditional routing
+  POST /submissions -> 200 "cd835730-bb71-1a3e-b9c2-3a2467c71428"
+  GET /tasks/inbox -> 200 []
+  GET /tasks/inbox -> 200 []
+  GET /tasks/inbox -> 200 []
+  GET /tasks/inbox -> 200 []
+[PASS] 2a Omar gets no task 
+  GET /tasks/inbox -> 200 [{"taskId":"e425a5b5-e368-d50e-30b5-3a2467c71436","title":"HR review","submissionId":"cd835730-bb71-1a3e-b9c2-3a2467c71428","formName":"Leave request","versionNo":1,"submitterName":"Sara Ahmed","createdAt":"2026-10-20T00:18:53.750389"}]
+[PASS] 2b Huda gets task directly 
+  GET /submissions/cd835730-bb71-1a3e-b9c2-3a2467c71428 -> 200 {"id":"cd835730-bb71-1a3e-b9c2-3a2467c71428","formName":"Leave request","versionNo":1,"versionStatus":"Published","schemaJson":"{\n  \"title\": \"Leave request\",\n  \"fields\": [\n    { \"key\": \"leaveType\", \"label\": \"Leave type\", \"type\": \"select\", \"options\": [\"Annual\", \"Sick\", \"Unpaid\"], \"required\": true, \"reportable\": true, \"workflowVariable\": true },\n    { \"key\": \"startDate\", \"label\": \"First day\", \"type\": \"date\", \"required\": true, \"reportable\": true },\n    { \"key\": \"endDate\", \"label\": \"Last day\", \"type\": \"date\", \"required\": true, \"re
+[PASS] 2c hr-only-approval workflow used hr-only-approval
+  POST /tasks/e425a5b5-e368-d50e-30b5-3a2467c71436/complete -> 204 
+
+=== Step 3 reject path
+  POST /submissions -> 200 "066083dc-77b8-6949-0097-3a2467c72041"
+  GET /tasks/inbox -> 200 [{"taskId":"2c0e1872-8acf-d6ca-9bb3-3a2467c7204e","title":"Line manager approval","submissionId":"066083dc-77b8-6949-0097-3a2467c72041","formName":"Leave request","versionNo":1,"submitterName":"Sara Ahmed","createdAt":"2026-10-20T00:18:56.846424"}]
+  POST /tasks/2c0e1872-8acf-d6ca-9bb3-3a2467c7204e/complete -> 204 
+  GET /submissions/066083dc-77b8-6949-0097-3a2467c72041 -> 200 {"id":"066083dc-77b8-6949-0097-3a2467c72041","formName":"Leave request","versionNo":1,"versionStatus":"Published","schemaJson":"{\n  \"title\": \"Leave request\",\n  \"fields\": [\n    { \"key\": \"leaveType\", \"label\": \"Leave type\", \"type\": \"select\", \"options\": [\"Annual\", \"Sick\", \"Unpaid\"], \"required\": true, \"reportable\": true, \"workflowVariable\": true },\n    { \"key\": \"startDate\", \"label\": \"First day\", \"type\": \"date\", \"required\": true, \"reportable\": true },\n    { \"key\": \"endDate\", \"label\": \"Last day\", \"type\": \"date\", \"required\": true, \"re
+[PASS] 3a status Rejected Rejected
+  GET /tasks/inbox -> 200 []
+  GET /tasks/inbox -> 200 []
+  GET /tasks/inbox -> 200 []
+[PASS] 3b no HR step tasks=1
+
+=== Step 4 form versioning
+  GET /forms/leave-request/design -> 200 {"key":"leave-request","name":"Leave request","currentVersionId":"b10675c7-ce23-a31e-96ac-3a2467c6bf5b","versions":[{"id":"b10675c7-ce23-a31e-96ac-3a2467c6bf5b","versionNo":1,"status":"Published","schemaJson":"{\n  \"title\": \"Leave request\",\n  \"fields\": [\n    { \"key\": \"leaveType\", \"label\": \"Leave type\", \"type\": \"select\", \"options\": [\"Annual\", \"Sick\", \"Unpaid\"], \"required\": true, \"reportable\": true, \"workflowVariable\": true },\n    { \"key\": \"startDate\", \"label\": \"First day\", \"type\": \"date\", \"required\": true, \"reportable\": true },\n    { \"key\": 
+  PUT /forms/leave-request/draft -> 200 {"id":"ecaa2a26-cb03-5775-940f-3a2467c72875","versionNo":2,"status":"Draft","schemaJson":"{\"title\": \"Leave request\", \"fields\": [{\"key\": \"leaveType\", \"label\": \"Leave type\", \"type\": \"select\", \"options\": [\"Annual\", \"Sick\", \"Unpaid\"], \"required\": true, \"reportable\": true, \"workflowVariable\": true}, {\"key\": \"startDate\", \"label\": \"First day\", \"type\": \"date\", \"required\": true, \"reportable\": true}, {\"key\": \"endDate\", \"label\": \"Last day\", \"type\": \"date\", \"required\": true, \"reportable\": true}, {\"key\": \"days\", \"label\": \"Working days\"
+  POST /forms/leave-request/publish -> 200 {"id":"ecaa2a26-cb03-5775-940f-3a2467c72875","versionNo":2,"status":"Published","schemaJson":"{\"title\": \"Leave request\", \"fields\": [{\"key\": \"leaveType\", \"label\": \"Leave type\", \"type\": \"select\", \"options\": [\"Annual\", \"Sick\", \"Unpaid\"], \"required\": true, \"reportable\": true, \"workflowVariable\": true}, {\"key\": \"startDate\", \"label\": \"First day\", \"type\": \"date\", \"required\": true, \"reportable\": true}, {\"key\": \"endDate\", \"label\": \"Last day\", \"type\": \"date\", \"required\": true, \"reportable\": true}, {\"key\": \"days\", \"label\": \"Working da
+[PASS] 4a draft saved + new version published {'id': 'ecaa2a26-cb03-5775-940f-3a2467c72875', 'versionNo': 2, 'status': 'Published', 'schemaJson': 
+  GET /forms -> 200 [{"key":"expense-claim","name":"Expense claim","category":"Finance","versionId":"4fc38833-fb47-6ddb-4dbd-3a2467c6bf92","versionNo":1,"schemaJson":"{\n  \"title\": \"Expense claim\",\n  \"fields\": [\n    { \"key\": \"expenseDate\", \"label\": \"Expense date\", \"type\": \"date\", \"required\": true, \"reportable\": true },\n    { \"key\": \"expenseType\", \"label\": \"Type\", \"type\": \"select\", \"options\": [\"Travel\", \"Meals\", \"Training\", \"Other\"], \"required\": true, \"reportable\": true, \"workflowVariable\": true },\n    { \"key\": \"amount\", \"label\": \"Amount\", \"type\": \"n
+[PASS] 4b new requests use new version with new field 
+  POST /submissions -> 403 {"error":{"code":null,"message":"Handover to is required.","details":null,"data":{},"validationErrors":null}}
+[PASS] 4c new version enforces required handoverTo http 403
+  POST /submissions -> 200 "6346dda3-42f9-6b1b-7935-3a2467c728a6"
+  GET /submissions/6346dda3-42f9-6b1b-7935-3a2467c728a6 -> 200 {"id":"6346dda3-42f9-6b1b-7935-3a2467c728a6","formName":"Leave request","versionNo":2,"versionStatus":"Published","schemaJson":"{\"title\": \"Leave request\", \"fields\": [{\"key\": \"leaveType\", \"label\": \"Leave type\", \"type\": \"select\", \"options\": [\"Annual\", \"Sick\", \"Unpaid\"], \"required\": true, \"reportable\": true, \"workflowVariable\": true}, {\"key\": \"startDate\", \"label\": \"First day\", \"type\": \"date\", \"required\": true, \"reportable\": true}, {\"key\": \"endDate\", \"label\": \"Last day\", \"type\": \"date\", \"required\": true, \"reportable\": true}, {\"key\":
+[PASS] 4d new-version submission accepted 2
+  GET /submissions/1fbafa4e-ef9d-d9aa-278f-3a2467c71279 -> 200 {"id":"1fbafa4e-ef9d-d9aa-278f-3a2467c71279","formName":"Leave request","versionNo":1,"versionStatus":"Retired","schemaJson":"{\n  \"title\": \"Leave request\",\n  \"fields\": [\n    { \"key\": \"leaveType\", \"label\": \"Leave type\", \"type\": \"select\", \"options\": [\"Annual\", \"Sick\", \"Unpaid\"], \"required\": true, \"reportable\": true, \"workflowVariable\": true },\n    { \"key\": \"startDate\", \"label\": \"First day\", \"type\": \"date\", \"required\": true, \"reportable\": true },\n    { \"key\": \"endDate\", \"label\": \"Last day\", \"type\": \"date\", \"required\": true, \"repo
+[PASS] 4e older submission still renders its own version, marked replaced v=1 versionStatus=Retired
+
+=== Step 5 tenant isolation
+  GET /users -> 200 [{"id":"6fb189d2-e9f7-91f2-57c8-3a2467c6bfe5","name":"Ali Hassan","role":"Employee","managerName":"Fatima Saleh","isAdmin":false},{"id":"b759ff40-1edf-5283-5f1d-3a2467c6bfe6","name":"Noor Ibrahim","role":"Employee","managerName":"Fatima Saleh","isAdmin":true},{"id":"c333743d-3d72-6ac8-a090-3a2467c6bfe5","name":"Yousef Nasser","role":"HR","managerName":null,"isAdmin":false},{"id":"b1b177f5-9dbd-0262-8fa7-3a2467c6bfe5","name":"Fatima Saleh","role":"Manager","managerName":null,"isAdmin":false},{"id":"00000000-0000-0000-0000-00000000a001","name":"Aramis Support","role":"Vendor admin","managerName"
+[PASS] 5a Globex sees only its users ['Ali', 'Aramis', 'Fatima', 'Noor', 'Yousef']
+  GET /submissions/mine -> 200 []
+[PASS] 5b Ali sees no Acme requests 0 items
+  POST /submissions -> 200 "17ba7841-1a40-abec-7219-3a2467c728de"
+  GET /tasks/inbox -> 200 [{"taskId":"6891a0da-4b21-729f-2776-3a2467c728ee","title":"Line manager approval","submissionId":"17ba7841-1a40-abec-7219-3a2467c728de","formName":"Leave request","versionNo":1,"submitterName":"Ali Hassan","createdAt":"2026-10-20T00:18:59.054707"}]
+[PASS] 5c Globex sick leave goes to manager (own binding) 
+  GET /tasks/inbox -> 200 [{"taskId":"4df2b6a9-8970-11ea-86b4-3a2467c728ae","title":"Line manager approval","submissionId":"6346dda3-42f9-6b1b-7935-3a2467c728a6","formName":"Leave request","versionNo":2,"submitterName":"Sara Ahmed","createdAt":"2026-10-20T00:18:58.99079"}]
+[PASS] 5d Acme inbox has no Globex task 
+  GET /submissions/mine -> 403 {"error":{"code":null,"message":"This user does not belong to the selected company.","details":null,"data":{},"validationErrors":null}}
+[PASS] 5e cross-tenant call refused http 403
+
+=== Step 6 reporting values
+  columns: ['Id', 'TenantId', 'SubmissionId', 'FieldKey', 'StringValue', 'NumberValue', 'DateValue', 'BoolValue']
+   ('255FD6EA-224A-EE4B-A9F2-3A2467C71290', 'A1A1A1A1-0000-0000-0000-000000000001', '1FBAFA4E-EF9D-D9AA-278F-3A2467C71279', 'endDate', None, None, '2026-11-03 00:00:00', None)
+   ('3CD7A7BA-42E0-844E-B746-3A2467C71291', 'A1A1A1A1-0000-0000-0000-000000000001', '1FBAFA4E-EF9D-D9AA-278F-3A2467C71279', 'days', None, '3.0', None, None)
+   ('9CA19176-2827-1E10-E697-3A2467C71287', 'A1A1A1A1-0000-0000-0000-000000000001', '1FBAFA4E-EF9D-D9AA-278F-3A2467C71279', 'leaveType', 'Annual', None, None, None)
+   ('E11ADAD8-782B-EB68-4A6A-3A2467C71290', 'A1A1A1A1-0000-0000-0000-000000000001', '1FBAFA4E-EF9D-D9AA-278F-3A2467C71279', 'startDate', None, None, '2026-11-01 00:00:00', None)
+   ('6613D22D-CC51-CBF0-5B29-3A2467C71429', 'A1A1A1A1-0000-0000-0000-000000000001', 'CD835730-BB71-1A3E-B9C2-3A2467C71428', 'endDate', None, None, '2026-11-05 00:00:00', None)
+   ('C2D497A2-DC80-0682-2B8F-3A2467C71429', 'A1A1A1A1-0000-0000-0000-000000000001', 'CD835730-BB71-1A3E-B9C2-3A2467C71428', 'days', None, '1.0', None, None)
+   ('C7490421-5FF2-7757-8607-3A2467C71429', 'A1A1A1A1-0000-0000-0000-000000000001', 'CD835730-BB71-1A3E-B9C2-3A2467C71428', 'leaveType', 'Sick', None, None, None)
+   ('CC4FDA98-62D5-1256-EB8B-3A2467C71429', 'A1A1A1A1-0000-0000-0000-000000000001', 'CD835730-BB71-1A3E-B9C2-3A2467C71428', 'startDate', None, None, '2026-11-05 00:00:00', None)
+   ('11D4869C-B30C-5D3D-09DB-3A2467C72042', 'A1A1A1A1-0000-0000-0000-000000000001', '066083DC-77B8-6949-0097-3A2467C72041', 'startDate', None, None, '2026-11-01 00:00:00', None)
+   ('131CAC9B-7E9C-FE6A-EB9C-3A2467C72042', 'A1A1A1A1-0000-0000-0000-000000000001', '066083DC-77B8-6949-0097-3A2467C72041', 'leaveType', 'Annual', None, None, None)
+   ('298CC613-3E6B-DAF5-AEF6-3A2467C72042', 'A1A1A1A1-0000-0000-0000-000000000001', '066083DC-77B8-6949-0097-3A2467C72041', 'endDate', None, None, '2026-11-03 00:00:00', None)
+   ('35CD6287-920C-8DA5-760B-3A2467C72042', 'A1A1A1A1-0000-0000-0000-000000000001', '066083DC-77B8-6949-0097-3A2467C72041', 'days', None, '3.0', None, None)
+[PASS] 6 typed reportable values stored rows=12
+
+=== Step 7 form creation, routing, admin-only
+  GET /users -> 200 [{"id":"6fb189d2-e9f7-91f2-57c8-3a2467c6bfe5","name":"Ali Hassan","role":"Employee","managerName":"Fatima Saleh","isAdmin":false},{"id":"b759ff40-1edf-5283-5f1d-3a2467c6bfe6","name":"Noor Ibrahim","role":"Employee","managerName":"Fatima Saleh","isAdmin":true},{"id":"c333743d-3d72-6ac8-a090-3a2467c6bfe5","name":"Yousef Nasser","role":"HR","managerName":null,"isAdmin":false},{"id":"b1b177f5-9dbd-0262-8fa7-3a2467c6bfe5","name":"Fatima Saleh","role":"Manager","managerName":null,"isAdmin":false},{"id":"00000000-0000-0000-0000-00000000a001","name":"Aramis Support","role":"Vendor admin","managerName"
+  GET /forms/all -> 403 {"error":{"code":null,"message":"Only Admin users can design forms and routing.","details":null,"data":{},"validationErrors":null}}
+[PASS] 7a HR cannot open the form designer http 403
+  POST /forms -> 403 {"error":{"code":null,"message":"Only Admin users can design forms and routing.","details":null,"data":{},"validationErrors":null}}
+[PASS] 7b employee cannot create forms http 403
+  GET /forms -> 200 [{"key":"expense-claim","name":"Expense claim","category":"Finance","versionId":"4fc38833-fb47-6ddb-4dbd-3a2467c6bf92","versionNo":1,"schemaJson":"{\n  \"title\": \"Expense claim\",\n  \"fields\": [\n    { \"key\": \"expenseDate\", \"label\": \"Expense date\", \"type\": \"date\", \"required\": true, \"reportable\": true },\n    { \"key\": \"expenseType\", \"label\": \"Type\", \"type\": \"select\", \"options\": [\"Travel\", \"Meals\", \"Training\", \"Other\"], \"required\": true, \"reportable\": true, \"workflowVariable\": true },\n    { \"key\": \"amount\", \"label\": \"Amount\", \"type\": \"n
+[PASS] 7c seeded employee forms published ['expense-claim', 'leave-request', 'letter-request', 'work-from-home']
+  GET /workflows -> 200 [{"definitionId":"hr-only-approval","name":"HR only"},{"definitionId":"leave-approval","name":"Line manager, then HR"}]
+[PASS] 7d admin lists published workflows [{'definitionId': 'hr-only-approval', 'name': 'HR only'}, {'definitionId': 'leave-approval', 'name': 'Line manager, then HR'}]
+  POST /forms -> 200 {"key":"business-trip","name":"Business trip","currentVersionId":null,"versions":[{"id":"27e4f871-54a4-b7b1-0d37-3a2467c7293d","versionNo":1,"status":"Draft","schemaJson":"{\"title\":\"Business trip\",\"fields\":[{\"key\":\"details\",\"label\":\"Details\",\"type\":\"textarea\",\"required\":true}]}","publishedAt":null}]}
+[PASS] 7e admin creates a form with a v1 draft 
+  POST /forms -> 403 {"error":{"code":null,"message":"A form with key 'business-trip' already exists.","details":null,"data":{},"validationErrors":null}}
+[PASS] 7f duplicate key refused http 403
+  POST /submissions -> 403 {"error":{"code":null,"message":"Form 'business-trip' is not available.","details":null,"data":{},"validationErrors":null}}
+[PASS] 7g unpublished form cannot be submitted http 403
+  PUT /forms/business-trip/draft -> 200 {"id":"27e4f871-54a4-b7b1-0d37-3a2467c7293d","versionNo":1,"status":"Draft","schemaJson":"{\"title\": \"Business trip\", \"fields\": [{\"key\": \"tripType\", \"label\": \"Trip type\", \"type\": \"select\", \"options\": [\"Domestic\", \"International\"], \"required\": true, \"reportable\": true, \"workflowVariable\": true}, {\"key\": \"destination\", \"label\": \"Destination\", \"type\": \"text\", \"required\": true, \"reportable\": true}, {\"key\": \"days\", \"label\": \"Days\", \"type\": \"number\", \"required\": true, \"reportable\": true}]}","publishedAt":null}
+  POST /forms/business-trip/publish -> 200 {"id":"27e4f871-54a4-b7b1-0d37-3a2467c7293d","versionNo":1,"status":"Published","schemaJson":"{\"title\": \"Business trip\", \"fields\": [{\"key\": \"tripType\", \"label\": \"Trip type\", \"type\": \"select\", \"options\": [\"Domestic\", \"International\"], \"required\": true, \"reportable\": true, \"workflowVariable\": true}, {\"key\": \"destination\", \"label\": \"Destination\", \"type\": \"text\", \"required\": true, \"reportable\": true}, {\"key\": \"days\", \"label\": \"Days\", \"type\": \"number\", \"required\": true, \"reportable\": true}]}","publishedAt":"2026-10-20T00:18:59.153078+05:
+[PASS] 7h admin publishes v1 
+  POST /forms/business-trip/bindings -> 403 {"error":{"code":null,"message":"Workflow 'made-up' is not published.","details":null,"data":{},"validationErrors":null}}
+[PASS] 7i unknown workflow refused http 403
+  POST /forms/business-trip/bindings -> 403 {"error":{"code":null,"message":"Field 'nope' is not on the form.","details":null,"data":{},"validationErrors":null}}
+[PASS] 7j condition on unknown field refused http 403
+  POST /forms/business-trip/bindings -> 200 {"id":"5172dd07-ecbd-a745-d051-3a2467c7296a","workflowDefinitionId":"leave-approval","conditionField":null,"conditionValue":null,"priority":10,"isActive":true}
+  POST /forms/business-trip/bindings -> 200 {"id":"4beff6f4-b074-8ac0-2fa7-3a2467c72972","workflowDefinitionId":"hr-only-approval","conditionField":"tripType","conditionValue":"Domestic","priority":1,"isActive":true}
+[PASS] 7k admin adds default + conditional routes 
+  POST /submissions -> 200 "46be4c75-f37e-282f-9857-3a2467c72976"
+  GET /tasks/inbox -> 200 [{"taskId":"7c7d3d10-e3d3-0590-cc4e-3a2467c7297d","title":"HR review","submissionId":"46be4c75-f37e-282f-9857-3a2467c72976","formName":"Business trip","versionNo":1,"submitterName":"Sara Ahmed","createdAt":"2026-10-20T00:18:59.197677"}]
+  GET /tasks/inbox -> 200 [{"taskId":"4df2b6a9-8970-11ea-86b4-3a2467c728ae","title":"Line manager approval","submissionId":"6346dda3-42f9-6b1b-7935-3a2467c728a6","formName":"Leave request","versionNo":2,"submitterName":"Sara Ahmed","createdAt":"2026-10-20T00:18:58.99079"}]
+  GET /tasks/inbox -> 200 [{"taskId":"4df2b6a9-8970-11ea-86b4-3a2467c728ae","title":"Line manager approval","submissionId":"6346dda3-42f9-6b1b-7935-3a2467c728a6","formName":"Leave request","versionNo":2,"submitterName":"Sara Ahmed","createdAt":"2026-10-20T00:18:58.99079"}]
+  GET /tasks/inbox -> 200 [{"taskId":"4df2b6a9-8970-11ea-86b4-3a2467c728ae","title":"Line manager approval","submissionId":"6346dda3-42f9-6b1b-7935-3a2467c728a6","formName":"Leave request","versionNo":2,"submitterName":"Sara Ahmed","createdAt":"2026-10-20T00:18:58.99079"}]
+[PASS] 7l domestic trip routed to HR only 
+  POST /submissions -> 200 "3b786c76-64e8-fecc-ad0c-3a2467c73169"
+  GET /tasks/inbox -> 200 [{"taskId":"4df2b6a9-8970-11ea-86b4-3a2467c728ae","title":"Line manager approval","submissionId":"6346dda3-42f9-6b1b-7935-3a2467c728a6","formName":"Leave request","versionNo":2,"submitterName":"Sara Ahmed","createdAt":"2026-10-20T00:18:58.99079"},{"taskId":"e9660780-a0b2-a7e8-771a-3a2467c73170","title":"Line manager approval","submissionId":"3b786c76-64e8-fecc-ad0c-3a2467c73169","formName":"Business trip","versionNo":1,"submitterName":"Sara Ahmed","createdAt":"2026-10-20T00:19:01.232782"}]
+[PASS] 7m international trip routed to line manager 
+  POST /submissions -> 200 "71f88f6d-6407-1be2-954c-3a2467c7317b"
+  GET /tasks/inbox -> 200 [{"taskId":"4df2b6a9-8970-11ea-86b4-3a2467c728ae","title":"Line manager approval","submissionId":"6346dda3-42f9-6b1b-7935-3a2467c728a6","formName":"Leave request","versionNo":2,"submitterName":"Sara Ahmed","createdAt":"2026-10-20T00:18:58.99079"},{"taskId":"e9660780-a0b2-a7e8-771a-3a2467c73170","title":"Line manager approval","submissionId":"3b786c76-64e8-fecc-ad0c-3a2467c73169","formName":"Business trip","versionNo":1,"submitterName":"Sara Ahmed","createdAt":"2026-10-20T00:19:01.232782"},{"taskId":"f7b5a0dd-4620-e576-497b-3a2467c73181","title":"Line manager approval","submissionId":"71f88f6d-
+[PASS] 7o company admin's own request reaches their manager 
+  POST /forms -> 200 {"key":"asset-request","name":"Asset request","currentVersionId":null,"versions":[{"id":"97ff74aa-b11d-05d8-4c04-3a2467c7318c","versionNo":1,"status":"Draft","schemaJson":"{\"title\":\"Asset request\",\"fields\":[{\"key\":\"details\",\"label\":\"Details\",\"type\":\"textarea\",\"required\":true}]}","publishedAt":null}]}
+[PASS] 7p vendor admin creates a form for Globex http 200
+  POST /submissions -> 403 {"error":{"code":null,"message":"This user does not belong to the selected company.","details":null,"data":{},"validationErrors":null}}
+[PASS] 7q vendor admin cannot submit requests http 403
+  GET /forms -> 200 [{"key":"expense-claim","name":"Expense claim","category":"Finance","versionId":"9757121e-7d29-8fc2-3e94-3a2467c6bfe6","versionNo":1,"schemaJson":"{\n  \"title\": \"Expense claim\",\n  \"fields\": [\n    { \"key\": \"expenseDate\", \"label\": \"Expense date\", \"type\": \"date\", \"required\": true, \"reportable\": true },\n    { \"key\": \"expenseType\", \"label\": \"Type\", \"type\": \"select\", \"options\": [\"Travel\", \"Meals\", \"Training\", \"Other\"], \"required\": true, \"reportable\": true, \"workflowVariable\": true },\n    { \"key\": \"amount\", \"label\": \"Amount\", \"type\": \"n
+[PASS] 7n Globex does not see Acme's new form 
+
+=== SUMMARY
+PASS  1a Omar gets task  
+PASS  1b Huda gets task after Omar  
+PASS  1c Sara sees Approved + timeline  status=Approved events=7
+PASS  2a Omar gets no task  
+PASS  2b Huda gets task directly  
+PASS  2c hr-only-approval workflow used  hr-only-approval
+PASS  3a status Rejected  Rejected
+PASS  3b no HR step  tasks=1
+PASS  4a draft saved + new version published  {'id': 'ecaa2a26-cb03-5775-940f-3a2467c72875', 'versionNo': 2, 'status': 'Published', 'schemaJson': 
+PASS  4b new requests use new version with new field  
+PASS  4c new version enforces required handoverTo  http 403
+PASS  4d new-version submission accepted  2
+PASS  4e older submission still renders its own version, marked replaced  v=1 versionStatus=Retired
+PASS  5a Globex sees only its users  ['Ali', 'Aramis', 'Fatima', 'Noor', 'Yousef']
+PASS  5b Ali sees no Acme requests  0 items
+PASS  5c Globex sick leave goes to manager (own binding)  
+PASS  5d Acme inbox has no Globex task  
+PASS  5e cross-tenant call refused  http 403
+PASS  6 typed reportable values stored  rows=12
+PASS  7a HR cannot open the form designer  http 403
+PASS  7b employee cannot create forms  http 403
+PASS  7c seeded employee forms published  ['expense-claim', 'leave-request', 'letter-request', 'work-from-home']
+PASS  7d admin lists published workflows  [{'definitionId': 'hr-only-approval', 'name': 'HR only'}, {'definitionId': 'leave-approval', 'name': 'Line manager, then HR'}]
+PASS  7e admin creates a form with a v1 draft  
+PASS  7f duplicate key refused  http 403
+PASS  7g unpublished form cannot be submitted  http 403
+PASS  7h admin publishes v1  
+PASS  7i unknown workflow refused  http 403
+PASS  7j condition on unknown field refused  http 403
+PASS  7k admin adds default + conditional routes  
+PASS  7l domestic trip routed to HR only  
+PASS  7m international trip routed to line manager  
+PASS  7o company admin's own request reaches their manager  
+PASS  7p vendor admin creates a form for Globex  http 200
+PASS  7q vendor admin cannot submit requests  http 403
+PASS  7n Globex does not see Acme's new form  
