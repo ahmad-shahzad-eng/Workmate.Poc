@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities;
@@ -149,4 +150,14 @@ public class FormField
     public bool Required { get; set; }
     public bool Reportable { get; set; }
     public bool WorkflowVariable { get; set; }
+
+    /// <summary>Whether a (non-empty) value is valid for this field's type — number parses, date parses, select is one of Options.</summary>
+    public bool ValidateValue(string value) => Type switch
+    {
+        "number" => decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out _),
+        "date" => DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out _),
+        "select" => Options!.Contains(value),
+        "checkbox" => value is "true" or "false",
+        _ => true
+    };
 }

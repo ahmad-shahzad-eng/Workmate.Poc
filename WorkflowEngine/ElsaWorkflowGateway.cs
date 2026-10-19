@@ -1,4 +1,5 @@
 using Elsa.Common.Models;
+using Elsa.Workflows;
 using Elsa.Workflows.Management;
 using Elsa.Workflows.Management.Filters;
 using Elsa.Workflows.Models;
@@ -19,12 +20,16 @@ public class ElsaWorkflowGateway : IWorkflowGateway, ITransientDependency
     private readonly IWorkflowRuntime _runtime;
     private readonly IWorkflowDefinitionStore _definitions;
     private readonly IWorkflowInstanceStore _instances;
+    private readonly IWorkflowDefinitionPublisher _publisher;
+    private readonly IIdentityGraphService _identityGraph;
     private readonly ILogger<ElsaWorkflowGateway> _logger;
 
     public ElsaWorkflowGateway(IWorkflowRuntime runtime, IWorkflowDefinitionStore definitions,
-        IWorkflowInstanceStore instances, ILogger<ElsaWorkflowGateway> logger)
+        IWorkflowInstanceStore instances, IWorkflowDefinitionPublisher publisher, IIdentityGraphService identityGraph,
+        ILogger<ElsaWorkflowGateway> logger)
     {
-        _runtime = runtime; _definitions = definitions; _instances = instances; _logger = logger;
+        _runtime = runtime; _definitions = definitions; _instances = instances;
+        _publisher = publisher; _identityGraph = identityGraph; _logger = logger;
     }
 
     public async Task<string> StartAsync(string workflowDefinitionId, IDictionary<string, object> input)
@@ -72,5 +77,21 @@ public class ElsaWorkflowGateway : IWorkflowGateway, ITransientDependency
             _logger.LogWarning(ex, "Could not query the workflow store for instance {WorkflowInstanceId}; treating it as missing.", workflowInstanceId);
             return false;
         }
+    }
+
+    public async Task<(string DefinitionId, int Version)> PublishDesignedWorkflowAsync(string definitionId, string name, Guid tenantId, IActivity root)
+    {
+        // A hand-built activity graph (not discovered via AddWorkflowsFrom) has no NodeId assigned yet;
+        // Elsa's runtime uses NodeId (not Id) to rebuild the activity-execution-context tree on resume,
+        // so skipping this leaves every bookmark unresumable after the first suspension.
+        await _identityGraph.AssignIdentitiesAsync(root);
+        var definition = await _publisher.NewAsync(root);
+        definition.DefinitionId = definitionId;
+        definition.Name = name;
+        definition.TenantId = tenantId.ToString();
+        var result = await _publisher.PublishAsync(definition);
+        if (!result.Succeeded)
+            throw new InvalidOperationException($"Failed to publish workflow '{definitionId}': {string.Join("; ", result.ValidationErrors)}");
+        return (definition.DefinitionId, definition.Version);
     }
 }

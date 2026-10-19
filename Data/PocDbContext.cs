@@ -19,6 +19,8 @@ public class PocDbContext : AbpDbContext<PocDbContext>
     public DbSet<ProcessTask> ProcessTasks => Set<ProcessTask>();
     public DbSet<ProcessTaskCandidate> ProcessTaskCandidates => Set<ProcessTaskCandidate>();
     public DbSet<ProcessEvent> ProcessEvents => Set<ProcessEvent>();
+    public DbSet<ApprovalWorkflow> ApprovalWorkflows => Set<ApprovalWorkflow>();
+    public DbSet<ApprovalWorkflowVersion> ApprovalWorkflowVersions => Set<ApprovalWorkflowVersion>();
 
     public PocDbContext(DbContextOptions<PocDbContext> options) : base(options) { }
 
@@ -56,5 +58,16 @@ public class PocDbContext : AbpDbContext<PocDbContext>
             e.HasIndex(x => new { x.UserId, x.TaskId });
         });
         b.Entity<ProcessEvent>(e => { e.ToTable("Proc_Events"); e.ConfigureByConvention(); });
+
+        b.Entity<ApprovalWorkflow>(e =>
+        {
+            e.ToTable("Proc_ApprovalWorkflows"); e.ConfigureByConvention();
+            e.HasIndex(x => new { x.TenantId, x.Key }).IsUnique();
+        });
+        b.Entity<ApprovalWorkflowVersion>(e =>
+        {
+            e.ToTable("Proc_ApprovalWorkflowVersions"); e.ConfigureByConvention();
+            e.HasIndex(x => new { x.ApprovalWorkflowId, x.VersionNo }).IsUnique();
+        });
     }
 }

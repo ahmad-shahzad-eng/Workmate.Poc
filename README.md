@@ -5,14 +5,17 @@ One runnable slice of the target design: **ABP Framework** (multi-tenancy, data,
 joined by our own Processes code (bindings, tasks, assignment, timeline).
 
 Two demo companies, each with employee self-service forms (leave request, work from home, expense claim,
-letter request). Only **admins** design forms and routing; everyone else only takes part in the workflows. There are two kinds:
+letter request). Only **admins** design forms, workflows and routing; everyone else only takes part in the workflows. There are two kinds:
 a **company admin** is an ordinary employee with an admin flag (still has a manager, still submits and approves),
 and the **vendor admin** (Aramis Support) is a host-side user of the HRM vendor who can design for any company but is not an employee there.
+Besides the two built-in workflows, company admins can build their own in **Workflow designer** (Phase D): an ordered list
+of steps, each naming who approves (line manager, manager's manager, a role, or a specific person), with a required
+fallback approver and a reject action (end, or back to the previous step) per step.
 
 | Company | People | Routes |
 | --- | --- | --- |
-| Acme Trading | Sara (employee, reports to Omar), Omar (manager), Huda (HR), Khalid (employee + company admin, reports to Omar) | Sick leave and letter requests go to HR only; everything else goes line manager, then HR |
-| Globex Logistics | Ali (employee, reports to Fatima), Fatima (manager), Yousef (HR), Noor (employee + company admin, reports to Fatima) | Letter requests go to HR only; everything else goes line manager, then HR |
+| Acme Trading | Sara (employee, reports to Omar), Omar (manager), Huda (HR), Layla (Finance, reports to Omar), Khalid (employee + company admin, reports to Omar) | Sick leave and letter requests go to HR only; everything else goes line manager, then HR |
+| Globex Logistics | Ali (employee, reports to Fatima), Fatima (manager), Yousef (HR), Yara (Finance, reports to Fatima), Noor (employee + company admin, reports to Fatima) | Letter requests go to HR only; everything else goes line manager, then HR |
 
 ## Run it
 
@@ -60,7 +63,12 @@ Sign-in is faked with an `X-Demo-User` header (`Http/DemoUserMiddleware.cs`); pr
 8. **Restart mid-approval.** Submit a request and leave it pending at a human step, then stop and restart the app
    (reset off). The task is still there; approving it resumes the workflow at the same step, in both tenants.
 
-`demo.py` runs steps 1-7 against the API and writes `demo.log` (`python3 demo.py` with the app freshly started).
+9. **Workflow designer (admins only).** As Khalid, open Workflow designer, create a workflow, add a step for each
+   approver type (line manager, manager's manager, role, specific user), pick a fallback approver, save and publish.
+   Bind it to a form in that form's Routing section and run a request through every step. Huda (HR) does not see
+   Workflow designer, and Globex cannot see, bind to, or start Acme's workflow.
+
+`demo.py` runs steps 1-7 and 9 against the API and writes `demo.log` (`python3 demo.py` with the app freshly started).
 Step 8 is two-part, around a manual restart:
 
 ```bash
@@ -82,10 +90,13 @@ python3 demo.py restart-after    # resumes and completes them, checks tenant iso
 | `WorkflowEngine/ElsaWorkflowGateway.cs` | Elsa implementation of that door |
 | `WorkflowEngine/Activities/HumanTask.cs` | Custom Elsa activity: create task, bookmark, wait for outcome |
 | `WorkflowEngine/Activities/CompleteProcess.cs` | Custom Elsa activity: write final status to domain records |
-| `WorkflowEngine/Workflows/*.cs` | The two workflows, defined in code for the PoC |
+| `WorkflowEngine/Workflows/*.cs` | The two built-in workflows, defined in code |
+| `Domain/ApprovalWorkflows.cs` | Admin-designed workflows: steps + fallback approver, draft/published versions |
+| `WorkflowEngine/ApprovalWorkflowGraphBuilder.cs` | Turns designed steps into a plain Elsa activity graph (no Elsa calls) |
+| `Application/ApprovalWorkflowAppService.cs` | Workflow designer: create, draft, publish (builds the graph, publishes via the gateway) |
 | `Data/` | ABP DbContext (table prefixes stand in for module schemas), demo seed data, startup DB reset |
 | `Application/WorkflowConsistencyCheck.cs` | Startup-only: warns if a running process's workflow instance is missing |
-| `wwwroot/index.html` | Demo UI: form renderer, my requests, inbox, JSON form designer with preview |
+| `wwwroot/index.html` | Demo UI: form renderer, my requests, inbox, form designer, workflow designer |
 
 ## If it does not compile
 
@@ -108,8 +119,8 @@ Where they are most likely:
 | Fake sign-in from a header | ABP Identity + OpenIddict, permissions per role |
 | Workflow start via `OnCompleted` after commit | `FormSubmittedEto` on ABP's distributed event bus with the outbox |
 | Elsa EF Core persistence in its own SQLite file | Same server as ABP, own schema |
-| Workflows defined in C# | Admins draw them in Elsa Studio with the same custom activities |
-| Assignment rules hard-coded (`line-manager`, `role:X`) | `AssignmentRule` entities over the real org structure |
+| Two workflows defined in C#; others admin-designed (own builder, no Elsa Studio) | Elsa Studio stays vendor-staff-only, behind OpenIddict; clients never see it (ruled out: no client code/expressions on shared servers) |
+| Role catalogue is just the distinct roles already in HR data | `AssignmentRule` entities and a real role catalogue per tenant |
 | Binding condition is `field == value` | Elsa expressions or a decision table |
 | JSON textarea designer | SurveyJS Creator, Form.io builder, or our own builder emitting the same schema |
 | Single project | ABP modular monolith: Forms, Processes, WorkflowEngine modules |
@@ -117,7 +128,7 @@ Where they are most likely:
 ## Phase 2 (after this PoC passes)
 
 1. ~~Switch Elsa to EF Core persistence; turn off `Poc:ResetDatabaseOnStartup`; prove a restart mid-approval resumes correctly.~~ **Done** (step 8).
-2. Host Elsa Studio, authenticated through ABP OpenIddict and gated by ABP permissions.
-3. Enable Elsa multi-tenancy with a tenant resolver backed by ABP's `ICurrentTenant`.
-4. Publish a second workflow version while requests are in flight; prove running instances keep their version.
+2. ~~Give admins a way to draw workflows with no code.~~ **Done** (step 9, own designer — Elsa Studio ruled out for clients, see shortcuts table).
+3. Enable Elsa multi-tenancy with a tenant resolver backed by ABP's `ICurrentTenant` (only relevant if Elsa Studio is hosted for vendor staff later).
+4. Publish a second workflow version while requests are in flight; prove running instances keep their version (for designed workflows too, not just code-defined ones).
 5. Replace the start hook with the distributed event bus + outbox; prove a crash between submit and start loses nothing.

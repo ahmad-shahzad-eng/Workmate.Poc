@@ -23,7 +23,7 @@ Khalid (Acme company admin) creates a workflow "Manager, Finance, then HR". For 
 | Line manager | nothing more | submitter's manager |
 | Manager's manager | nothing more | the manager's manager |
 | Role | **Which role?** (list of the company's roles) | everyone with that role (any one of them can act) |
-| Specific user | **Which user?** (searchable list of the company's active employees) | that person |
+| Specific user | **Which user?** (searchable list of the company's employees) | that person |
 
 He also picks the workflow's **fallback approver** (a role or a specific user, used when a step finds nobody) and what happens on reject (end the request, or send it back to the previous step), saves a draft, and publishes it.
 
@@ -34,7 +34,7 @@ He also picks the workflow's **fallback approver** (a role or a specific user, u
 **Acceptance Scenarios**:
 
 1. **Given** the step editor, **When** Khalid picks "Role", **Then** a role list appears and the step cannot be saved without a role.
-2. **Given** the step editor, **When** he picks "Specific user", **Then** a list of Acme's active employees appears (never Globex's), and the step cannot be saved without a user.
+2. **Given** the step editor, **When** he picks "Specific user", **Then** a list of Acme's employees appears (never Globex's), and the step cannot be saved without a user.
 3. **Given** he switches a step from "Role" to "Line manager", **Then** the role choice is cleared and no further question is shown.
 4. **Given** a valid draft, **When** he publishes, **Then** a new version is created and the previous version stays unchanged for requests already running.
 5. **Given** a draft with zero steps or an incomplete step, **When** he publishes, **Then** publishing is refused with a message naming the step.
@@ -52,7 +52,7 @@ Khalid binds the new workflow to Expense claim in routing. Sara submits a claim;
 **Acceptance Scenarios**:
 
 1. **Given** the workflow above, **When** Sara submits, **Then** each step creates a task for the people the rule resolves to, in order, and the timeline shows each step.
-2. **Given** a step with "Specific user", **When** that user has left or is inactive at run time, **Then** the task goes to the fallback (see FR-010) and the timeline says why.
+2. **Given** a step whose rule resolves to nobody (for example a "manager's manager" step for someone whose manager has no manager), **When** the step is reached, **Then** the task goes to the fallback (see FR-010) and the timeline says why.
 3. **Given** an Acme workflow, **When** a Globex admin lists workflows or a Globex user submits, **Then** Acme's workflow is neither visible nor startable.
 
 ---
@@ -115,7 +115,7 @@ In Routing, when the admin picks the field in "When field ...", the value input 
 
 - **ApprovalWorkflow**: tenant-owned; key, name, active flag; has versions.
 - **ApprovalWorkflowVersion**: version number, fallback approver rule, status (draft/published), ordered steps, the Elsa definition id/version it generated.
-- **ApprovalStep**: order, title, approver rule (type + role or employee id), on-reject action.
+- **ApprovalStep**: order, title, approver rule (type + role or employee id), on-reject action. Stored as a JSON value inside `ApprovalWorkflowVersion`, not a separate table — the same way form fields live inside `FormDefinitionVersion.SchemaJson`.
 - **ProcessBinding** (existing): condition field/value now type-checked; points at a published workflow.
 
 ## Success Criteria *(mandatory)*
@@ -128,5 +128,6 @@ In Routing, when the admin picks the field in "When field ...", the value input 
 ## Assumptions
 
 - Roles are the existing employee roles (Employee, Manager, HR) plus any added to demo data (e.g. Finance); a role catalogue per tenant is production work.
+- Employees have no active/inactive or leaver concept in this PoC (`Employee` has no such field); a "specific user" step always targets a current HR record. The fallback-on-empty-resolution path (FR-010) is demonstrated via a rule that naturally resolves to nobody (manager's manager missing), not via deactivating or deleting an employee.
 - Parallel approval, timers/escalation, conditions inside a workflow and "next approver chosen by the current approver" are out of scope for the PoC; record them as follow-ups.
 - Depends on Phase C (persistent workflow store).

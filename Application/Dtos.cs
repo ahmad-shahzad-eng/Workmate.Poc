@@ -48,7 +48,7 @@ public class CreateFormInput
 public record WorkflowDefinitionDto(string DefinitionId, string Name);
 
 public record ProcessBindingDto(Guid Id, string WorkflowDefinitionId, string? ConditionField, string? ConditionValue,
-    int Priority, bool IsActive);
+    int Priority, bool IsActive, bool IsStale);
 
 public class SaveBindingInput
 {
@@ -57,4 +57,23 @@ public class SaveBindingInput
     public string? ConditionValue { get; set; }
     public int Priority { get; set; } = 10;
     public bool IsActive { get; set; } = true;
+}
+
+// --- Workflow designer (admins only; Phase D, option B)
+public record ApprovalWorkflowListItemDto(string Key, string Name, bool IsActive, int? PublishedVersionNo, bool HasDraft);
+
+public record ApprovalWorkflowVersionDto(Guid Id, int VersionNo, string Status, string StepsJson, string? FallbackRule, DateTime? PublishedAt);
+
+public record ApprovalWorkflowDesignDto(string Key, string Name, Guid? CurrentVersionId, List<ApprovalWorkflowVersionDto> Versions);
+
+public class CreateApprovalWorkflowInput
+{
+    public string Key { get; set; } = default!;
+    public string Name { get; set; } = default!;
+}
+
+public class SaveApprovalWorkflowDraftInput
+{
+    public string StepsJson { get; set; } = default!;
+    public string? FallbackRule { get; set; }
 }

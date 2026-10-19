@@ -119,15 +119,7 @@ public class SubmissionAppService : ApplicationService
                 continue;
             }
 
-            var ok = f.Type switch
-            {
-                "number" => decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out _),
-                "date" => DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out _),
-                "select" => f.Options!.Contains(value),
-                "checkbox" => value is "true" or "false",
-                _ => true
-            };
-            if (!ok) errors.Add($"{f.Label} has an invalid value.");
+            if (!f.ValidateValue(value!)) errors.Add($"{f.Label} has an invalid value.");
             clean[f.Key] = value;
         }
 

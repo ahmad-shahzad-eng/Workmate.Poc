@@ -97,7 +97,7 @@ public class ProcessManager : ITransientDependency
 
     /// <summary>Called by the HumanTask activity when the workflow reaches a human step.</summary>
     public async Task CreateTaskAsync(WorkflowInputs inputs, string elsaWorkflowInstanceId, string bookmarkId,
-        string stepKey, string title, string assignmentRule)
+        string stepKey, string title, string assignmentRule, string? fallbackRule = null)
     {
         using (_currentTenant.Change(inputs.TenantId))
         using (var uow = _uow.Begin(requiresNew: true, isTransactional: true))
@@ -110,7 +110,7 @@ public class ProcessManager : ITransientDependency
             }
 
             var submission = await _submissions.GetAsync(inputs.SubmissionId);
-            var people = await _assignment.ResolveAsync(assignmentRule, submission.SubmittedByUserId);
+            var (people, usedFallback) = await _assignment.ResolveAsync(assignmentRule, submission.SubmittedByUserId, fallbackRule);
 
             var task = new ProcessTask(_guids.Create(), inputs.TenantId, instance.Id, submission.Id,
                 elsaWorkflowInstanceId, bookmarkId, stepKey, title, assignmentRule);
@@ -121,7 +121,9 @@ public class ProcessManager : ITransientDependency
 
             var detail = people.Count == 0
                 ? $"{title}: nobody matched rule '{assignmentRule}'. The request is stuck until the rule or HR data is fixed."
-                : $"{title} assigned to {string.Join(", ", people.Select(p => p.Name))}.";
+                : usedFallback
+                    ? $"{title}: rule '{assignmentRule}' resolved to nobody, assigned to {string.Join(", ", people.Select(p => p.Name))} via the fallback."
+                    : $"{title} assigned to {string.Join(", ", people.Select(p => p.Name))}.";
             await AddEventAsync(submission.Id, instance.Id, task.Id, "TaskCreated", null, detail);
 
             await uow.CompleteAsync();

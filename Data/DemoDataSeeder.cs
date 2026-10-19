@@ -42,11 +42,13 @@ public class DemoDataSeeder : ITransientDependency
         // and still have a line manager, so their own requests route like anyone else's.
         await SeedTenantAsync(DemoTenants.Acme, withSickLeaveRoute: true,
             ("Omar Khalid", EmployeeRoles.Manager, null, false), ("Huda Ali", EmployeeRoles.Hr, null, false),
-            ("Sara Ahmed", EmployeeRoles.Employee, "Omar Khalid", false), ("Khalid Mansour", EmployeeRoles.Employee, "Omar Khalid", true));
+            ("Sara Ahmed", EmployeeRoles.Employee, "Omar Khalid", false), ("Khalid Mansour", EmployeeRoles.Employee, "Omar Khalid", true),
+            ("Layla Haddad", EmployeeRoles.Finance, "Omar Khalid", false));
 
         await SeedTenantAsync(DemoTenants.Globex, withSickLeaveRoute: false,
             ("Fatima Saleh", EmployeeRoles.Manager, null, false), ("Yousef Nasser", EmployeeRoles.Hr, null, false),
-            ("Ali Hassan", EmployeeRoles.Employee, "Fatima Saleh", false), ("Noor Ibrahim", EmployeeRoles.Employee, "Fatima Saleh", true));
+            ("Ali Hassan", EmployeeRoles.Employee, "Fatima Saleh", false), ("Noor Ibrahim", EmployeeRoles.Employee, "Fatima Saleh", true),
+            ("Yara Saleh", EmployeeRoles.Finance, "Fatima Saleh", false));
     }
 
     private async Task SeedTenantAsync(DemoTenant tenant, bool withSickLeaveRoute,

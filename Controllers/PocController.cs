@@ -14,12 +14,14 @@ public class PocController : AbpControllerBase
     private readonly SubmissionAppService _submissions;
     private readonly TaskAppService _tasks;
     private readonly RoutingAppService _routing;
+    private readonly ApprovalWorkflowAppService _approvalWorkflows;
     private readonly IRepository<Employee, Guid> _employees;
 
     public PocController(FormAppService forms, SubmissionAppService submissions, TaskAppService tasks,
-        RoutingAppService routing, IRepository<Employee, Guid> employees)
+        RoutingAppService routing, ApprovalWorkflowAppService approvalWorkflows, IRepository<Employee, Guid> employees)
     {
-        _forms = forms; _submissions = submissions; _tasks = tasks; _routing = routing; _employees = employees;
+        _forms = forms; _submissions = submissions; _tasks = tasks; _routing = routing;
+        _approvalWorkflows = approvalWorkflows; _employees = employees;
     }
 
     [HttpGet("tenants")]
@@ -58,6 +60,23 @@ public class PocController : AbpControllerBase
 
     [HttpGet("workflows")]
     public Task<List<WorkflowDefinitionDto>> GetWorkflowsAsync() => _routing.GetWorkflowsAsync();
+
+    [HttpGet("workflows/design")]
+    public Task<List<ApprovalWorkflowListItemDto>> GetApprovalWorkflowsAsync() => _approvalWorkflows.GetAllAsync();
+
+    [HttpPost("workflows/design")]
+    public Task<ApprovalWorkflowDesignDto> CreateApprovalWorkflowAsync([FromBody] CreateApprovalWorkflowInput input) =>
+        _approvalWorkflows.CreateAsync(input);
+
+    [HttpGet("workflows/design/{key}")]
+    public Task<ApprovalWorkflowDesignDto> GetApprovalWorkflowDesignAsync(string key) => _approvalWorkflows.GetDesignAsync(key);
+
+    [HttpPut("workflows/design/{key}/draft")]
+    public Task<ApprovalWorkflowVersionDto> SaveApprovalWorkflowDraftAsync(string key, [FromBody] SaveApprovalWorkflowDraftInput input) =>
+        _approvalWorkflows.SaveDraftAsync(key, input);
+
+    [HttpPost("workflows/design/{key}/publish")]
+    public Task<ApprovalWorkflowVersionDto> PublishApprovalWorkflowAsync(string key) => _approvalWorkflows.PublishAsync(key);
 
     [HttpGet("forms/{key}/bindings")]
     public Task<List<ProcessBindingDto>> GetBindingsAsync(string key) => _routing.GetBindingsAsync(key);

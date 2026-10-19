@@ -8,6 +8,7 @@ public static class EmployeeRoles
     public const string Employee = "Employee";
     public const string Manager = "Manager";
     public const string Hr = "HR";
+    public const string Finance = "Finance";
 }
 
 /// <summary>Minimal HR record. In the PoC an employee's Id doubles as their user id.</summary>

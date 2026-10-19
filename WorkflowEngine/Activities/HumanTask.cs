@@ -29,6 +29,9 @@ public class HumanTask : Activity<string>
     /// <summary>"line-manager" or "role:HR" in the PoC.</summary>
     public Input<string> AssignmentRule { get; set; } = default!;
 
+    /// <summary>Used when a designed workflow's rule resolves to nobody (or only the submitter); unset for code-defined workflows.</summary>
+    public Input<string>? FallbackRule { get; set; }
+
     protected override async ValueTask ExecuteAsync(ActivityExecutionContext context)
     {
         var inputs = WorkflowInputs.From(context);
@@ -39,7 +42,7 @@ public class HumanTask : Activity<string>
 
         var processes = context.GetRequiredService<ProcessManager>();
         await processes.CreateTaskAsync(inputs, context.WorkflowExecutionContext.Id, bookmark.Id,
-            stepKey, TaskTitle.Get(context), AssignmentRule.Get(context));
+            stepKey, TaskTitle.Get(context), AssignmentRule.Get(context), FallbackRule?.Get(context));
     }
 
     private async ValueTask OnResumeAsync(ActivityExecutionContext context)

@@ -129,12 +129,13 @@
     <button data-view="mine">My requests</button>
     <button data-view="inbox">Inbox <span class="count" id="inboxCount" hidden></span></button>
     <button data-view="designer" id="designerNav" hidden>Form designer</button>
+    <button data-view="workflows" id="workflowsNav" hidden>Workflow designer</button>
   </nav>
   <main id="main"></main>
 </div>
 
 <script>
-const state = { tenants: [], users: [], view: "new", selected: null, formKey: null, designKey: null, editMode: "visual" };
+const state = { tenants: [], users: [], view: "new", selected: null, formKey: null, designKey: null, editMode: "visual", workflowKey: null };
 const isAdmin = () => state.users.find(u => u.id === $("#user").value)?.isAdmin === true;
 const $ = (s, el = document) => el.querySelector(s);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -337,6 +338,18 @@ async function viewDesigner(main) {
   if (state.designKey) await renderFormEditor(main, state.designKey);
 }
 
+// The routing condition value input adapts to the chosen field's type (US3): a free-text value for a
+// select field causes silent mismatches ("sick" vs "Sick"), so offer only what the field actually allows.
+function conditionValueInput(schema, fieldKey, value = "") {
+  const f = schema.fields.find(x => x.key === fieldKey);
+  if (!f) return `<input type="text" id="rValue" value="${esc(value)}">`;
+  if (f.type === "select") return `<select id="rValue">${f.options.map(o => `<option ${o === value ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
+  if (f.type === "checkbox") return `<select id="rValue"><option value="true" ${value === "true" ? "selected" : ""}>Yes</option><option value="false" ${value === "false" ? "selected" : ""}>No</option></select>`;
+  if (f.type === "number") return `<input type="number" step="any" id="rValue" value="${esc(value)}">`;
+  if (f.type === "date") return `<input type="date" id="rValue" value="${esc(value)}">`;
+  return `<input type="text" id="rValue" value="${esc(value)}">`;
+}
+
 async function renderFormEditor(main, key) {
   const [d, bindings, workflows] = await Promise.all([
     api(`/api/poc/forms/${key}/design`), api(`/api/poc/forms/${key}/bindings`), api("/api/poc/workflows")]);
@@ -368,7 +381,8 @@ async function renderFormEditor(main, key) {
     <table class="steps"><thead><tr><th>Priority</th><th>Condition</th><th>Workflow</th><th>Active</th><th></th></tr></thead><tbody>${
       bindings.length ? bindings.map(b => `<tr>
         <td>${b.priority}</td>
-        <td>${b.conditionField ? `${esc(b.conditionField)} = ${esc(b.conditionValue)}` : "<em>Default (always)</em>"}</td>
+        <td>${b.conditionField ? `${esc(b.conditionField)} = ${esc(b.conditionValue)}` : "<em>Default (always)</em>"}${
+          b.isStale ? ` <span class="status Rejected" title="The field was removed, or this value no longer matches the form's latest version">Stale</span>` : ""}</td>
         <td>${esc(workflows.find(w => w.definitionId === b.workflowDefinitionId)?.name || b.workflowDefinitionId)}</td>
         <td>${b.isActive ? "Yes" : "No"}</td>
         <td><button class="icon" data-toggle="${b.id}">${b.isActive ? "Disable" : "Enable"}</button>
@@ -379,10 +393,11 @@ async function renderFormEditor(main, key) {
       <div class="field"><label for="rWorkflow">Workflow</label><select id="rWorkflow">${workflows.map(w => `<option value="${esc(w.definitionId)}">${esc(w.name)}</option>`).join("")}</select></div>
       <div class="field"><label for="rField">When field</label><select id="rField"><option value="">(default route)</option>${
         schema.fields.map(f => `<option value="${esc(f.key)}">${esc(f.label)}</option>`).join("")}</select></div>
-      <div class="field"><label for="rValue">equals</label><input id="rValue"></div>
+      <div class="field" id="rValueWrap"><label for="rValue">equals</label>${conditionValueInput(schema, "")}</div>
       <div class="field"><label for="rPriority">Priority</label><input id="rPriority" type="number" value="${bindings.some(b => !b.conditionField) ? 1 : 10}"></div>
       <div class="actions" style="margin:0"><button class="btn secondary" id="addRoute">Add route</button></div>
     </div>`;
+  $("#rField").addEventListener("change", e => { $("#rValueWrap").innerHTML = `<label for="rValue">equals</label>${conditionValueInput(schema, e.target.value)}`; });
 
   const sync = () => { schema.title = $("#formTitle").value; drawPreview(); };
   const drawPreview = () => {
@@ -468,8 +483,128 @@ async function renderFormEditor(main, key) {
   }));
 }
 
+// ---------- Workflow designer (Admin only): build approval workflows step by step, no code ----------
+const APPROVER_TYPES = [
+  ["line-manager", "Line manager"], ["manager-of-manager", "Manager's manager"],
+  ["role", "Role"], ["user", "Specific user"]];
+const rolesOf = () => [...new Set(state.users.filter(u => u.role !== "Vendor admin").map(u => u.role))];
+const employeesOf = () => state.users.filter(u => u.role !== "Vendor admin");
+
+async function viewWorkflows(main) {
+  const workflows = await api("/api/poc/workflows/design");
+  if (!state.workflowKey || !workflows.some(w => w.key === state.workflowKey)) state.workflowKey = workflows[0]?.key || null;
+  main.innerHTML = `
+    <h2>Workflow designer</h2>
+    <p class="lead">Admins build approval workflows step by step, no code. Each step asks who approves; publishing turns the
+      steps into a running workflow that routing can bind a form to.</p>
+    <div id="msg"></div>
+    <div class="inline panel" style="margin-bottom:20px">
+      <div class="field"><label for="workflowPick">Workflow</label>
+        <select id="workflowPick">${workflows.map(w => `<option value="${esc(w.key)}" ${w.key === state.workflowKey ? "selected" : ""}>${esc(w.name)}${
+          w.publishedVersionNo ? ` (v${w.publishedVersionNo})` : " (not published)"}${w.hasDraft ? " · draft" : ""}</option>`).join("")}</select></div>
+      <div class="field"><label for="newWfName">New workflow name</label><input id="newWfName" placeholder="Expense: manager, finance, HR"></div>
+      <div class="field"><label for="newWfKey">Key</label><input id="newWfKey" placeholder="expense-3step"></div>
+      <div class="actions" style="margin:0"><button class="btn secondary" id="createWf">Create workflow</button></div>
+    </div>
+    <div id="wfEditor"></div>`;
+  $("#workflowPick").addEventListener("change", e => { state.workflowKey = e.target.value; viewWorkflows(main); });
+  $("#newWfName").addEventListener("input", e => {
+    if (!$("#newWfKey").dataset.touched) $("#newWfKey").value = e.target.value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  });
+  $("#newWfKey").addEventListener("input", e => e.target.dataset.touched = "1");
+  $("#createWf").addEventListener("click", async () => {
+    try {
+      const d = await api("/api/poc/workflows/design", { method: "POST", body: JSON.stringify({ key: $("#newWfKey").value, name: $("#newWfName").value }) });
+      state.workflowKey = d.key; await viewWorkflows(main);
+      $("#msg").innerHTML = message("ok", `Created "${d.name}" with a starter draft. Add steps, pick a fallback, then publish.`);
+    } catch (err) { $("#msg").innerHTML = message("error", err.message); }
+  });
+  if (state.workflowKey) await renderWorkflowEditor(main, state.workflowKey);
+}
+
+async function renderWorkflowEditor(main, key) {
+  const d = await api(`/api/poc/workflows/design/${key}`);
+  const latest = d.versions[0];
+  const draft = JSON.parse(latest.stepsJson);
+  if (!draft.steps) draft.steps = [];
+  let fallbackRule = latest.fallbackRule || "";
+  const host = $("#wfEditor");
+
+  const draw = () => {
+    const [fbType, fbValue] = fallbackRule.includes(":") ? [fallbackRule.slice(0, fallbackRule.indexOf(":")), fallbackRule.slice(fallbackRule.indexOf(":") + 1)] : ["role", ""];
+    host.innerHTML = `
+      <div class="versions">${d.versions.map(v => `<span>v${v.versionNo} <span class="status ${v.status}">${v.status}</span></span>`).join("")}</div>
+      <table class="fieldrows"><thead><tr><th>Title</th><th>Who approves</th><th>On reject</th><th></th></tr></thead><tbody>${
+        draft.steps.length ? draft.steps.map((s, i) => `<tr data-i="${i}">
+          <td><input type="text" data-p="title" value="${esc(s.title || "")}" aria-label="Step title"></td>
+          <td>
+            <select data-p="approverType" aria-label="Approver type">${APPROVER_TYPES.map(([v, l]) => `<option value="${v}" ${v === s.approverType ? "selected" : ""}>${l}</option>`).join("")}</select>
+            ${s.approverType === "role" ? ` <select data-p="role" aria-label="Role">${rolesOf().map(r => `<option ${r === s.role ? "selected" : ""}>${esc(r)}</option>`).join("")}</select>` : ""}
+            ${s.approverType === "user" ? ` <select data-p="userId" aria-label="User">${employeesOf().map(u => `<option value="${u.id}" ${u.id === s.userId ? "selected" : ""}>${esc(u.name)}</option>`).join("")}</select>` : ""}
+          </td>
+          <td><select data-p="onReject" aria-label="On reject" ${i === 0 ? 'disabled title="The first step has no previous step"' : ""}>
+            <option value="end" ${s.onReject !== "back-to-previous" ? "selected" : ""}>End the request</option>
+            <option value="back-to-previous" ${i > 0 && s.onReject === "back-to-previous" ? "selected" : ""}>Back to previous step</option>
+          </select></td>
+          <td><button class="icon" data-move="-1" aria-label="Move up">↑</button> <button class="icon" data-move="1" aria-label="Move down">↓</button>
+              <button class="icon" data-remove aria-label="Remove step">✕</button></td></tr>`).join("")
+          : `<tr><td colspan="4" class="meta">No steps yet. Add at least one.</td></tr>`}</tbody></table>
+      <div class="actions"><button class="btn secondary" id="addStep">Add step</button></div>
+      <h3>Fallback approver</h3>
+      <p class="meta">Used when a step's rule finds nobody, or only the submitter (never left stuck). Required to publish.</p>
+      <div class="inline">
+        <div class="field"><label for="fbType">Type</label><select id="fbType">
+          <option value="role" ${fbType === "role" ? "selected" : ""}>Role</option>
+          <option value="user" ${fbType === "user" ? "selected" : ""}>Specific user</option></select></div>
+        <div class="field"><label for="fbValue">${fbType === "user" ? "User" : "Role"}</label>
+          ${fbType === "user"
+            ? `<select id="fbValue">${employeesOf().map(u => `<option value="${u.id}" ${u.id === fbValue ? "selected" : ""}>${esc(u.name)}</option>`).join("")}</select>`
+            : `<select id="fbValue">${rolesOf().map(r => `<option ${r === fbValue ? "selected" : ""}>${esc(r)}</option>`).join("")}</select>`}
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" id="saveWf">Save draft</button>
+        <button class="btn" id="publishWf" ${latest.status === "Draft" ? "" : "disabled"}>Publish draft</button>
+        <small class="meta" style="margin:0">Editing ${latest.status === "Draft" ? `draft v${latest.versionNo}` : `a copy of v${latest.versionNo}; saving creates v${latest.versionNo + 1}`}</small>
+      </div>`;
+
+    host.querySelectorAll("tr[data-i]").forEach(row => {
+      const i = +row.dataset.i, s = draft.steps[i];
+      row.querySelectorAll("[data-p]").forEach(input => input.addEventListener(input.tagName === "SELECT" ? "change" : "input", () => {
+        const p = input.dataset.p;
+        s[p] = input.value;
+        if (p === "approverType") { delete s.role; delete s.userId; draw(); }
+        else if (p === "onReject") draw();
+      }));
+      row.querySelector("[data-remove]").addEventListener("click", () => { draft.steps.splice(i, 1); draw(); });
+      row.querySelectorAll("[data-move]").forEach(btn => btn.addEventListener("click", () => {
+        const j = i + +btn.dataset.move; if (j < 0 || j >= draft.steps.length) return;
+        [draft.steps[i], draft.steps[j]] = [draft.steps[j], draft.steps[i]]; draw();
+      }));
+    });
+    $("#addStep").addEventListener("click", () => { draft.steps.push({ title: `Step ${draft.steps.length + 1}`, approverType: "line-manager", onReject: "end" }); draw(); });
+    $("#fbType").addEventListener("change", e => { fallbackRule = `${e.target.value}:`; draw(); });
+    $("#fbValue").addEventListener("change", e => { fallbackRule = `${fbType}:${e.target.value}`; });
+
+    $("#saveWf").addEventListener("click", async () => {
+      try {
+        await api(`/api/poc/workflows/design/${key}/draft`, { method: "PUT",
+          body: JSON.stringify({ stepsJson: JSON.stringify(draft), fallbackRule: fallbackRule.endsWith(":") ? null : fallbackRule }) });
+        await viewWorkflows(main); $("#msg").innerHTML = message("ok", "Draft saved.");
+      } catch (err) { $("#msg").innerHTML = message("error", err.message); }
+    });
+    $("#publishWf").addEventListener("click", async () => {
+      try {
+        const v = await api(`/api/poc/workflows/design/${key}/publish`, { method: "POST" });
+        await viewWorkflows(main); $("#msg").innerHTML = message("ok", `Published v${v.versionNo}. Bind it to a form in that form's Routing section.`);
+      } catch (err) { $("#msg").innerHTML = message("error", err.message); }
+    });
+  };
+  draw();
+}
+
 // ---------- Shell ----------
-const views = { new: viewNew, mine: viewMine, inbox: viewInbox, designer: viewDesigner };
+const views = { new: viewNew, mine: viewMine, inbox: viewInbox, designer: viewDesigner, workflows: viewWorkflows };
 
 async function refreshInboxCount() {
   try { const n = (await api("/api/poc/tasks/inbox")).length; const el = $("#inboxCount"); el.textContent = n; el.hidden = n === 0; }
@@ -478,7 +613,8 @@ async function refreshInboxCount() {
 
 async function render() {
   $("#designerNav").hidden = !isAdmin();
-  if (state.view === "designer" && !isAdmin()) state.view = "new";
+  $("#workflowsNav").hidden = !isAdmin();
+  if ((state.view === "designer" || state.view === "workflows") && !isAdmin()) state.view = "new";
   document.querySelectorAll("nav button").forEach(b => b.toggleAttribute("aria-current", b.dataset.view === state.view));
   document.querySelectorAll("nav button[aria-current]").forEach(b => b.setAttribute("aria-current", "page"));
   const main = $("#main");

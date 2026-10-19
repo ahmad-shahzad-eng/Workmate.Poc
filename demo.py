@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Runs README demo steps 1-7 (no args), or the two-part restart check (step 8: `restart-before` /
+"""Runs README demo steps 1-7 and 9 (no args), or the two-part restart check (step 8: `restart-before` /
 `restart-after`, run with a manual app restart in between), against the running PoC. Stdlib only."""
 import json, sqlite3, sys, time, urllib.request, urllib.error, os
 
@@ -128,7 +128,7 @@ def s4():
 
 def s5():
     g = users(GLOBEX); a = state["acme"]
-    check("5a Globex sees only its users", set(g) == {"Fatima", "Yousef", "Ali", "Noor", "Aramis"}, str(sorted(g)))
+    check("5a Globex sees only its users", set(g) == {"Fatima", "Yousef", "Ali", "Noor", "Yara", "Aramis"}, str(sorted(g)))
     _, mine_before = call("GET", "/submissions/mine", GLOBEX, g["Ali"])
     sid = submit(GLOBEX, g["Ali"], sick)
     t = inbox_task(GLOBEX, g["Fatima"], sid)
@@ -201,6 +201,85 @@ def s7():
     check("7q vendor admin cannot submit requests", code == 403 and "does not belong" in json.dumps(b), f"http {code}")
     _, gforms = call("GET", "/forms", GLOBEX, g["Ali"])
     check("7n Globex does not see Acme's new form", all(f["key"] != biz for f in gforms or []))
+
+def step9():
+    """Phase D (option B): a company admin builds, publishes, binds and runs a designed workflow."""
+    a = users(ACME); g = users(GLOBEX)
+    wf_key = f"expense-3step-{RUN_SUFFIX}"
+
+    # 9a: build and publish a 3-step workflow: line manager -> role Finance -> specific user (Huda).
+    code, _ = call("POST", "/workflows/design", ACME, a["Khalid"], {"key": wf_key, "name": "Expense: manager, finance, HR"})
+    check("9a admin creates a designed workflow", code == 200, f"http {code}")
+    steps = {"steps": [
+        {"title": "Manager approval", "approverType": "line-manager", "onReject": "end"},
+        {"title": "Finance review", "approverType": "role", "role": "Finance", "onReject": "back-to-previous"},
+        {"title": "HR sign-off", "approverType": "user", "userId": a["Huda"], "onReject": "end"},
+    ]}
+    code, _ = call("PUT", f"/workflows/design/{wf_key}/draft", ACME, a["Khalid"],
+                   {"stepsJson": json.dumps(steps), "fallbackRule": "role:HR"})
+    check("9a draft saved", code == 200, f"http {code}")
+    code, v = call("POST", f"/workflows/design/{wf_key}/publish", ACME, a["Khalid"])
+    check("9a published", code == 200 and v.get("status") == "Published", str(v)[:120])
+
+    _, wfs = call("GET", "/workflows", ACME, a["Khalid"])
+    def_id = next((w["definitionId"] for w in wfs or [] if w["name"] == "Expense: manager, finance, HR"), None)
+    check("9a workflow listed for Acme", def_id is not None)
+
+    # 9b: Globex can neither see nor bind Acme's designed workflow.
+    _, gwfs = call("GET", "/workflows", GLOBEX, g["Noor"])
+    check("9b Globex does not see Acme's designed workflow", all(w["definitionId"] != def_id for w in gwfs or []))
+    code, _ = call("POST", "/forms/leave-request/bindings", GLOBEX, g["Noor"], {"workflowDefinitionId": def_id, "priority": 1})
+    check("9b Globex cannot bind to Acme's workflow", code >= 400, f"http {code}")
+
+    # 9c: bind to Expense claim and run it end to end, with one reject-to-previous-step.
+    code, _ = call("POST", "/forms/expense-claim/bindings", ACME, a["Khalid"], {"workflowDefinitionId": def_id, "priority": 1})
+    check("9c bound to Expense claim", code == 200, f"http {code}")
+
+    sid = submit(ACME, a["Sara"], {"expenseDate": "2026-11-01", "expenseType": "Travel", "amount": "120", "description": "Taxi"}, "expense-claim")
+    t = inbox_task(ACME, a["Omar"], sid)
+    check("9c Omar gets manager-approval task", t is not None)
+    if t: call("POST", f"/tasks/{t}/complete", ACME, a["Omar"], {"outcome": "Approved"})
+
+    t2 = inbox_task(ACME, a["Layla"], sid)
+    check("9c Layla (Finance role) gets task", t2 is not None)
+    if t2: call("POST", f"/tasks/{t2}/complete", ACME, a["Layla"], {"outcome": "Rejected", "comment": "needs re-check"})
+
+    t3 = inbox_task(ACME, a["Omar"], sid)
+    check("9c reject sends the task back to Omar (back-to-previous)", t3 is not None)
+    if t3: call("POST", f"/tasks/{t3}/complete", ACME, a["Omar"], {"outcome": "Approved"})
+
+    t4 = inbox_task(ACME, a["Layla"], sid)
+    check("9c Layla gets the task again after Omar re-approves", t4 is not None)
+    if t4: call("POST", f"/tasks/{t4}/complete", ACME, a["Layla"], {"outcome": "Approved"})
+
+    t5 = inbox_task(ACME, a["Huda"], sid)
+    check("9c Huda (specific user) gets the final task", t5 is not None)
+    if t5: call("POST", f"/tasks/{t5}/complete", ACME, a["Huda"], {"outcome": "Approved"})
+
+    d = detail(ACME, a["Sara"], sid, "Approved")
+    check("9c request Approved after all steps", d.get("status") == "Approved", str(d.get("status")))
+
+    # 9d: a rule that resolves to nobody (manager's manager, for someone whose own manager has no
+    # manager) falls back instead of leaving the request stuck (SC-004; closes HANDOVER.md §3 item 1).
+    fb_key = f"fallback-test-{RUN_SUFFIX}"
+    call("POST", "/workflows/design", ACME, a["Khalid"], {"key": fb_key, "name": "Fallback test"})
+    call("PUT", f"/workflows/design/{fb_key}/draft", ACME, a["Khalid"], {"fallbackRule": "role:HR", "stepsJson": json.dumps(
+        {"steps": [{"title": "Manager's manager", "approverType": "manager-of-manager", "onReject": "end"}]})})
+    code, _ = call("POST", f"/workflows/design/{fb_key}/publish", ACME, a["Khalid"])
+    check("9d fallback-test workflow published", code == 200, f"http {code}")
+    _, wfs2 = call("GET", "/workflows", ACME, a["Khalid"])
+    fb_def_id = next((w["definitionId"] for w in wfs2 or [] if w["name"] == "Fallback test"), None)
+    call("POST", "/forms/letter-request/bindings", ACME, a["Khalid"], {"workflowDefinitionId": fb_def_id,
+         "conditionField": "letterType", "conditionValue": "No objection certificate", "priority": 1})
+
+    # Khalid reports to Omar, who has no manager: manager-of-manager resolves to nobody here.
+    sid2 = submit(ACME, a["Khalid"], {"letterType": "No objection certificate", "addressedTo": "Bank", "purpose": "Mortgage"}, "letter-request")
+    t6 = inbox_task(ACME, a["Huda"], sid2)
+    check("9d rule resolving to nobody falls back to the fallback approver", t6 is not None)
+    if t6: call("POST", f"/tasks/{t6}/complete", ACME, a["Huda"], {"outcome": "Approved"})
+    d2 = detail(ACME, a["Khalid"], sid2, "Approved")
+    fallback_event = next((e for e in d2.get("events", []) if "fallback" in e.get("detail", "").lower()), None)
+    check("9d timeline records why the fallback was used", fallback_event is not None, str(fallback_event))
 
 def restart_before():
     """Puts one request per tenant at a pending human step, then records their ids for restart_after."""
@@ -281,7 +360,7 @@ if __name__ == "__main__":
     elif mode is None:
         for n, f in [("Step 1 happy path", s1), ("Step 2 conditional routing", s2), ("Step 3 reject path", s3),
                      ("Step 4 form versioning", s4), ("Step 5 tenant isolation", s5), ("Step 6 reporting values", s6),
-                     ("Step 7 form creation, routing, admin-only", s7)]:
+                     ("Step 7 form creation, routing, admin-only", s7), ("Step 9 workflow designer", step9)]:
             step(n, f)
     else:
         log(f"Unknown mode {mode!r}. Use no argument, 'restart-before' or 'restart-after'.")

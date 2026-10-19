@@ -1,3 +1,5 @@
+using Elsa.Workflows;
+
 namespace Workmate.Poc.WorkflowEngine;
 
 /// <summary>
@@ -17,6 +19,9 @@ public interface IWorkflowGateway
 
     /// <summary>Whether the engine still has a workflow instance with this id (it may have been lost, e.g. a deleted store).</summary>
     Task<bool> InstanceExistsAsync(string workflowInstanceId);
+
+    /// <summary>Publishes a hand-built activity graph (a designed workflow) as a new Elsa definition version.</summary>
+    Task<(string DefinitionId, int Version)> PublishDesignedWorkflowAsync(string definitionId, string name, Guid tenantId, IActivity root);
 }
 
 public record WorkflowDefinitionInfo(string DefinitionId, string Name);

@@ -52,7 +52,7 @@ Then read `README.md` (how to run, demo steps) and `CHANGELOG.md` (every change 
 | Vendor | Aramis Support (vendor admin, any company) |
 
 ### Open items (awaiting Ahmad's decision unless noted)
-1. **No-manager fallback:** anyone without a line manager (e.g. Omar) gets stuck at a "line-manager" step. Proposal: in `AssignmentResolver`, fall back to `role:HR` when there is no manager (keeps design rule 3). Ahmad has not decided yet.
+1. ~~**No-manager fallback:** anyone without a line manager (e.g. Omar) gets stuck at a "line-manager" step.~~ **Closed by Phase D** (FR-010): every designed workflow requires a fallback approver, used whenever a rule (including `manager-of-manager`) resolves to nobody. The two code-defined workflows (`leave-approval`, `hr-only-approval`) are unchanged and keep today's "stuck, rule or HR data needs fixing" behaviour until they are re-created in the designer (FR-011).
 2. **SQLite security warning (NU1903)** on `SQLitePCLRaw.lib.e_sqlite3` 2.1.10 (CVE-2025-6965, fixed in SQLite ≥ 3.50.2). Pin a newer `SQLitePCLRaw.bundle_e_sqlite3` once the right version is confirmed (`dotnet package search SQLitePCLRaw.bundle_e_sqlite3 --exact-match`). Needs Ahmad's OK (package change).
 3. Housekeeping: add `*.log` to `.gitignore`; delete the stray empty file `.claude_write_test` in the project root.
 
@@ -64,6 +64,15 @@ Then read `README.md` (how to run, demo steps) and `CHANGELOG.md` (every change 
 - `demo.py restart-before` / `restart-after`: a request per tenant is left pending, the app is restarted by hand, then each resumes at the same step (approve, reject, and the HR-only route), tenant isolation holds, and per-tenant employee/form counts are unchanged.
 - Fixed two latent demo.py bugs surfaced by running steps 1-7 repeatedly on a non-empty database: `leave-request` submissions failed once a prior run had published a version requiring `handoverTo`; step 7's form keys (`business-trip`, `asset-request`) collided with a prior run's forms.
 
+### Done and verified (demo.py steps 1-7 and 9: 52 PASS, 0 FAIL; step 8 restart check re-verified unchanged)
+**Phase D — client-admin approval route designer (option B)**
+- Admins build workflows step by step (line manager, manager's manager, role, specific user; required fallback; per-step reject: end or back to previous step) in a new Workflow designer tab; publishing turns the steps into a real Elsa definition through the gateway only.
+- `AssignmentResolver` gained `manager-of-manager` and `user:{EmployeeId}`, and now excludes the submitter from every rule's candidates — for all workflows, including the two existing ones (closes a latent self-approval gap).
+- Three real Elsa integration bugs found only by actually publishing and running a hand-built graph (not just building it) — see CHANGELOG for details: a missing `Container.Activities` registration (crashed on publish), a missing explicit entry point once that was fixed (`Flowchart.Start` isn't persisted; a reject-to-previous back-edge removes the only structural "no incoming connections" node), and missing `NodeId`s breaking resume after the first suspension (`IIdentityGraphService.AssignIdentitiesAsync` must be called explicitly for hand-built graphs).
+- Also found and fixed: `ListPublishedAsync()` returning both code-defined and designed workflows from the same Elsa store, which let a designed workflow's id slip past the tenant-ownership check in routing (not just a cosmetic duplicate in the workflow list).
+- Routing's condition value input now adapts to the chosen field's type (dropdown/Yes-no/number/date/text), validated server-side too, with existing bindings flagged if a later form edit makes them stale.
+- Trimmed spec 002's "active"/"left" employee wording: no such concept exists in `Employee`; the fallback path is demonstrated via a rule that naturally resolves to nobody instead.
+
 ## 4. The plan to complete the PoC
 
 Each phase ends with something demoable, and `demo.py` gains checks for it.
@@ -73,18 +82,19 @@ Each phase ends with something demoable, and `demo.py` gains checks for it.
 | A | Housekeeping | SQLite pin, `.gitignore`, stray file | Clean build, no warnings | S | Open (needs OK for pin) |
 | B | Form creation + routing UI | See §3 | Admin creates and routes a new form with no code | M | **Done; verified** |
 | C | Elsa persistence (Phase 2 item 1) | Elsa on EF Core (SQLite for the PoC); turn off DB reset on startup | Restart mid-approval resumes correctly; prerequisite for D | M | **Done; verified** |
-| D | Workflow designer | **Option A:** host Elsa Studio behind ABP OpenIddict + permissions (Phase 2 item 2) and enable Elsa multi-tenancy from ABP's `ICurrentTenant` (Phase 2 item 3). **Option B:** own approval-route designer (ordered steps, assignment rule, reject behaviour) that the gateway turns into an Elsa definition | Admin draws a new workflow, binds it to a form, runs it, isolated per tenant | M | **Decided: option B** (2026-10-20); spec `specs/002-route-designer` |
+| D | Workflow designer | **Option A:** host Elsa Studio behind ABP OpenIddict + permissions (Phase 2 item 2) and enable Elsa multi-tenancy from ABP's `ICurrentTenant` (Phase 2 item 3). **Option B:** own approval-route designer (ordered steps, assignment rule, reject behaviour) that the gateway turns into an Elsa definition | Admin draws a new workflow, binds it to a form, runs it, isolated per tenant | M | **Done; verified** (option B, 2026-10-20); spec `specs/002-route-designer` |
 | H | Sign-in + client onboarding | ABP Identity/OpenIddict/Account/TenantManagement (open source); no self-registration; vendor admin creates company + client admin; permissions replace `IsAdmin` | Real auth, no sign-up, tenant from the account | L | Spec `specs/003-login-onboarding` |
 | I | Employees + org structure | Client admin manages employees, departments (OrganizationUnit), unit heads, roles catalogue; new `department-head` approver | Client runs without vendor help | M | Spec `specs/004-employees-org` |
 | J | Email notifications | Assigned / approved / rejected / sent back emails; per-form templates for initiator and approver side; Mailpit locally | Notifications with editable templates | M | Spec `specs/005-email-notifications` |
+| K | Switchable renderer | SurveyJS Form Library (MIT) next to the native renderer; demo toggle, per-form and company setting; canonical schema unchanged | Compare renderers on the same forms | S–M | Spec `specs/006-surveyjs-renderer` |
 | E | Version pinning (Phase 2 item 4) | Publish workflow v2 while v1 requests are in flight | Running requests keep their version | S | Planned |
 | F | Reliable start (Phase 2 item 5) | ABP distributed event bus + outbox replaces `CurrentUnitOfWork.OnCompleted` start hook | Crash between submit and start loses nothing | M | **In-scope decision pending** |
 | G | Wrap-up | Final demo run, README, findings + go/no-go in the design doc | Decision-ready | S | Planned |
 
-Order: A → B (verify) → C (done) → D → H → I → J → E → F → G (H–J added 2026-10-20). Hard dependencies: C before D; H before I; H and I before J.
+Order: A → B (verify) → C (done) → D (done) → H → I → J → K → E → F → G (H–K added 2026-10-20; K has no dependencies and can move earlier). Hard dependencies: C before D; H before I; H and I before J.
 **Phase D decision (2026-10-20): option B.** Workmate HRM is multi-tenant SaaS: client HR admins design workflows, so the designer must be simple, run no client code on shared servers, keep routes in our tenant-filtered tables, and survive Elsa upgrades (our route model is the contract; Elsa definitions are generated). Elsa and Elsa Studio are MIT, but ABP's Elsa Pro integration needs an ABP Team licence (ruled out). Studio may be added later for Aramis staff only. Scope added by Ahmad: each step asks the approver type (line manager, manager's manager, role → which role, specific user → which user); routing value inputs adapt to the chosen field's type. For go/no-go, record that Studio hosting/auth was not proven.
 
-**Decisions Ahmad still owes:** whether F is in PoC scope; SQLite pin; fallback approver when a rule resolves to nobody (now FR-010 in spec 002, also covers the no-manager case).
+**Decisions Ahmad still owes:** whether F is in PoC scope; SQLite pin.
 
 ## 5. Design rules (must hold in every phase)
 
@@ -103,7 +113,7 @@ Order: A → B (verify) → C (done) → D → H → I → J → E → F → G (
 - Keep all `Volo.Abp.*` packages on one version; Elsa stays on 3.7.x unless Ahmad agrees.
 - Do not change architecture or data model just to make something compile; adapt to the library API. If a design rule cannot be kept, stop and ask.
 - Do not push to any remote or touch `workmate-platform-api`.
-- The fake sign-in (`X-Demo-User` header) and the PoC admin check are intentional; leave them unless a phase replaces them (Phase D option A brings OpenIddict for Studio).
+- The fake sign-in (`X-Demo-User` header) and the PoC admin check are intentional; leave them unless a phase replaces them (Phase H brings OpenIddict; Elsa Studio, if ever hosted, is vendor-staff-only, not client-facing — Phase D is option B, no Studio).
 - Log every change in `CHANGELOG.md`, one line each.
 
 ## 7. Code map (short)
@@ -112,17 +122,20 @@ Order: A → B (verify) → C (done) → D → H → I → J → E → F → G (
 | --- | --- |
 | `Domain/Forms.cs`, `Domain/Processes.cs`, `Domain/Employee.cs` | Forms (definitions, immutable versions, submissions, typed values, schema), Processes (bindings, instances, tasks, timeline), HR stand-in (`IsAdmin`) |
 | `Application/ProcessManager.cs` | Glue: picks a binding, starts the workflow after commit, creates tasks, records outcomes |
-| `Application/AssignmentResolver.cs` | `line-manager`, `role:{Role}` |
-| `Application/FormAppService.cs`, `RoutingAppService.cs` | Admin-only design and routing |
+| `Application/AssignmentResolver.cs` | `line-manager`, `manager-of-manager`, `role:{Role}`, `user:{EmployeeId}`; submitter always excluded; fallback when empty |
+| `Application/FormAppService.cs`, `RoutingAppService.cs` | Admin-only form design and routing (merges code-defined + designed workflows; tenant-scoped binding validation) |
+| `Application/ApprovalWorkflowAppService.cs` | Workflow designer: create/draft/publish a designed workflow |
 | `Application/SubmissionAppService.cs`, `TaskAppService.cs` | Submit, my requests, inbox, complete task |
 | `Application/CurrentEmployeeProvider.cs` | Current employee + `EnsureAdminAsync` |
 | `WorkflowEngine/IWorkflowGateway.cs`, `ElsaWorkflowGateway.cs` | The only door into Elsa |
 | `WorkflowEngine/Activities/HumanTask.cs`, `CompleteProcess.cs` | Custom activities (bookmark + outcomes; final status) |
-| `WorkflowEngine/Workflows/*.cs` | `leave-approval` ("Line manager, then HR"), `hr-only-approval` ("HR only") |
+| `WorkflowEngine/Workflows/*.cs` | `leave-approval` ("Line manager, then HR"), `hr-only-approval` ("HR only") — code-defined |
+| `WorkflowEngine/ApprovalWorkflowGraphBuilder.cs` | Turns a designed workflow's steps into a plain Elsa activity graph |
+| `Domain/ApprovalWorkflows.cs` | Designed workflow entities, step schema + validation |
 | `Data/DemoDataSeeder.cs`, `Data/PocDbContext.cs` | Seed data; table prefixes `Hr_`, `Forms_`, `Proc_` |
 | `Controllers/PocController.cs` | `/api/poc/...` routes |
-| `wwwroot/index.html` | Demo UI incl. form designer and routing |
-| `demo.py` | API demo/regression script (steps 1–7) |
+| `wwwroot/index.html` | Demo UI incl. form designer, workflow designer and routing |
+| `demo.py` | API demo/regression script (steps 1–7, 9; two-part restart check 8) |
 
 ## 8. Continuing with spec-kit
 
