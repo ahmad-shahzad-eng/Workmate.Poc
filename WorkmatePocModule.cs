@@ -1,4 +1,7 @@
 using Elsa.Extensions;
+using Elsa.Persistence.EFCore.Extensions;
+using Elsa.Persistence.EFCore.Modules.Management;
+using Elsa.Persistence.EFCore.Modules.Runtime;
 using Volo.Abp;
 using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.AspNetCore.Mvc.AntiForgery;
@@ -25,6 +28,10 @@ public class WorkmatePocModule : AbpModule
 {
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
+        // --- Reset must run before anything opens either SQLite file: Elsa's own migrations
+        // run from a hosted service that can open workmate-elsa.db before the seeder does.
+        PocDatabaseReset.Apply(context.Services.GetConfiguration());
+
         // --- Multi-tenancy: two demo tenants held in configuration (no tenant management module needed)
         Configure<AbpMultiTenancyOptions>(o => o.IsEnabled = true);
         Configure<AbpDefaultTenantStoreOptions>(o =>
@@ -41,11 +48,14 @@ public class WorkmatePocModule : AbpModule
         Configure<AbpDbContextOptions>(o => o.UseSqlite());
         context.Services.AddAbpDbContext<PocDbContext>(o => o.AddDefaultRepositories(includeAllEntities: true));
 
-        // --- Elsa 3: code-defined workflows + custom activities, in-memory persistence for the PoC
+        // --- Elsa 3: code-defined workflows + custom activities, EF Core SQLite persistence (own file)
+        var elsaConnectionString = context.Services.GetConfiguration().GetConnectionString("Elsa");
         context.Services.AddElsa(elsa =>
         {
             elsa.AddActivitiesFrom<WorkmatePocModule>();
             elsa.AddWorkflowsFrom<WorkmatePocModule>();
+            elsa.UseWorkflowManagement(m => m.UseEntityFrameworkCore(ef => ef.UseSqlite(elsaConnectionString)));
+            elsa.UseWorkflowRuntime(r => r.UseEntityFrameworkCore(ef => ef.UseSqlite(elsaConnectionString)));
         });
     }
 
@@ -63,5 +73,6 @@ public class WorkmatePocModule : AbpModule
 
         using var scope = context.ServiceProvider.CreateScope();
         await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
+        await scope.ServiceProvider.GetRequiredService<Application.WorkflowConsistencyCheck>().RunAsync();
     }
 }

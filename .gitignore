@@ -7,3 +7,4 @@ obj/
 .idea/
 *.user
 *.log
+demo_restart.json

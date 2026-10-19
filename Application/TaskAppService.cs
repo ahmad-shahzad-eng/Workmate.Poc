@@ -61,6 +61,8 @@ public class TaskAppService : ApplicationService
             throw new UserFriendlyException("This task is not assigned to you.");
         if (!TaskOutcomes.All.Contains(input.Outcome))
             throw new UserFriendlyException($"Outcome must be one of: {string.Join(", ", TaskOutcomes.All)}.");
+        if (!await _gateway.InstanceExistsAsync(task.ElsaWorkflowInstanceId))
+            throw new UserFriendlyException("This request's workflow can no longer be found. Ask an admin to reset the demo.");
 
         task.Status = TaskStatusValues.Completed;
         task.Outcome = input.Outcome;

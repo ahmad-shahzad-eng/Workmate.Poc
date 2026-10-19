@@ -14,6 +14,9 @@ public interface IWorkflowGateway
 
     /// <summary>Published workflow definitions an admin can bind a form to.</summary>
     Task<IReadOnlyList<WorkflowDefinitionInfo>> ListPublishedAsync();
+
+    /// <summary>Whether the engine still has a workflow instance with this id (it may have been lost, e.g. a deleted store).</summary>
+    Task<bool> InstanceExistsAsync(string workflowInstanceId);
 }
 
 public record WorkflowDefinitionInfo(string DefinitionId, string Name);

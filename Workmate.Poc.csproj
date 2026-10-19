@@ -17,6 +17,7 @@
 
     <!-- Elsa Workflows 3 (core + management + runtime, in-memory stores by default) -->
     <PackageReference Include="Elsa" Version="3.7.0" />
+    <PackageReference Include="Elsa.Persistence.EFCore.Sqlite" Version="3.7.0" />
   </ItemGroup>
 
 </Project>

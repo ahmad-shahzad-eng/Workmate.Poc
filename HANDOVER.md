@@ -56,6 +56,14 @@ Then read `README.md` (how to run, demo steps) and `CHANGELOG.md` (every change 
 2. **SQLite security warning (NU1903)** on `SQLitePCLRaw.lib.e_sqlite3` 2.1.10 (CVE-2025-6965, fixed in SQLite ≥ 3.50.2). Pin a newer `SQLitePCLRaw.bundle_e_sqlite3` once the right version is confirmed (`dotnet package search SQLitePCLRaw.bundle_e_sqlite3 --exact-match`). Needs Ahmad's OK (package change).
 3. Housekeeping: add `*.log` to `.gitignore`; delete the stray empty file `.claude_write_test` in the project root.
 
+### Done and verified (demo.py step 8: 11 PASS, 0 FAIL; steps 1-7 re-verified on a non-empty database)
+**Phase C — Elsa persistence (EF Core SQLite, own file), reset-on-startup off by default**
+- Elsa on `Elsa.Persistence.EFCore.Sqlite` 3.7.0 (the plan named `Elsa.EntityFrameworkCore.Sqlite`, Elsa's pre-3.6 package id; it was renamed in the 3.6 line, same `Elsa` 3.7.0 version otherwise — see CHANGELOG).
+- `Data/PocDatabaseReset.cs` deletes both SQLite files (+ `-shm`/`-wal`) before anything opens them, only when `Poc:ResetDatabaseOnStartup` is `true` (now defaults to `false`).
+- `IWorkflowGateway.InstanceExistsAsync`; `TaskAppService.CompleteAsync` refuses to complete a task whose workflow instance is missing; `WorkflowConsistencyCheck` warns at startup for any `Running` process with a missing instance. Both treat a workflow-store query failure the same as "not found" (fixed a startup crash found while testing the mismatch path, see CHANGELOG).
+- `demo.py restart-before` / `restart-after`: a request per tenant is left pending, the app is restarted by hand, then each resumes at the same step (approve, reject, and the HR-only route), tenant isolation holds, and per-tenant employee/form counts are unchanged.
+- Fixed two latent demo.py bugs surfaced by running steps 1-7 repeatedly on a non-empty database: `leave-request` submissions failed once a prior run had published a version requiring `handoverTo`; step 7's form keys (`business-trip`, `asset-request`) collided with a prior run's forms.
+
 ## 4. The plan to complete the PoC
 
 Each phase ends with something demoable, and `demo.py` gains checks for it.
@@ -64,13 +72,13 @@ Each phase ends with something demoable, and `demo.py` gains checks for it.
 |---|---|---|---|---|---|
 | A | Housekeeping | SQLite pin, `.gitignore`, stray file | Clean build, no warnings | S | Open (needs OK for pin) |
 | B | Form creation + routing UI | See §3 | Admin creates and routes a new form with no code | M | **Done; verified** |
-| C | Elsa persistence (Phase 2 item 1) | Elsa on EF Core (SQLite for the PoC); turn off DB reset on startup | Restart mid-approval resumes correctly; prerequisite for D | M | Next |
+| C | Elsa persistence (Phase 2 item 1) | Elsa on EF Core (SQLite for the PoC); turn off DB reset on startup | Restart mid-approval resumes correctly; prerequisite for D | M | **Done; verified** |
 | D | Workflow designer | **Option A:** host Elsa Studio behind ABP OpenIddict + permissions (Phase 2 item 2) and enable Elsa multi-tenancy from ABP's `ICurrentTenant` (Phase 2 item 3). **Option B:** own approval-route designer (ordered steps, assignment rule, reject behaviour) that the gateway turns into an Elsa definition | Admin draws a new workflow, binds it to a form, runs it, isolated per tenant | L (A) / M (B) | **Decision pending** |
 | E | Version pinning (Phase 2 item 4) | Publish workflow v2 while v1 requests are in flight | Running requests keep their version | S | Planned |
 | F | Reliable start (Phase 2 item 5) | ABP distributed event bus + outbox replaces `CurrentUnitOfWork.OnCompleted` start hook | Crash between submit and start loses nothing | M | **In-scope decision pending** |
 | G | Wrap-up | Final demo run, README, findings + go/no-go in the design doc | Decision-ready | S | Planned |
 
-Order: A → B (verify) → C → D → E → F → G. Hard dependency: C before D.
+Order: A → B (verify) → C (done) → D → E → F → G. Hard dependency: C before D.
 Recommendation given to Ahmad: Option A for the PoC (proves Elsa's visual designer with no custom UI); Option B later if HR admins find Studio too technical.
 
 **Decisions Ahmad still owes:** D option (A or B); whether F is in PoC scope; SQLite pin; no-manager fallback.

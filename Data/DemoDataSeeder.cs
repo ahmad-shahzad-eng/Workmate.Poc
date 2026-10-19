@@ -15,18 +15,17 @@ public class DemoDataSeeder : ITransientDependency
     private readonly IDbContextProvider<PocDbContext> _db;
     private readonly ICurrentTenant _currentTenant;
     private readonly IGuidGenerator _guids;
-    private readonly IConfiguration _config;
     private readonly IRepository<Employee, Guid> _employees;
     private readonly IRepository<FormDefinition, Guid> _forms;
     private readonly IRepository<FormDefinitionVersion, Guid> _versions;
     private readonly IRepository<ProcessBinding, Guid> _bindings;
 
     public DemoDataSeeder(IUnitOfWorkManager uow, IDbContextProvider<PocDbContext> db, ICurrentTenant currentTenant,
-        IGuidGenerator guids, IConfiguration config, IRepository<Employee, Guid> employees,
+        IGuidGenerator guids, IRepository<Employee, Guid> employees,
         IRepository<FormDefinition, Guid> forms, IRepository<FormDefinitionVersion, Guid> versions,
         IRepository<ProcessBinding, Guid> bindings)
     {
-        _uow = uow; _db = db; _currentTenant = currentTenant; _guids = guids; _config = config;
+        _uow = uow; _db = db; _currentTenant = currentTenant; _guids = guids;
         _employees = employees; _forms = forms; _versions = versions; _bindings = bindings;
     }
 
@@ -35,10 +34,6 @@ public class DemoDataSeeder : ITransientDependency
         using (var uow = _uow.Begin(requiresNew: true, isTransactional: false))
         {
             var db = await _db.GetDbContextAsync();
-            // Elsa uses in-memory stores in this PoC, so a restart loses running workflows.
-            // Resetting the database keeps ABP data and Elsa state consistent.
-            if (_config.GetValue("Poc:ResetDatabaseOnStartup", true))
-                await db.Database.EnsureDeletedAsync();
             await db.Database.EnsureCreatedAsync();
             await uow.CompleteAsync();
         }

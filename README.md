@@ -22,8 +22,10 @@ Requirements: .NET 10 SDK.
 dotnet run
 ```
 
-Open http://localhost:5080. The database (`workmate-poc.db`, SQLite) is recreated on every start,
-because Elsa keeps workflow state in memory in this PoC (see "Phase 2").
+Open http://localhost:5080. Domain data (`workmate-poc.db`) and workflow state (`workmate-elsa.db`,
+Elsa's own EF Core SQLite persistence) both survive a restart. Set `Poc:ResetDatabaseOnStartup` to
+`true` (`appsettings.json`) for a clean, re-seeded demo; it deletes both files together so they never
+get out of step.
 
 Use the **Company** and **Acting as** dropdowns at the top to switch tenant and person.
 Sign-in is faked with an `X-Demo-User` header (`Http/DemoUserMiddleware.cs`); production uses ABP Identity + OpenIddict.
@@ -55,7 +57,17 @@ Sign-in is faked with an `X-Demo-User` header (`Http/DemoUserMiddleware.cs`); pr
    (or edit the JSON), publish it, then add routes under Routing: a default route plus conditional ones (field equals value).
    Sara can now pick it under New request. Huda (HR) and Sara do not see Form designer, and the API refuses them.
 
+8. **Restart mid-approval.** Submit a request and leave it pending at a human step, then stop and restart the app
+   (reset off). The task is still there; approving it resumes the workflow at the same step, in both tenants.
+
 `demo.py` runs steps 1-7 against the API and writes `demo.log` (`python3 demo.py` with the app freshly started).
+Step 8 is two-part, around a manual restart:
+
+```bash
+python3 demo.py restart-before   # submits pending requests, records their ids in demo_restart.json
+# stop and restart the app (reset off) here
+python3 demo.py restart-after    # resumes and completes them, checks tenant isolation and unchanged counts
+```
 
 ## Code map
 
@@ -71,7 +83,8 @@ Sign-in is faked with an `X-Demo-User` header (`Http/DemoUserMiddleware.cs`); pr
 | `WorkflowEngine/Activities/HumanTask.cs` | Custom Elsa activity: create task, bookmark, wait for outcome |
 | `WorkflowEngine/Activities/CompleteProcess.cs` | Custom Elsa activity: write final status to domain records |
 | `WorkflowEngine/Workflows/*.cs` | The two workflows, defined in code for the PoC |
-| `Data/` | ABP DbContext (table prefixes stand in for module schemas) and demo seed data |
+| `Data/` | ABP DbContext (table prefixes stand in for module schemas), demo seed data, startup DB reset |
+| `Application/WorkflowConsistencyCheck.cs` | Startup-only: warns if a running process's workflow instance is missing |
 | `wwwroot/index.html` | Demo UI: form renderer, my requests, inbox, JSON form designer with preview |
 
 ## If it does not compile
@@ -94,7 +107,7 @@ Where they are most likely:
 | --- | --- |
 | Fake sign-in from a header | ABP Identity + OpenIddict, permissions per role |
 | Workflow start via `OnCompleted` after commit | `FormSubmittedEto` on ABP's distributed event bus with the outbox |
-| Elsa in-memory stores, DB reset on start | Elsa EF Core persistence, same server as ABP, own schema |
+| Elsa EF Core persistence in its own SQLite file | Same server as ABP, own schema |
 | Workflows defined in C# | Admins draw them in Elsa Studio with the same custom activities |
 | Assignment rules hard-coded (`line-manager`, `role:X`) | `AssignmentRule` entities over the real org structure |
 | Binding condition is `field == value` | Elsa expressions or a decision table |
@@ -103,7 +116,7 @@ Where they are most likely:
 
 ## Phase 2 (after this PoC passes)
 
-1. Switch Elsa to EF Core persistence; turn off `Poc:ResetDatabaseOnStartup`; prove a restart mid-approval resumes correctly.
+1. ~~Switch Elsa to EF Core persistence; turn off `Poc:ResetDatabaseOnStartup`; prove a restart mid-approval resumes correctly.~~ **Done** (step 8).
 2. Host Elsa Studio, authenticated through ABP OpenIddict and gated by ABP permissions.
 3. Enable Elsa multi-tenancy with a tenant resolver backed by ABP's `ICurrentTenant`.
 4. Publish a second workflow version while requests are in flight; prove running instances keep their version.
