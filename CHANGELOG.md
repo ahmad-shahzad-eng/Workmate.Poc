@@ -38,3 +38,5 @@ Changes made while getting the PoC to build, start and pass the README demo.
 - `README.md`: people table and the two kinds of admin.
 - `HANDOVER.md` (new): handover for the next session (state, plan, decisions, rules, spec-kit steps).
 - `.specify/memory/constitution.md`: filled the Spec Kit constitution from HANDOVER.md §5–§6 (v1.0.0).
+- `specs/001-elsa-persistence/spec.md` (new): Spec Kit spec for Phase C, Elsa persistence across restarts.
+- `.gitignore`: ignore `*.log` (housekeeping item 3). Run `git rm --cached build.log demo.log run.log` once to untrack them.
