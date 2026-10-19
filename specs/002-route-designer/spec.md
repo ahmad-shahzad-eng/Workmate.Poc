@@ -85,7 +85,7 @@ In Routing, when the admin picks the field in "When field ...", the value input 
 - Role with no members at run time: the step goes to the fallback (FR-010); never stuck silently.
 - The submitter is never an approver of their own request: they are removed from every step's candidates at run time. If that leaves nobody, the step goes to the workflow's fallback (decided 2026-10-20).
 - Line manager / manager's manager missing (e.g. Omar has no manager): same fallback; this closes open item 1 in HANDOVER.md §3.
-- A published workflow is in use by routes: it can get new versions but cannot be deleted; it can be deactivated.
+- A published workflow is in use by routes: it can get new versions but cannot be deleted; it can be deactivated (the `IsActive` flag exists and is already respected by routing and binding validation — **the admin-facing toggle to set it, API and UI, is an owed follow-up, not built in Phase D**).
 - Editing the form after a route was saved: see US3 scenario 4.
 
 ## Clarifications
@@ -94,6 +94,7 @@ In Routing, when the admin picks the field in "When field ...", the value input 
 
 - Q: Fallback when a step finds nobody? → A: Chosen per workflow (role or specific user), required to publish.
 - Q: Submitter as approver? → A: Never; the submitter is excluded from candidates of their own request.
+- Q: The edge case says a published workflow "can be deactivated", but no admin-facing deactivate action was built in Phase D — correct the wording, or track it as a follow-up? → A: Keep the wording as a true statement about the data model (the `IsActive` flag exists and is already enforced everywhere it matters — routing list, binding validation); track the admin-facing toggle (API + UI) as an owed follow-up, not yet built.
 
 ## Requirements *(mandatory)*
 
@@ -130,4 +131,5 @@ In Routing, when the admin picks the field in "When field ...", the value input 
 - Roles are the existing employee roles (Employee, Manager, HR) plus any added to demo data (e.g. Finance); a role catalogue per tenant is production work.
 - Employees have no active/inactive or leaver concept in this PoC (`Employee` has no such field); a "specific user" step always targets a current HR record. The fallback-on-empty-resolution path (FR-010) is demonstrated via a rule that naturally resolves to nobody (manager's manager missing), not via deactivating or deleting an employee.
 - Parallel approval, timers/escalation, conditions inside a workflow and "next approver chosen by the current approver" are out of scope for the PoC; record them as follow-ups.
+- An admin-facing way to deactivate a published workflow (API + UI toggle for `ApprovalWorkflow.IsActive`) is an owed follow-up: the flag and its enforcement already exist, but nothing sets it yet.
 - Depends on Phase C (persistent workflow store).
