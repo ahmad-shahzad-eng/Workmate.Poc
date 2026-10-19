@@ -11,7 +11,7 @@ Published form versions never change. A submission always renders and validates 
 Workflows start and resume only after the related transaction commits. No workflow side effect may run inside an uncommitted unit of work.
 
 ### III. Assignment from HR data
-Task candidates come from HR data through `AssignmentResolver` (`line-manager`, `role:{Role}`, future rules). Workflows never name specific people.
+Task candidates are resolved at run time by `AssignmentResolver` from rules stored as data (`line-manager`, `manager-of-manager`, `role:{Role}`, `user:{EmployeeId}`). Code-defined workflows never name specific people. A company admin may pick a specific user in a designed workflow; that user must belong to the tenant, and a rule that resolves to nobody or only to the submitter goes to a defined fallback, never leaves a request stuck.
 
 ### IV. Tenant isolation (NON-NEGOTIABLE)
 Tenant id travels in workflow input and is re-applied inside every activity. Nothing bypasses ABP's tenant filter. Every feature that touches data proves isolation in `demo.py`.
@@ -45,4 +45,4 @@ Form design and routing are admin-only (company admin flag or vendor admin). Eve
 
 This constitution overrides other practices in this repo. If code and the design doc disagree, follow the design rules and tell Ahmad. Amendments need Ahmad's approval, a version bump and a CHANGELOG line. Every plan's Constitution Check lists Principles I–VII and the gates above.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-10-20
+**Version**: 1.1.0 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-10-20 (III: specific-user steps, approved by Ahmad)

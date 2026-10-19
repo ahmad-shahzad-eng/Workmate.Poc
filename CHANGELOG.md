@@ -55,3 +55,9 @@ Changes made while getting the PoC to build, start and pass the README demo.
 - `demo.py`: `restart-before` / `restart-after` modes add step 8 (8a-8e: resume at the same step in both tenants, reject path, tenant isolation, unchanged per-tenant counts across a manual restart). Also fixed two bugs surfaced by running steps 1-7 repeatedly on a non-empty database (required for FR-008): `annual`/`sick` now include a harmless default `handoverTo` so they stay valid once a prior run's step 4 has required it; step 7's form keys are suffixed with a per-run id so they don't collide with a prior run's forms; step 5b's own-requests check is now relative to its own before/after count instead of assuming zero prior requests.
 - `.gitignore`: ignore `demo_restart.json`.
 - Verified: fresh DB (reset on) → steps 1-7 (36/36); reset off → steps 1-7 three times in a row on the same database (36/36 each); step 8 around a real restart (11/11); the mismatch path (delete `workmate-elsa.db` only) logs a startup warning per affected process and fails cleanly on approve, without crashing the app.
+- `specs/002-route-designer/spec.md` (new): Phase D option B spec (approver type per step; routing value input by field type).
+- `.specify/memory/constitution.md`: v1.1.0, Principle III allows admin-picked specific users with tenant check and fallback.
+- `HANDOVER.md`: Phase D decided (option B, SaaS reasons), design rule 3 updated, open decisions refreshed.
+- `specs/002-route-designer/spec.md`: clarified (fallback chosen per workflow; submitter never an approver of own request).
+- `specs/003-login-onboarding`, `specs/004-employees-org`, `specs/005-email-notifications` (new): seeded specs for sign-in/onboarding, employees and org structure, email notifications with templates.
+- `HANDOVER.md`: added phases H (sign-in/onboarding), I (employees/org), J (emails) and the new order.

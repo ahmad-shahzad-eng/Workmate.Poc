@@ -73,21 +73,24 @@ Each phase ends with something demoable, and `demo.py` gains checks for it.
 | A | Housekeeping | SQLite pin, `.gitignore`, stray file | Clean build, no warnings | S | Open (needs OK for pin) |
 | B | Form creation + routing UI | See §3 | Admin creates and routes a new form with no code | M | **Done; verified** |
 | C | Elsa persistence (Phase 2 item 1) | Elsa on EF Core (SQLite for the PoC); turn off DB reset on startup | Restart mid-approval resumes correctly; prerequisite for D | M | **Done; verified** |
-| D | Workflow designer | **Option A:** host Elsa Studio behind ABP OpenIddict + permissions (Phase 2 item 2) and enable Elsa multi-tenancy from ABP's `ICurrentTenant` (Phase 2 item 3). **Option B:** own approval-route designer (ordered steps, assignment rule, reject behaviour) that the gateway turns into an Elsa definition | Admin draws a new workflow, binds it to a form, runs it, isolated per tenant | L (A) / M (B) | **Decision pending** |
+| D | Workflow designer | **Option A:** host Elsa Studio behind ABP OpenIddict + permissions (Phase 2 item 2) and enable Elsa multi-tenancy from ABP's `ICurrentTenant` (Phase 2 item 3). **Option B:** own approval-route designer (ordered steps, assignment rule, reject behaviour) that the gateway turns into an Elsa definition | Admin draws a new workflow, binds it to a form, runs it, isolated per tenant | M | **Decided: option B** (2026-10-20); spec `specs/002-route-designer` |
+| H | Sign-in + client onboarding | ABP Identity/OpenIddict/Account/TenantManagement (open source); no self-registration; vendor admin creates company + client admin; permissions replace `IsAdmin` | Real auth, no sign-up, tenant from the account | L | Spec `specs/003-login-onboarding` |
+| I | Employees + org structure | Client admin manages employees, departments (OrganizationUnit), unit heads, roles catalogue; new `department-head` approver | Client runs without vendor help | M | Spec `specs/004-employees-org` |
+| J | Email notifications | Assigned / approved / rejected / sent back emails; per-form templates for initiator and approver side; Mailpit locally | Notifications with editable templates | M | Spec `specs/005-email-notifications` |
 | E | Version pinning (Phase 2 item 4) | Publish workflow v2 while v1 requests are in flight | Running requests keep their version | S | Planned |
 | F | Reliable start (Phase 2 item 5) | ABP distributed event bus + outbox replaces `CurrentUnitOfWork.OnCompleted` start hook | Crash between submit and start loses nothing | M | **In-scope decision pending** |
 | G | Wrap-up | Final demo run, README, findings + go/no-go in the design doc | Decision-ready | S | Planned |
 
-Order: A → B (verify) → C (done) → D → E → F → G. Hard dependency: C before D.
-Recommendation given to Ahmad: Option A for the PoC (proves Elsa's visual designer with no custom UI); Option B later if HR admins find Studio too technical.
+Order: A → B (verify) → C (done) → D → H → I → J → E → F → G (H–J added 2026-10-20). Hard dependencies: C before D; H before I; H and I before J.
+**Phase D decision (2026-10-20): option B.** Workmate HRM is multi-tenant SaaS: client HR admins design workflows, so the designer must be simple, run no client code on shared servers, keep routes in our tenant-filtered tables, and survive Elsa upgrades (our route model is the contract; Elsa definitions are generated). Elsa and Elsa Studio are MIT, but ABP's Elsa Pro integration needs an ABP Team licence (ruled out). Studio may be added later for Aramis staff only. Scope added by Ahmad: each step asks the approver type (line manager, manager's manager, role → which role, specific user → which user); routing value inputs adapt to the chosen field's type. For go/no-go, record that Studio hosting/auth was not proven.
 
-**Decisions Ahmad still owes:** D option (A or B); whether F is in PoC scope; SQLite pin; no-manager fallback.
+**Decisions Ahmad still owes:** whether F is in PoC scope; SQLite pin; fallback approver when a rule resolves to nobody (now FR-010 in spec 002, also covers the no-manager case).
 
 ## 5. Design rules (must hold in every phase)
 
 1. Published form versions are immutable; a submission always renders with its own version.
 2. Workflows start and resume only after the related transaction commits.
-3. Assignment comes from HR data via `AssignmentResolver`, never hard-coded people in workflows.
+3. Assignment is resolved by `AssignmentResolver` from rules stored as data; code never hard-codes people. Admin-designed steps may name a specific user of the same tenant, with a fallback (constitution v1.1.0).
 4. Tenant id travels in workflow input and is re-applied inside activities; never bypass ABP's tenant filter.
 5. Reportable fields are written to `Forms_SubmissionValues` at submit time.
 6. **All calls to Elsa's runtime and stores stay inside `IWorkflowGateway` / `ElsaWorkflowGateway`.**
@@ -136,7 +139,7 @@ Then, in the new Claude session:
 2. ~~Verify Phase B~~ — done, steps 1–7 pass.
 3. One `/speckit.specify` per remaining phase, in plan order. Seed each with the phase row from §4, e.g.:
    - **C:** "Persist Elsa workflow state with EF Core so a restart mid-approval resumes correctly; turn off DB reset on startup."
-   - **D:** after Ahmad picks option A or B, specify that option.
+   - **D:** option B, already seeded in `specs/002-route-designer/spec.md`; run `/speckit-clarify` on it after Phase C.
    - **E, F, G** as in §4; **A** and the no-manager fallback can be small specs or direct changes once approved.
 4. `/speckit.clarify` to surface the pending decisions (§3 open items, §4 decisions) before `/speckit.plan`.
 5. `/speckit.plan` → `/speckit.tasks` → `/speckit.implement`; keep the build/demo loop from §2 as the acceptance check for every task.
