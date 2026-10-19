@@ -40,3 +40,4 @@ Changes made while getting the PoC to build, start and pass the README demo.
 - `.specify/memory/constitution.md`: filled the Spec Kit constitution from HANDOVER.md §5–§6 (v1.0.0).
 - `specs/001-elsa-persistence/spec.md` (new): Spec Kit spec for Phase C, Elsa persistence across restarts.
 - `.gitignore`: ignore `*.log` (housekeeping item 3). Run `git rm --cached build.log demo.log run.log` once to untrack them.
+- `specs/001-elsa-persistence/plan.md`, `tasks.md` (new): plan and 15 tasks for Phase C; Elsa.EntityFrameworkCore.Sqlite 3.7.0 approved.
