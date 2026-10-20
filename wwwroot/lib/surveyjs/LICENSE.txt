@@ -1,0 +1,11 @@
+SurveyJS Form Library (survey-core, survey-js-ui) v3.2.1
+https://surveyjs.io/
+
+License: MIT (http://www.opensource.org/licenses/mit-license.php)
+Copyright (c) 2015-2026 Devsoft Baltic OÜ
+
+Vendored as static files (no build step, no CDN at run time) from the official npm packages:
+https://www.npmjs.com/package/survey-core
+https://www.npmjs.com/package/survey-js-ui
+
+Not used: SurveyJS Creator, Dashboard, or PDF Generator (commercial, out of scope per the project constitution).

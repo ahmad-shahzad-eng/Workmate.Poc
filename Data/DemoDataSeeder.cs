@@ -19,14 +19,15 @@ public class DemoDataSeeder : ITransientDependency
     private readonly IRepository<FormDefinition, Guid> _forms;
     private readonly IRepository<FormDefinitionVersion, Guid> _versions;
     private readonly IRepository<ProcessBinding, Guid> _bindings;
+    private readonly IRepository<CompanyFormSettings, Guid> _companySettings;
 
     public DemoDataSeeder(IUnitOfWorkManager uow, IDbContextProvider<PocDbContext> db, ICurrentTenant currentTenant,
         IGuidGenerator guids, IRepository<Employee, Guid> employees,
         IRepository<FormDefinition, Guid> forms, IRepository<FormDefinitionVersion, Guid> versions,
-        IRepository<ProcessBinding, Guid> bindings)
+        IRepository<ProcessBinding, Guid> bindings, IRepository<CompanyFormSettings, Guid> companySettings)
     {
         _uow = uow; _db = db; _currentTenant = currentTenant; _guids = guids;
-        _employees = employees; _forms = forms; _versions = versions; _bindings = bindings;
+        _employees = employees; _forms = forms; _versions = versions; _bindings = bindings; _companySettings = companySettings;
     }
 
     public async Task SeedAsync()
@@ -59,6 +60,13 @@ public class DemoDataSeeder : ITransientDependency
         {
             if (await _employees.GetCountAsync() > 0) return;
 
+            // Phase K demo: Acme previews SurveyJS by default, Globex stays Native — also proves the
+            // setting is tenant-isolated (spec 006 US2).
+            await _companySettings.InsertAsync(new CompanyFormSettings(_guids.Create(), tenant.Id)
+            {
+                DefaultRenderer = withSickLeaveRoute ? FormRenderer.SurveyJs : FormRenderer.Native
+            });
+
             var people = new Dictionary<string, Employee>();
             foreach (var p in staff)
             {
@@ -72,8 +80,13 @@ public class DemoDataSeeder : ITransientDependency
             // Globex has only the default route. Same form key, different process per tenant.
             var leave = await SeedFormAsync(tenant, "leave-request", "Leave request", "Time off", LeaveRequestSchemaV1);
             if (withSickLeaveRoute)
+            {
                 await _bindings.InsertAsync(new ProcessBinding(_guids.Create(), tenant.Id, leave.Id,
                     HrOnlyApprovalWorkflow.DefinitionId, priority: 1, conditionField: "leaveType", conditionValue: "Sick"));
+                // Acme only: a v2 with a conditional required field and two pages, so the demo shows all
+                // three US4 extensions (spec 006 FR-009).
+                await AddLeaveRequestV2Async(leave);
+            }
             await BindDefaultAsync(tenant, leave, LeaveApprovalWorkflow.DefinitionId);
 
             // Other employee self-service forms.
@@ -98,12 +111,30 @@ public class DemoDataSeeder : ITransientDependency
         };
         form.CurrentVersionId = v1.Id;
         await _forms.InsertAsync(form);
-        await _versions.InsertAsync(v1);
+        // autoSave: AddLeaveRequestV2Async (Acme only) re-fetches v1 by id right after this returns;
+        // without a flush here that GetAsync races the still-pending insert and throws EntityNotFoundException.
+        await _versions.InsertAsync(v1, autoSave: true);
         return form;
     }
 
     private Task BindDefaultAsync(DemoTenant tenant, FormDefinition form, string workflowDefinitionId) =>
         _bindings.InsertAsync(new ProcessBinding(_guids.Create(), tenant.Id, form.Id, workflowDefinitionId, priority: 10));
+
+    private async Task AddLeaveRequestV2Async(FormDefinition form)
+    {
+        var v1 = await _versions.GetAsync(form.CurrentVersionId!.Value);
+        v1.Status = FormVersionStatus.Retired;
+        await _versions.UpdateAsync(v1);
+
+        var v2 = new FormDefinitionVersion(_guids.Create(), form.TenantId, form.Id, 2, LeaveRequestSchemaV2)
+        {
+            Status = FormVersionStatus.Published,
+            PublishedAt = DateTime.UtcNow
+        };
+        await _versions.InsertAsync(v2);
+        form.CurrentVersionId = v2.Id;
+        await _forms.UpdateAsync(form);
+    }
 
     private const string LeaveRequestSchemaV1 = """
     {
@@ -114,6 +145,23 @@ public class DemoDataSeeder : ITransientDependency
         { "key": "endDate", "label": "Last day", "type": "date", "required": true, "reportable": true },
         { "key": "days", "label": "Working days", "type": "number", "required": true, "reportable": true, "workflowVariable": true },
         { "key": "reason", "label": "Reason", "type": "textarea", "required": false }
+      ]
+    }
+    """;
+
+    /// <summary>Acme only — adds a conditional required field and two pages (spec 006 US4, FR-009).</summary>
+    private const string LeaveRequestSchemaV2 = """
+    {
+      "title": "Leave request",
+      "fields": [
+        { "key": "leaveType", "label": "Leave type", "type": "select", "options": ["Annual", "Sick", "Unpaid"], "required": true, "reportable": true, "workflowVariable": true, "page": "Details" },
+        { "key": "startDate", "label": "First day", "type": "date", "required": true, "reportable": true, "page": "Details" },
+        { "key": "endDate", "label": "Last day", "type": "date", "required": true, "reportable": true, "page": "Details" },
+        { "key": "days", "label": "Working days", "type": "number", "required": true, "reportable": true, "workflowVariable": true, "page": "Details" },
+        { "key": "reason", "label": "Reason", "type": "textarea", "required": false, "page": "Notes" },
+        { "key": "medicalNoteReference", "label": "Medical note reference", "type": "text", "required": true, "page": "Notes",
+          "description": "Reference number for the doctor's note on file.",
+          "visibleIf": { "field": "leaveType", "equals": "Sick" } }
       ]
     }
     """;

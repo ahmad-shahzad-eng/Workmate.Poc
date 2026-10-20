@@ -14,11 +14,12 @@ public class FormAppService : ApplicationService
     private readonly CurrentEmployeeProvider _currentEmployee;
     private readonly IRepository<FormDefinition, Guid> _forms;
     private readonly IRepository<FormDefinitionVersion, Guid> _versions;
+    private readonly IRepository<CompanyFormSettings, Guid> _companySettings;
 
     public FormAppService(CurrentEmployeeProvider currentEmployee, IRepository<FormDefinition, Guid> forms,
-        IRepository<FormDefinitionVersion, Guid> versions)
+        IRepository<FormDefinitionVersion, Guid> versions, IRepository<CompanyFormSettings, Guid> companySettings)
     {
-        _currentEmployee = currentEmployee; _forms = forms; _versions = versions;
+        _currentEmployee = currentEmployee; _forms = forms; _versions = versions; _companySettings = companySettings;
     }
 
     public virtual async Task<List<FormSummaryDto>> GetPublishedAsync()
@@ -26,11 +27,13 @@ public class FormAppService : ApplicationService
         var forms = await _forms.GetListAsync(f => f.IsActive && f.CurrentVersionId != null);
         var ids = forms.Select(f => f.CurrentVersionId!.Value).ToList();
         var versions = await _versions.GetListAsync(v => ids.Contains(v.Id));
+        var companyDefault = await GetCompanyRendererAsync();
 
         return forms.OrderBy(f => f.Category).ThenBy(f => f.Name).Select(f =>
         {
             var v = versions.Single(x => x.Id == f.CurrentVersionId);
-            return new FormSummaryDto(f.Key, f.Name, f.Category, v.Id, v.VersionNo, v.SchemaJson);
+            var effective = f.Renderer == FormRenderer.Default ? companyDefault : f.Renderer;
+            return new FormSummaryDto(f.Key, f.Name, f.Category, v.Id, v.VersionNo, v.SchemaJson, effective);
         }).ToList();
     }
 
@@ -47,8 +50,43 @@ public class FormAppService : ApplicationService
             var mine = versions.Where(v => v.FormDefinitionId == f.Id).ToList();
             var published = mine.FirstOrDefault(v => v.Id == f.CurrentVersionId);
             return new FormListItemDto(f.Key, f.Name, f.Category, f.IsActive, published?.VersionNo,
-                mine.Any(v => v.Status == FormVersionStatus.Draft));
+                mine.Any(v => v.Status == FormVersionStatus.Draft), f.Renderer);
         }).ToList();
+    }
+
+    /// <summary>The tenant's default renderer, used by any form whose own setting is "default".</summary>
+    public virtual async Task<string> GetCompanyRendererAsync()
+    {
+        var settings = (await _companySettings.GetListAsync()).FirstOrDefault();
+        return settings?.DefaultRenderer ?? FormRenderer.Native;
+    }
+
+    public virtual async Task SetCompanyRendererAsync(string defaultRenderer)
+    {
+        await _currentEmployee.EnsureAdminAsync();
+        if (!FormRenderer.Concrete.Contains(defaultRenderer))
+            throw new UserFriendlyException($"Company default renderer must be one of: {string.Join(", ", FormRenderer.Concrete)}.");
+
+        var settings = (await _companySettings.GetListAsync()).FirstOrDefault();
+        if (settings == null)
+            await _companySettings.InsertAsync(new CompanyFormSettings(GuidGenerator.Create(), CurrentTenant.Id) { DefaultRenderer = defaultRenderer });
+        else
+        {
+            settings.DefaultRenderer = defaultRenderer;
+            await _companySettings.UpdateAsync(settings);
+        }
+    }
+
+    public virtual async Task<FormDesignDto> SetRendererAsync(string key, string renderer)
+    {
+        await _currentEmployee.EnsureAdminAsync();
+        if (!FormRenderer.All.Contains(renderer))
+            throw new UserFriendlyException($"Renderer must be one of: {string.Join(", ", FormRenderer.All)}.");
+
+        var form = await GetFormAsync(key);
+        form.Renderer = renderer;
+        await _forms.UpdateAsync(form);
+        return await GetDesignAsync(key);
     }
 
     /// <summary>Creates a form with a starter v1 draft. It is not offered to employees until published.</summary>
@@ -76,7 +114,7 @@ public class FormAppService : ApplicationService
     {
         var form = await GetFormAsync(key);
         var versions = await GetVersionsAsync(form.Id);
-        return new FormDesignDto(form.Key, form.Name, form.CurrentVersionId, versions.Select(Map).ToList());
+        return new FormDesignDto(form.Key, form.Name, form.CurrentVersionId, form.Renderer, versions.Select(Map).ToList());
     }
 
     /// <summary>Updates the open draft, or opens a new draft after the latest published version.</summary>

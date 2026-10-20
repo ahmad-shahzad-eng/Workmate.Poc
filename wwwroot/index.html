@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Workmate HRM (PoC)</title>
+<link rel="stylesheet" href="/lib/surveyjs/survey-core.min.css">
 <style>
   :root {
     --paper: #f3f5f7; --surface: #ffffff; --ink: #1d2b3a; --muted: #5b6b7b; --line: #d5dce3;
@@ -51,6 +52,7 @@
   .lead { color: var(--muted); margin: 0 0 22px; max-width: 70ch; }
 
   .split { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.3fr); gap: 28px; align-items: start; }
+  .split > * { min-width: 0; } /* grid items default to min-width:auto (content size); without this, a wide table in the left column overflows into the preview column instead of scrolling */
   @media (max-width: 860px) { .shell { grid-template-columns: 1fr; } nav { flex-direction: row; flex-wrap: wrap; border: 0; }
     .split { grid-template-columns: 1fr; } main { padding: 20px; } }
 
@@ -102,7 +104,8 @@
     padding: 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
   .versions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
   .versions span { border: 1px solid var(--line); border-radius: 4px; padding: 3px 10px; font-size: 14px; }
-  .fieldrows { width: 100%; border-collapse: collapse; font-size: 14px; }
+  #editor { overflow-x: auto; }
+  .fieldrows { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 14px; }
   .fieldrows td, .fieldrows th { padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
   .fieldrows th { color: var(--muted); font-weight: 600; }
   .fieldrows input[type=text], .fieldrows select { width: 100%; padding: 5px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
@@ -122,6 +125,11 @@
   <h1>Workmate HRM</h1>
   <label>Company <select id="tenant"></select></label>
   <label>Acting as <select id="user"></select></label>
+  <label>Renderer <select id="rendererOverride">
+    <option value="">Per form/company</option>
+    <option value="native">Native</option>
+    <option value="surveyjs">SurveyJS</option></select></label>
+  <label><input type="checkbox" id="rtlToggle"> RTL</label>
 </header>
 <div class="shell">
   <nav aria-label="Sections">
@@ -134,6 +142,10 @@
   <main id="main"></main>
 </div>
 
+<!-- Vendored (no CDN at run time); if either fails to load, renderers.js falls back to the native renderer. -->
+<script src="/lib/surveyjs/survey.core.min.js"></script>
+<script src="/lib/surveyjs/survey-js-ui.min.js"></script>
+<script src="/js/renderers.js"></script>
 <script>
 const state = { tenants: [], users: [], view: "new", selected: null, formKey: null, designKey: null, editMode: "visual", workflowKey: null };
 const isAdmin = () => state.users.find(u => u.id === $("#user").value)?.isAdmin === true;
@@ -155,37 +167,10 @@ async function api(path, options = {}) {
 
 function message(kind, text) { return `<p class="message ${kind}" role="${kind === "error" ? "alert" : "status"}">${esc(text)}</p>`; }
 
-// ---------- Form renderer: renders the JSON schema, editable or read-only ----------
-function renderForm(schema, values = {}, readOnly = false) {
-  return schema.fields.map(f => {
-    const id = `f_${f.key}`, v = values[f.key] ?? "";
-    const label = `<label for="${id}">${esc(f.label)}${f.required && !readOnly ? ' <span class="req" aria-hidden="true">*</span>' : ""}</label>`;
-    if (readOnly) {
-      const shown = f.type === "checkbox" ? (v === "true" ? "Yes" : "No") : (v || "Not provided");
-      return `<div class="field"><label>${esc(f.label)}</label><div class="value">${esc(shown)}</div></div>`;
-    }
-    const req = f.required ? "required" : "";
-    let input;
-    switch (f.type) {
-      case "textarea": input = `<textarea id="${id}" name="${f.key}" ${req}>${esc(v)}</textarea>`; break;
-      case "select": input = `<select id="${id}" name="${f.key}" ${req}><option value="">Choose…</option>${
-        f.options.map(o => `<option ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`; break;
-      case "checkbox": input = `<input type="checkbox" id="${id}" name="${f.key}" ${v === "true" ? "checked" : ""}>`; break;
-      case "number": input = `<input type="number" step="any" id="${id}" name="${f.key}" value="${esc(v)}" ${req}>`; break;
-      case "date": input = `<input type="date" id="${id}" name="${f.key}" value="${esc(v)}" ${req}>`; break;
-      default: input = `<input type="text" id="${id}" name="${f.key}" value="${esc(v)}" ${req}>`;
-    }
-    return `<div class="field">${label}${input}</div>`;
-  }).join("");
-}
-
-function readForm(form, schema) {
-  const data = {};
-  for (const f of schema.fields) {
-    const el = form.elements[f.key];
-    data[f.key] = f.type === "checkbox" ? String(el.checked) : el.value;
-  }
-  return data;
+// ---------- Renderer selection: demo toggle (localStorage, this browser only) > form > company default ----------
+// Native/SurveyJS implementations live in renderers.js; this page only resolves which "kind" to use.
+function rendererKindFor(effectiveRenderer) {
+  return localStorage.getItem("rendererOverride") || effectiveRenderer || "native";
 }
 
 // ---------- Views ----------
@@ -201,15 +186,18 @@ async function viewNew(main) {
     <p class="lead">${esc(f.name)}, form version ${f.versionNo}. Your request is routed by the workflow your company set for this form.</p>
     <div id="msg"></div>
     <form class="panel" id="requestForm" novalidate style="max-width:560px">
-      ${renderForm(schema)}
+      <div id="formMount"></div>
       <div class="actions"><button class="btn" type="submit">Send request</button></div>
     </form>`;
+  const renderer = createRenderer(rendererKindFor(f.effectiveRenderer), schema, {}, false);
+  renderer.mount($("#formMount"));
   $("#formPick").addEventListener("change", e => { state.formKey = e.target.value; viewNew(main); });
   $("#requestForm").addEventListener("submit", async e => {
     e.preventDefault();
+    if (!renderer.validate()) return;
     const btn = e.submitter; btn.disabled = true;
     try {
-      const id = await api("/api/poc/submissions", { method: "POST", body: JSON.stringify({ formKey: f.key, data: readForm(e.target, schema) }) });
+      const id = await api("/api/poc/submissions", { method: "POST", body: JSON.stringify({ formKey: f.key, data: renderer.getData() }) });
       state.selected = id; state.view = "mine"; render();
     } catch (err) { $("#msg").innerHTML = message("error", err.message); btn.disabled = false; }
   });
@@ -268,7 +256,7 @@ async function showDetail(submissionId, target, taskId = null) {
         <h2 style="font-size:19px">${esc(d.formName)} from ${esc(d.submitterName)}</h2>
         <p class="meta">Sent ${when(d.submittedAt)} on form version ${d.versionNo}${d.versionStatus === "Retired" ? " (since replaced by a newer version)" : ""}.
           Status <span class="status ${d.status}">${statusLabel(d.status)}</span></p>
-        ${renderForm(schema, d.data, true)}
+        <div id="formMount"></div>
         ${taskId ? `
           <h3>Your decision</h3>
           <div id="taskMsg"></div>
@@ -288,6 +276,7 @@ async function showDetail(submissionId, target, taskId = null) {
         <ol class="timeline">${d.events.map(e => `<li><time>${when(e.occurredAt)}</time>${e.actor ? `<strong>${esc(e.actor)}</strong>: ` : ""}${esc(e.detail)}</li>`).join("")}</ol>
         ${d.workflowDefinitionId ? `<p class="meta">Workflow: ${esc(d.workflowDefinitionId)}</p>` : ""}
       </div>`;
+    createRenderer(rendererKindFor(d.effectiveRenderer), schema, d.data, true).mount(target.querySelector("#formMount"));
     target.querySelectorAll("[data-outcome]").forEach(btn => btn.addEventListener("click", async () => {
       target.querySelectorAll("[data-outcome]").forEach(b => b.disabled = true);
       try {
@@ -306,13 +295,19 @@ async function showDetail(submissionId, target, taskId = null) {
 const FIELD_TYPES = ["text", "textarea", "number", "date", "select", "checkbox"];
 
 async function viewDesigner(main) {
-  const forms = await api("/api/poc/forms/all");
+  const [forms, companyRenderer] = await Promise.all([api("/api/poc/forms/all"), api("/api/poc/company-settings/renderer")]);
   if (!state.designKey || !forms.some(f => f.key === state.designKey)) state.designKey = forms[0]?.key || null;
   main.innerHTML = `
     <h2>Form designer</h2>
     <p class="lead">Admins create request forms, edit fields, publish versions and choose which workflow each form starts.
       Published versions never change, so earlier requests keep rendering as they were sent.</p>
     <div id="msg"></div>
+    <div class="inline panel" style="margin-bottom:20px">
+      <div class="field"><label for="companyRenderer">Company default renderer</label><select id="companyRenderer">
+        <option value="native" ${companyRenderer.defaultRenderer === "native" ? "selected" : ""}>Native</option>
+        <option value="surveyjs" ${companyRenderer.defaultRenderer === "surveyjs" ? "selected" : ""}>SurveyJS</option></select></div>
+      <small class="meta" style="margin:0">Used by any form whose own renderer setting is "Company default".</small>
+    </div>
     <div class="inline panel" style="margin-bottom:20px">
       <div class="field"><label for="designPick">Form</label>
         <select id="designPick">${forms.map(f => `<option value="${esc(f.key)}" ${f.key === state.designKey ? "selected" : ""}>${esc(f.category)}: ${esc(f.name)}${
@@ -323,6 +318,10 @@ async function viewDesigner(main) {
       <div class="actions" style="margin:0"><button class="btn secondary" id="create">Create form</button></div>
     </div>
     <div id="designer"></div>`;
+  $("#companyRenderer").addEventListener("change", async e => {
+    try { await api("/api/poc/company-settings/renderer", { method: "PUT", body: JSON.stringify({ defaultRenderer: e.target.value }) }); await viewDesigner(main); $("#msg").innerHTML = message("ok", "Company default renderer updated."); }
+    catch (err) { $("#msg").innerHTML = message("error", err.message); }
+  });
   $("#designPick").addEventListener("change", e => { state.designKey = e.target.value; viewDesigner(main); });
   $("#newName").addEventListener("input", e => {
     if (!$("#newKey").dataset.touched) $("#newKey").value = e.target.value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -340,14 +339,15 @@ async function viewDesigner(main) {
 
 // The routing condition value input adapts to the chosen field's type (US3): a free-text value for a
 // select field causes silent mismatches ("sick" vs "Sick"), so offer only what the field actually allows.
-function conditionValueInput(schema, fieldKey, value = "") {
+// Reused as-is for the form designer's "visible only when" editor (spec 006 FR-008 — same rule as routing).
+function conditionValueInput(schema, fieldKey, value = "", attrs = 'id="rValue"') {
   const f = schema.fields.find(x => x.key === fieldKey);
-  if (!f) return `<input type="text" id="rValue" value="${esc(value)}">`;
-  if (f.type === "select") return `<select id="rValue">${f.options.map(o => `<option ${o === value ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
-  if (f.type === "checkbox") return `<select id="rValue"><option value="true" ${value === "true" ? "selected" : ""}>Yes</option><option value="false" ${value === "false" ? "selected" : ""}>No</option></select>`;
-  if (f.type === "number") return `<input type="number" step="any" id="rValue" value="${esc(value)}">`;
-  if (f.type === "date") return `<input type="date" id="rValue" value="${esc(value)}">`;
-  return `<input type="text" id="rValue" value="${esc(value)}">`;
+  if (!f) return `<input type="text" ${attrs} value="${esc(value)}">`;
+  if (f.type === "select") return `<select ${attrs}>${f.options.map(o => `<option ${o === value ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
+  if (f.type === "checkbox") return `<select ${attrs}><option value="true" ${value === "true" ? "selected" : ""}>Yes</option><option value="false" ${value === "false" ? "selected" : ""}>No</option></select>`;
+  if (f.type === "number") return `<input type="number" step="any" ${attrs} value="${esc(value)}">`;
+  if (f.type === "date") return `<input type="date" ${attrs} value="${esc(value)}">`;
+  return `<input type="text" ${attrs} value="${esc(value)}">`;
 }
 
 async function renderFormEditor(main, key) {
@@ -365,6 +365,10 @@ async function renderFormEditor(main, key) {
           <button data-mode="json" aria-pressed="${state.editMode === "json"}">JSON</button>
         </div>
         <div class="field"><label for="formTitle">Form title</label><input id="formTitle" value="${esc(schema.title || "")}"></div>
+        <div class="field"><label for="formRenderer">Renderer</label><select id="formRenderer">
+          <option value="default" ${d.renderer === "default" ? "selected" : ""}>Company default</option>
+          <option value="native" ${d.renderer === "native" ? "selected" : ""}>Native</option>
+          <option value="surveyjs" ${d.renderer === "surveyjs" ? "selected" : ""}>SurveyJS</option></select></div>
         <div id="editor"></div>
         <div class="actions">
           <button class="btn secondary" id="save">Save draft</button>
@@ -372,7 +376,10 @@ async function renderFormEditor(main, key) {
           <small class="meta" style="margin:0">Editing ${latest.status === "Draft" ? `draft v${latest.versionNo}` : `a copy of v${latest.versionNo}; saving creates v${latest.versionNo + 1}`}</small>
         </div>
       </div>
-      <div><h3 style="margin-top:0">Preview</h3><form class="panel" id="preview"></form></div>
+      <div>
+        <div class="actions" style="margin-top:0"><h3 style="margin:0">Preview</h3><button class="btn secondary" id="flipPreview" type="button">Preview in the other renderer</button></div>
+        <div class="panel" id="preview"></div>
+      </div>
     </div>
     <h3>Routing</h3>
     <p class="meta">When an employee submits this form, the first active route with the lowest priority whose condition matches starts its workflow.
@@ -399,9 +406,11 @@ async function renderFormEditor(main, key) {
     </div>`;
   $("#rField").addEventListener("change", e => { $("#rValueWrap").innerHTML = `<label for="rValue">equals</label>${conditionValueInput(schema, e.target.value)}`; });
 
+  let previewKind = d.renderer === "surveyjs" ? "surveyjs" : "native";
   const sync = () => { schema.title = $("#formTitle").value; drawPreview(); };
   const drawPreview = () => {
-    try { $("#preview").innerHTML = renderForm(schema); } catch { $("#preview").innerHTML = `<p class="meta">The schema is not valid yet.</p>`; }
+    try { createRenderer(previewKind, schema, {}, false).mount($("#preview")); }
+    catch { $("#preview").innerHTML = `<p class="meta">The schema is not valid yet.</p>`; }
   };
   const drawEditor = () => {
     const ed = $("#editor");
@@ -410,12 +419,18 @@ async function renderFormEditor(main, key) {
       $("#schema").addEventListener("input", e => { try { schema = JSON.parse(e.target.value); $("#formTitle").value = schema.title || ""; drawPreview(); } catch { $("#preview").innerHTML = `<p class="meta">The JSON is not valid yet.</p>`; } });
     } else {
       ed.innerHTML = `
-        <table class="fieldrows"><thead><tr><th>Label</th><th>Key</th><th>Type</th><th>Options</th><th>Flags</th><th></th></tr></thead><tbody>${
+        <table class="fieldrows"><thead><tr><th>Label</th><th>Key</th><th>Type</th><th>Options</th><th>Visible only when</th><th>Description</th><th>Placeholder</th><th>Page</th><th>Flags</th><th></th></tr></thead><tbody>${
           schema.fields.map((f, i) => `<tr data-i="${i}">
             <td><input type="text" data-p="label" value="${esc(f.label)}" aria-label="Label"></td>
             <td><input type="text" data-p="key" value="${esc(f.key)}" aria-label="Key"></td>
             <td><select data-p="type" aria-label="Type">${FIELD_TYPES.map(t => `<option ${t === f.type ? "selected" : ""}>${t}</option>`).join("")}</select></td>
             <td><input type="text" data-p="options" value="${esc((f.options || []).join(", "))}" ${f.type === "select" ? "" : "disabled"} placeholder="A, B, C" aria-label="Options"></td>
+            <td><select data-p="visibleIfField" aria-label="Visible only when field"><option value="">(always)</option>${
+              schema.fields.slice(0, i).map(ef => `<option value="${esc(ef.key)}" ${f.visibleIf?.field === ef.key ? "selected" : ""}>${esc(ef.label)}</option>`).join("")}</select>
+              ${f.visibleIf ? conditionValueInput(schema, f.visibleIf.field, f.visibleIf.equals, 'data-p="visibleIfValue" aria-label="Visible only when value"') : ""}</td>
+            <td><input type="text" data-p="description" value="${esc(f.description || "")}" aria-label="Description"></td>
+            <td><input type="text" data-p="placeholder" value="${esc(f.placeholder || "")}" aria-label="Placeholder"></td>
+            <td><input type="text" data-p="page" value="${esc(f.page || "")}" placeholder="(single page)" aria-label="Page"></td>
             <td class="flags">
               <label><input type="checkbox" data-p="required" ${f.required ? "checked" : ""}> Required</label>
               <label title="Stored typed in Forms_SubmissionValues for reports"><input type="checkbox" data-p="reportable" ${f.reportable ? "checked" : ""}> Reportable</label>
@@ -427,12 +442,16 @@ async function renderFormEditor(main, key) {
         const i = +row.dataset.i, f = schema.fields[i];
         row.querySelectorAll("[data-p]").forEach(input => input.addEventListener(input.type === "checkbox" || input.tagName === "SELECT" ? "change" : "input", () => {
           const p = input.dataset.p;
-          if (input.type === "checkbox") f[p] = input.checked;
+          if (p === "visibleIfField") f.visibleIf = input.value ? { field: input.value, equals: f.visibleIf?.equals || "" } : undefined;
+          else if (p === "visibleIfValue") { if (f.visibleIf) f.visibleIf.equals = input.value; }
+          else if (input.type === "checkbox") f[p] = input.checked;
           else if (p === "options") f.options = input.value.split(",").map(x => x.trim()).filter(Boolean);
+          else if (p === "description" || p === "placeholder" || p === "page") f[p] = input.value || undefined;
           else f[p] = input.value;
           if (p === "label" && !f._keyTouched && f._new) { f.key = input.value.replace(/[^A-Za-z0-9]+(.)?/g, (_, c) => c ? c.toUpperCase() : "").replace(/^./, c => c.toLowerCase()); row.querySelector('[data-p="key"]').value = f.key; }
           if (p === "key") f._keyTouched = true;
           if (p === "type") { if (f.type === "select" && !f.options) f.options = ["Option 1"]; if (f.type !== "select") delete f.options; drawEditor(); }
+          if (p === "visibleIfField") drawEditor();
           sync();
         }));
         row.querySelector("[data-remove]").addEventListener("click", () => { schema.fields.splice(i, 1); drawEditor(); sync(); });
@@ -453,11 +472,16 @@ async function renderFormEditor(main, key) {
     state.editMode = b.dataset.mode; host.querySelectorAll("[data-mode]").forEach(x => x.setAttribute("aria-pressed", x === b)); drawEditor();
   }));
   $("#formTitle").addEventListener("input", sync);
+  $("#flipPreview").addEventListener("click", () => { previewKind = previewKind === "surveyjs" ? "native" : "surveyjs"; drawPreview(); });
   drawEditor(); drawPreview();
 
   const done = async (text, target = "#msg", kind = "ok") => { await viewDesigner(main); $(target).innerHTML = message(kind, text); };
   $("#save").addEventListener("click", async () => {
     try { await api(`/api/poc/forms/${key}/draft`, { method: "PUT", body: JSON.stringify({ schemaJson: clean() }) }); await done("Draft saved."); }
+    catch (err) { $("#msg").innerHTML = message("error", err.message); }
+  });
+  $("#formRenderer").addEventListener("change", async e => {
+    try { await api(`/api/poc/forms/${key}/renderer`, { method: "PUT", body: JSON.stringify({ renderer: e.target.value }) }); await done("Renderer updated."); }
     catch (err) { $("#msg").innerHTML = message("error", err.message); }
   });
   $("#publish").addEventListener("click", async () => {
@@ -635,6 +659,14 @@ async function loadUsers() {
 document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => { state.view = b.dataset.view; state.selected = null; render(); }));
 $("#tenant").addEventListener("change", async () => { state.selected = null; await loadUsers(); render(); });
 $("#user").addEventListener("change", () => { state.selected = null; render(); });
+// Demo-only overrides, remembered in this browser (spec 006 US2): the renderer toggle beats every
+// form/company setting; RTL is a visual check only, no translations.
+$("#rendererOverride").value = localStorage.getItem("rendererOverride") || "";
+$("#rendererOverride").addEventListener("change", e => {
+  if (e.target.value) localStorage.setItem("rendererOverride", e.target.value); else localStorage.removeItem("rendererOverride");
+  render();
+});
+$("#rtlToggle").addEventListener("change", e => { document.documentElement.dir = e.target.checked ? "rtl" : "ltr"; });
 
 (async () => {
   state.tenants = await api("/api/poc/tenants");

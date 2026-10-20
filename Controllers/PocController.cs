@@ -58,6 +58,17 @@ public class PocController : AbpControllerBase
     [HttpPost("forms/{key}/publish")]
     public Task<FormVersionDto> PublishAsync(string key) => _forms.PublishAsync(key);
 
+    [HttpPut("forms/{key}/renderer")]
+    public Task<FormDesignDto> SetRendererAsync(string key, [FromBody] SetRendererInput input) =>
+        _forms.SetRendererAsync(key, input.Renderer);
+
+    [HttpGet("company-settings/renderer")]
+    public async Task<CompanyRendererDto> GetCompanyRendererAsync() => new(await _forms.GetCompanyRendererAsync());
+
+    [HttpPut("company-settings/renderer")]
+    public Task SetCompanyRendererAsync([FromBody] SetCompanyRendererInput input) =>
+        _forms.SetCompanyRendererAsync(input.DefaultRenderer);
+
     [HttpGet("workflows")]
     public Task<List<WorkflowDefinitionDto>> GetWorkflowsAsync() => _routing.GetWorkflowsAsync();
 

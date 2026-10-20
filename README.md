@@ -17,21 +17,105 @@ fallback approver and a reject action (end, or back to the previous step) per st
 | Acme Trading | Sara (employee, reports to Omar), Omar (manager), Huda (HR), Layla (Finance, reports to Omar), Khalid (employee + company admin, reports to Omar) | Sick leave and letter requests go to HR only; everything else goes line manager, then HR |
 | Globex Logistics | Ali (employee, reports to Fatima), Fatima (manager), Yousef (HR), Yara (Finance, reports to Fatima), Noor (employee + company admin, reports to Fatima) | Letter requests go to HR only; everything else goes line manager, then HR |
 
-## Run it
+## Architecture
 
-Requirements: .NET 10 SDK.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for diagrams of the components (colour-coded by source: ABP Framework,
+Elsa Workflows, SurveyJS, our code), the submit-and-approve runtime flow, and the admin design flow.
+
+## Setup (macOS or Windows)
+
+### 1. Install the software
+
+| Software | Needed for | macOS (Homebrew) | Windows (PowerShell, winget) |
+| --- | --- | --- | --- |
+| **.NET 10 SDK** | build and run (`net10.0`) | `brew install --cask dotnet-sdk` | `winget install Microsoft.DotNet.SDK.10` |
+| **Git** | get the code, branches | `brew install git` (or Xcode Command Line Tools: `xcode-select --install`) | `winget install Git.Git` |
+| **Python 3.10+** | `demo.py` (standard library only, no pip packages) | `brew install python` | `winget install Python.Python.3.12` |
+| DB Browser for SQLite *(optional)* | look at `workmate-poc.db` / `workmate-elsa.db` | `brew install --cask db-browser-for-sqlite` | `winget install DBBrowserForSQLite.DBBrowserForSQLite` |
+| Editor *(optional)* | code | VS Code + C# Dev Kit, or JetBrains Rider | Visual Studio 2026 (or a 2022 release with .NET 10 support), VS Code + C# Dev Kit, or Rider |
+| uv + Claude Code *(optional)* | Spec Kit workflow in `specs/` | `brew install uv` | `winget install astral-sh.uv` |
+
+No Node.js, Docker or database server is needed: the SurveyJS files are already in `wwwroot/lib/surveyjs/`, and both
+databases are SQLite files created on first run. No Homebrew on the Mac? Install it from https://brew.sh, or use the
+installers from https://dotnet.microsoft.com/download and https://www.python.org/downloads/.
+
+Open a **new** terminal after installing, then check:
+
+```bash
+dotnet --list-sdks     # shows a 10.0.x line
+git --version
+python3 --version      # Windows: py --version
+```
+
+The first build downloads NuGet packages from nuget.org (ABP 9.1.0, Elsa 3.7.0). Behind a company proxy, make sure
+`api.nuget.org` is reachable or configure the proxy for NuGet.
+
+### 2. Get the project
+
+```bash
+git clone <repository-url> Workmate.Poc     # or copy the Workmate.Poc folder
+cd Workmate.Poc
+dotnet restore
+dotnet build
+```
+
+`dotnet build` must end with `Build succeeded`. Warnings about `SQLitePCLRaw` (NU1903) are a known open item.
+
+### 3. First run (clean, seeded databases)
+
+Run this once on a new machine, and again whenever the data model changes (the app uses `EnsureCreated`, which does
+not migrate an existing database):
+
+```bash
+dotnet run -- --Poc:ResetDatabaseOnStartup=true
+```
+
+Wait for `Now listening on: http://localhost:5080`, then open http://localhost:5080.
+Both `workmate-poc.db` and `workmate-elsa.db` are deleted and re-created, and the two demo companies are seeded.
+
+### 4. Normal runs (data kept between restarts)
 
 ```bash
 dotnet run
 ```
 
-Open http://localhost:5080. Domain data (`workmate-poc.db`) and workflow state (`workmate-elsa.db`,
-Elsa's own EF Core SQLite persistence) both survive a restart. Set `Poc:ResetDatabaseOnStartup` to
-`true` (`appsettings.json`) for a clean, re-seeded demo; it deletes both files together so they never
-get out of step.
+Stop with `Ctrl+C`. If port 5080 is still in use from an earlier run:
 
-Use the **Company** and **Acting as** dropdowns at the top to switch tenant and person.
-Sign-in is faked with an `X-Demo-User` header (`Http/DemoUserMiddleware.cs`); production uses ABP Identity + OpenIddict.
+| macOS | Windows (PowerShell) |
+| --- | --- |
+| `lsof -ti :5080 \| xargs kill` | `Get-NetTCPConnection -LocalPort 5080 \| % { Stop-Process -Id $_.OwningProcess -Force }` |
+
+To use another port: `dotnet run -- --urls http://localhost:5090` (then set `BASE` at the top of `demo.py`).
+
+### 5. Check it works
+
+With the app running, in a second terminal in the same folder:
+
+```bash
+python3 demo.py        # Windows: py demo.py
+```
+
+No line in `demo.log` should start with `FAIL`. Run it on a freshly reset database for a clean result.
+
+### 6. Using the demo UI
+
+Use the **Company** and **Acting as** dropdowns at the top to switch tenant and person, and the **Renderer** toggle to
+switch between the native renderer and SurveyJS. Sign-in is faked with an `X-Demo-User` header
+(`Http/DemoUserMiddleware.cs`); production uses ABP Identity + OpenIddict (spec 003).
+
+### Troubleshooting
+
+| Problem | Fix |
+| --- | --- |
+| `dotnet` not found, or no 10.0 SDK listed | Open a new terminal after installing; on Windows sign out and in again so `PATH` updates. |
+| `NETSDK1045: The current .NET SDK does not support targeting .NET 10.0` | An older SDK is first in `PATH`; install the .NET 10 SDK and check `dotnet --list-sdks`. |
+| Restore fails (401, timeout, proxy) | Check access to `api.nuget.org`; `dotnet nuget list source` should show nuget.org enabled. |
+| `SQLite Error 1: no such table` or `no such column` after pulling changes | Run once with `-- --Poc:ResetDatabaseOnStartup=true`. |
+| `address already in use` on 5080 | Stop the old instance (see step 4). |
+| `demo.py` fails with connection refused | Start the app first and wait for `Now listening`. |
+| Windows: `python3` opens the Microsoft Store | Use `py demo.py`, or turn off the "App execution aliases" for Python in Settings. |
+| macOS: "database is locked" | Close DB Browser for SQLite (it locks the file) and run again. |
+| SurveyJS form does not show | Hard-refresh the browser (`Cmd+Shift+R` / `Ctrl+F5`); the page falls back to the native renderer if SurveyJS fails to load. |
 
 ## Demo script (maps to the PoC success criteria)
 
@@ -68,7 +152,16 @@ Sign-in is faked with an `X-Demo-User` header (`Http/DemoUserMiddleware.cs`); pr
    Bind it to a form in that form's Routing section and run a request through every step. Huda (HR) does not see
    Workflow designer, and Globex cannot see, bind to, or start Acme's workflow.
 
-`demo.py` runs steps 1-7 and 9 against the API and writes `demo.log` (`python3 demo.py` with the app freshly started).
+10. **Switchable form renderer (Phase K).** Acme's company default renders forms with the vendored SurveyJS Form
+    Library; Globex's stays the plain native renderer — set under Form designer's company-settings panel, overridable
+    per form (Renderer dropdown) and, for this browser only, by the top-bar "Renderer" demo toggle. Try Acme's Leave
+    request as Sara: pick `Sick`, and the Medical note reference field (page "Notes") appears and becomes required;
+    switch back to `Annual` and it hides again. The API enforces the same rule regardless of renderer — a direct
+    `POST /submissions` with `leaveType=Annual` and a value for `medicalNoteReference` has that value silently
+    dropped (never stored), and `leaveType=Sick` with no value is refused. Use the RTL checkbox to preview either
+    renderer right-to-left (demo-only, no translations).
+
+`demo.py` runs steps 1-7, 9 and 10 against the API and writes `demo.log` (`python3 demo.py` with the app freshly started).
 Step 8 is two-part, around a manual restart:
 
 ```bash
@@ -97,11 +190,12 @@ python3 demo.py restart-after    # resumes and completes them, checks tenant iso
 | `Data/` | ABP DbContext (table prefixes stand in for module schemas), demo seed data, startup DB reset |
 | `Application/WorkflowConsistencyCheck.cs` | Startup-only: warns if a running process's workflow instance is missing |
 | `wwwroot/index.html` | Demo UI: form renderer, my requests, inbox, form designer, workflow designer |
+| `wwwroot/js/renderers.js` | `createRenderer(kind, schema, values, readOnly)`: native HTML renderer and the SurveyJS adapter, same `{mount, getData, validate}` contract |
+| `wwwroot/lib/surveyjs/` | Vendored SurveyJS Form Library (MIT, no CDN at runtime) — rendering only, not Creator/Dashboard/PDF Generator |
 
-## If it does not compile
+## Upgrading packages
 
-This project was written without access to a .NET build environment, so expect small fixes on first build.
-Where they are most likely:
+The project builds and passes `demo.py` on the pinned versions. If you move to newer versions, these are the likely places to adjust:
 
 - **`WorkflowEngine/ElsaWorkflowGateway.cs`.** Elsa's runtime client API changed between 3.x minor versions.
   The file targets the workflow client API (`IWorkflowRuntime.CreateClientAsync`, Elsa 3.5+). If your restored Elsa

@@ -3,10 +3,13 @@ namespace Workmate.Poc.Application;
 public record TenantDto(Guid Id, string Name, string DisplayName);
 public record EmployeeDto(Guid Id, string Name, string Role, string? ManagerName, bool IsAdmin);
 
-public record FormSummaryDto(string Key, string Name, string Category, Guid VersionId, int VersionNo, string SchemaJson);
+public record FormSummaryDto(string Key, string Name, string Category, Guid VersionId, int VersionNo, string SchemaJson, string EffectiveRenderer);
 public record FormVersionDto(Guid Id, int VersionNo, string Status, string SchemaJson, DateTime? PublishedAt);
-public record FormDesignDto(string Key, string Name, Guid? CurrentVersionId, List<FormVersionDto> Versions);
+public record FormDesignDto(string Key, string Name, Guid? CurrentVersionId, string Renderer, List<FormVersionDto> Versions);
 public class SaveDraftInput { public string SchemaJson { get; set; } = default!; }
+public class SetRendererInput { public string Renderer { get; set; } = default!; }
+public record CompanyRendererDto(string DefaultRenderer);
+public class SetCompanyRendererInput { public string DefaultRenderer { get; set; } = default!; }
 
 public class SubmitFormInput
 {
@@ -23,7 +26,7 @@ public record EventDto(DateTime OccurredAt, string EventType, string? Actor, str
 
 public record SubmissionDetailDto(Guid Id, string FormName, int VersionNo, string VersionStatus, string SchemaJson,
     Dictionary<string, string?> Data, string Status, DateTime SubmittedAt, string SubmitterName,
-    string? WorkflowDefinitionId, List<TaskSummaryDto> Tasks, List<EventDto> Events);
+    string? WorkflowDefinitionId, List<TaskSummaryDto> Tasks, List<EventDto> Events, string EffectiveRenderer);
 
 public record InboxItemDto(Guid TaskId, string Title, Guid SubmissionId, string FormName, int VersionNo,
     string SubmitterName, DateTime CreatedAt);
@@ -35,7 +38,7 @@ public class CompleteTaskInput
 }
 
 // --- Form administration (admins only)
-public record FormListItemDto(string Key, string Name, string Category, bool IsActive, int? PublishedVersionNo, bool HasDraft);
+public record FormListItemDto(string Key, string Name, string Category, bool IsActive, int? PublishedVersionNo, bool HasDraft, string Renderer);
 
 public class CreateFormInput
 {

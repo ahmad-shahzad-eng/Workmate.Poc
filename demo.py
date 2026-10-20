@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Runs README demo steps 1-7 and 9 (no args), or the two-part restart check (step 8: `restart-before` /
+"""Runs README demo steps 1-7, 9 and 10 (no args), or the two-part restart check (step 8: `restart-before` /
 `restart-after`, run with a manual app restart in between), against the running PoC. Stdlib only."""
 import json, sqlite3, sys, time, urllib.request, urllib.error, os
 
@@ -61,9 +61,10 @@ def detail(tenant, user, sid, wait_status=None, wait=8):
         time.sleep(1)
 
 # handoverTo satisfies leave-request once a prior run's step 4 has published a version that requires it;
-# it is silently ignored by earlier versions that don't have the field, so this works on any run.
+# medicalNoteReference satisfies Acme's seeded v2 when leaveType=Sick (spec 006 US4). Both are silently
+# ignored by versions that don't have the field, so this works on any run and in either tenant.
 annual = {"leaveType": "Annual", "startDate": "2026-11-01", "endDate": "2026-11-03", "days": "3", "reason": "Family trip", "handoverTo": "Omar"}
-sick = {"leaveType": "Sick", "startDate": "2026-11-05", "endDate": "2026-11-05", "days": "1", "handoverTo": "Huda"}
+sick = {"leaveType": "Sick", "startDate": "2026-11-05", "endDate": "2026-11-05", "days": "1", "handoverTo": "Huda", "medicalNoteReference": "DR-10492"}
 
 def step(name, fn):
     log(f"\n=== {name}")
@@ -281,6 +282,40 @@ def step9():
     fallback_event = next((e for e in d2.get("events", []) if "fallback" in e.get("detail", "").lower()), None)
     check("9d timeline records why the fallback was used", fallback_event is not None, str(fallback_event))
 
+def s10():
+    """Server-side gatekeeper is renderer-independent (US3), and Acme's v2 leave-request conditional
+    field is enforced at the API: hidden values are dropped, required-when-visible is enforced (US4)."""
+    u = state["acme"]
+
+    missing_type = {k: v for k, v in annual.items() if k != "leaveType"}
+    code, b = call("POST", "/submissions", ACME, u["Sara"], {"formKey": "leave-request", "data": missing_type})
+    check("10a missing required field refused with field-level message", code >= 400 and "Leave type" in json.dumps(b), f"http {code}")
+
+    code, b = call("POST", "/submissions", ACME, u["Sara"], {"formKey": "leave-request", "data": dict(annual, leaveType="NotAnOption")})
+    check("10b unknown select option refused", code >= 400, f"http {code}")
+
+    code, b = call("POST", "/submissions", ACME, u["Sara"], {"formKey": "leave-request", "data": dict(annual, days="not-a-number")})
+    check("10c non-number in a number field refused", code >= 400, f"http {code}")
+
+    sid = submit(ACME, u["Sara"], annual)
+    d = detail(ACME, u["Sara"], sid)
+    check("10d annual leave submits fine without the hidden medicalNoteReference field", sid is not None and d is not None, f"sid={sid}")
+
+    sid2 = submit(ACME, u["Sara"], dict(annual, medicalNoteReference="should-be-dropped"))
+    d2 = detail(ACME, u["Sara"], sid2)
+    check("10e a value sent for a hidden field is dropped, not stored",
+          sid2 is not None and "medicalNoteReference" not in (d2.get("data") or {}), str(d2.get("data")))
+
+    sick_no_note = {k: v for k, v in sick.items() if k != "medicalNoteReference"}
+    code, b = call("POST", "/submissions", ACME, u["Sara"], {"formKey": "leave-request", "data": sick_no_note})
+    check("10f sick leave without the now-required medical note reference is refused",
+          code >= 400 and "Medical note reference is required" in json.dumps(b), f"http {code}")
+
+    sid3 = submit(ACME, u["Sara"], sick)
+    d3 = detail(ACME, u["Sara"], sid3)
+    check("10g sick leave with a medical note reference is accepted and the value is stored",
+          sid3 is not None and (d3.get("data") or {}).get("medicalNoteReference") == sick["medicalNoteReference"], str(d3.get("data")))
+
 def restart_before():
     """Puts one request per tenant at a pending human step, then records their ids for restart_after."""
     a = users(ACME); state["acme"] = a
@@ -360,7 +395,8 @@ if __name__ == "__main__":
     elif mode is None:
         for n, f in [("Step 1 happy path", s1), ("Step 2 conditional routing", s2), ("Step 3 reject path", s3),
                      ("Step 4 form versioning", s4), ("Step 5 tenant isolation", s5), ("Step 6 reporting values", s6),
-                     ("Step 7 form creation, routing, admin-only", s7), ("Step 9 workflow designer", step9)]:
+                     ("Step 7 form creation, routing, admin-only", s7), ("Step 9 workflow designer", step9),
+                     ("Step 10 server gatekeeper + conditional field (US3/US4)", s10)]:
             step(n, f)
     else:
         log(f"Unknown mode {mode!r}. Use no argument, 'restart-before' or 'restart-after'.")

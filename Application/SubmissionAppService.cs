@@ -20,17 +20,18 @@ public class SubmissionAppService : ApplicationService
     private readonly IRepository<ProcessTask, Guid> _tasks;
     private readonly IRepository<ProcessTaskCandidate, Guid> _candidates;
     private readonly IRepository<ProcessEvent, Guid> _events;
+    private readonly IRepository<CompanyFormSettings, Guid> _companySettings;
 
     public SubmissionAppService(CurrentEmployeeProvider currentEmployee, ProcessManager processes,
         IRepository<Employee, Guid> employees, IRepository<FormDefinition, Guid> forms,
         IRepository<FormDefinitionVersion, Guid> versions, IRepository<FormSubmission, Guid> submissions,
         IRepository<FormSubmissionValue, Guid> values, IRepository<ProcessInstance, Guid> instances,
         IRepository<ProcessTask, Guid> tasks, IRepository<ProcessTaskCandidate, Guid> candidates,
-        IRepository<ProcessEvent, Guid> events)
+        IRepository<ProcessEvent, Guid> events, IRepository<CompanyFormSettings, Guid> companySettings)
     {
         _currentEmployee = currentEmployee; _processes = processes; _employees = employees; _forms = forms;
         _versions = versions; _submissions = submissions; _values = values; _instances = instances;
-        _tasks = tasks; _candidates = candidates; _events = events;
+        _tasks = tasks; _candidates = candidates; _events = events; _companySettings = companySettings;
     }
 
     public virtual async Task<Guid> SubmitAsync(SubmitFormInput input)
@@ -92,6 +93,7 @@ public class SubmissionAppService : ApplicationService
         var version = await _versions.GetAsync(submission.FormVersionId);
         var instance = await _instances.FindAsync(i => i.SubmissionId == id);
         var events = (await _events.GetListAsync(e => e.SubmissionId == id)).OrderBy(e => e.OccurredAt).ToList();
+        var effectiveRenderer = await ResolveEffectiveRendererAsync(form);
 
         return new SubmissionDetailDto(
             submission.Id, form.Name, version.VersionNo, version.Status, version.SchemaJson, submission.GetData(),
@@ -100,7 +102,14 @@ public class SubmissionAppService : ApplicationService
             tasks.Select(t => new TaskSummaryDto(t.Id, t.Title, t.Status, t.Outcome, t.Comment,
                 candidates.Where(c => c.TaskId == t.Id).Select(c => people.GetValueOrDefault(c.UserId, "?")).ToList(),
                 t.CompletedByUserId == null ? null : people.GetValueOrDefault(t.CompletedByUserId.Value), t.CompletedAt)).ToList(),
-            events.Select(e => new EventDto(e.OccurredAt, e.EventType, e.Actor, e.Detail)).ToList());
+            events.Select(e => new EventDto(e.OccurredAt, e.EventType, e.Actor, e.Detail)).ToList(), effectiveRenderer);
+    }
+
+    private async Task<string> ResolveEffectiveRendererAsync(FormDefinition form)
+    {
+        if (form.Renderer != FormRenderer.Default) return form.Renderer;
+        var settings = (await _companySettings.GetListAsync()).FirstOrDefault();
+        return settings?.DefaultRenderer ?? FormRenderer.Native;
     }
 
     private static Dictionary<string, string?> Validate(FormSchema schema, Dictionary<string, string?> raw)
@@ -110,6 +119,12 @@ public class SubmissionAppService : ApplicationService
 
         foreach (var f in schema.Fields)
         {
+            // VisibleIf can only reference an earlier field (FormSchema.Parse enforces this), so by the
+            // time we reach a dependent field, `clean` already holds whatever the controlling field
+            // resolved to. Hidden: never required, and any submitted value for it is dropped (FR-007).
+            if (f.VisibleIf != null && !f.VisibleIf.Matches(clean.GetValueOrDefault(f.VisibleIf.Field)))
+                continue;
+
             raw.TryGetValue(f.Key, out var value);
             value = value?.Trim();
 

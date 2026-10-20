@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Entities.Auditing;
@@ -22,6 +23,18 @@ public static class SubmissionStatus
     public const string Rejected = "Rejected";
 }
 
+/// <summary>Which engine renders a form. "Default" defers to the tenant's CompanyFormSettings.</summary>
+public static class FormRenderer
+{
+    public const string Default = "default";
+    public const string Native = "native";
+    public const string SurveyJs = "surveyjs";
+    public static readonly string[] All = { Default, Native, SurveyJs };
+
+    /// <summary>The company default itself is never "default" — it must resolve to one concrete renderer.</summary>
+    public static readonly string[] Concrete = { Native, SurveyJs };
+}
+
 public class FormDefinition : FullAuditedAggregateRoot<Guid>, IMultiTenant
 {
     public Guid? TenantId { get; set; }
@@ -31,11 +44,24 @@ public class FormDefinition : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public bool IsActive { get; set; } = true;
     public Guid? CurrentVersionId { get; set; }
 
+    /// <summary>"default" (use the tenant's CompanyFormSettings), "native", or "surveyjs".</summary>
+    public string Renderer { get; set; } = FormRenderer.Default;
+
     protected FormDefinition() { }
     public FormDefinition(Guid id, Guid? tenantId, string key, string name, string category) : base(id)
     {
         TenantId = tenantId; Key = key; Name = name; Category = category;
     }
+}
+
+/// <summary>One row per tenant: the renderer used when a form's own setting is "default".</summary>
+public class CompanyFormSettings : AggregateRoot<Guid>, IMultiTenant
+{
+    public Guid? TenantId { get; set; }
+    public string DefaultRenderer { get; set; } = FormRenderer.Native;
+
+    protected CompanyFormSettings() { }
+    public CompanyFormSettings(Guid id, Guid? tenantId) : base(id) => TenantId = tenantId;
 }
 
 public class FormDefinitionVersion : FullAuditedAggregateRoot<Guid>, IMultiTenant
@@ -126,14 +152,21 @@ public class FormSchema
         if (duplicate != null)
             throw new UserFriendlyException($"Field key '{duplicate.Key}' is used more than once.");
 
-        foreach (var f in schema.Fields)
+        for (var i = 0; i < schema.Fields.Count; i++)
         {
+            var f = schema.Fields[i];
             if (string.IsNullOrWhiteSpace(f.Key) || string.IsNullOrWhiteSpace(f.Label))
                 throw new UserFriendlyException("Every field needs a key and a label.");
             if (!FormField.Types.Contains(f.Type))
                 throw new UserFriendlyException($"Field '{f.Key}' has unknown type '{f.Type}'. Use: {string.Join(", ", FormField.Types)}.");
             if (f.Type == "select" && (f.Options == null || f.Options.Count == 0))
                 throw new UserFriendlyException($"Select field '{f.Key}' needs options.");
+            if (f.VisibleIf != null)
+            {
+                var targetIndex = schema.Fields.FindIndex(x => x.Key == f.VisibleIf.Field);
+                if (targetIndex < 0 || targetIndex >= i)
+                    throw new UserFriendlyException($"Field '{f.Key}': \"visible only when\" must point at an earlier field on the form.");
+            }
         }
         return schema;
     }
@@ -151,6 +184,14 @@ public class FormField
     public bool Reportable { get; set; }
     public bool WorkflowVariable { get; set; }
 
+    /// <summary>Shown only when an earlier field equals a value — same rule as ProcessBinding's routing condition.</summary>
+    public VisibleIfRule? VisibleIf { get; set; }
+    public string? Description { get; set; }
+    public string? Placeholder { get; set; }
+
+    /// <summary>Fields sharing a Page are grouped together (SurveyJS: a wizard page; native: a heading).</summary>
+    public string? Page { get; set; }
+
     /// <summary>Whether a (non-empty) value is valid for this field's type — number parses, date parses, select is one of Options.</summary>
     public bool ValidateValue(string value) => Type switch
     {
@@ -160,4 +201,15 @@ public class FormField
         "checkbox" => value is "true" or "false",
         _ => true
     };
+}
+
+public class VisibleIfRule
+{
+    public string Field { get; set; } = default!;
+
+    [JsonPropertyName("equals")]
+    public string Value { get; set; } = default!;
+
+    /// <summary>Same comparison ProcessBinding.Matches uses for routing conditions.</summary>
+    public bool Matches(string? value) => string.Equals(value, Value, StringComparison.OrdinalIgnoreCase);
 }

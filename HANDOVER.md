@@ -73,6 +73,14 @@ Then read `README.md` (how to run, demo steps) and `CHANGELOG.md` (every change 
 - Routing's condition value input now adapts to the chosen field's type (dropdown/Yes-no/number/date/text), validated server-side too, with existing bindings flagged if a later form edit makes them stale.
 - Trimmed spec 002's "active"/"left" employee wording: no such concept exists in `Employee`; the fallback path is demonstrated via a rule that naturally resolves to nobody instead.
 
+### Done and verified (demo.py steps 1-7, 9-10: 59 PASS, 0 FAIL; step 8 restart check re-verified, 3 PASS before + 11 PASS after)
+**Phase K — switchable form renderer (native or SurveyJS Form Library)**
+- Native renderer and a new SurveyJS Form Library adapter sit behind one contract, `createRenderer(kind, schema, values, readOnly) -> {mount, getData, validate}`; `wwwroot/index.html` no longer builds or reads raw HTML form strings.
+- Renderer choice resolves demo toggle (this browser only) → per-form setting → tenant's company default (`native` for Globex, `surveyjs` for Acme — also proves the setting is tenant-isolated).
+- Schema extensions: `visibleIf` (same field/value matching as `ProcessBinding.Matches`), `description`, `placeholder`, `page`. The server is the gatekeeper regardless of renderer: a hidden field is never required and any submitted value for it is dropped before storage (`SubmissionAppService.Validate`), verified at the API level by `demo.py` step 10 against Acme's seeded Leave request v2 (`medicalNoteReference`, required only when `leaveType = Sick`).
+- Real bug found only by actually running the seeder (not just building it): seeding Acme's v2 re-fetched the just-inserted v1 version by id, racing ABP's `InsertAsync` (no auto-save by default) and throwing `EntityNotFoundException` on every startup — fixed with an explicit `autoSave: true` on that insert.
+- **SC-003 findings (not independently verified — no browser tool available this session, see §2):** both renderers cover all six field types, pagination and the full `visibleIf`/description/placeholder vocabulary used in this PoC, confirmed by code inspection of `renderers.js` and a live field-by-field comparison would be the natural next check once a browser tool is available. RTL (`dir="rtl"` toggle) is wired (`document.documentElement.dir`) but its visual correctness in either renderer was not confirmed by this session — flag for Phase G's design-doc comparison.
+
 ## 4. The plan to complete the PoC
 
 Each phase ends with something demoable, and `demo.py` gains checks for it.
@@ -86,12 +94,12 @@ Each phase ends with something demoable, and `demo.py` gains checks for it.
 | H | Sign-in + client onboarding | ABP Identity/OpenIddict/Account/TenantManagement (open source); no self-registration; vendor admin creates company + client admin; permissions replace `IsAdmin` | Real auth, no sign-up, tenant from the account | L | Spec `specs/003-login-onboarding` |
 | I | Employees + org structure | Client admin manages employees, departments (OrganizationUnit), unit heads, roles catalogue; new `department-head` approver | Client runs without vendor help | M | Spec `specs/004-employees-org` |
 | J | Email notifications | Assigned / approved / rejected / sent back emails; per-form templates for initiator and approver side; Mailpit locally | Notifications with editable templates | M | Spec `specs/005-email-notifications` |
-| K | Switchable renderer | SurveyJS Form Library (MIT) next to the native renderer; demo toggle, per-form and company setting; canonical schema unchanged | Compare renderers on the same forms | S–M | Spec `specs/006-surveyjs-renderer` |
+| K | Switchable renderer | SurveyJS Form Library (MIT) next to the native renderer; demo toggle, per-form and company setting; canonical schema unchanged | Compare renderers on the same forms | S–M | **Done; verified** (2026-10-20, API-level; visual/RTL check pending a browser tool); spec `specs/006-surveyjs-renderer` |
 | E | Version pinning (Phase 2 item 4) | Publish workflow v2 while v1 requests are in flight | Running requests keep their version | S | Planned |
 | F | Reliable start (Phase 2 item 5) | ABP distributed event bus + outbox replaces `CurrentUnitOfWork.OnCompleted` start hook | Crash between submit and start loses nothing | M | **In-scope decision pending** |
 | G | Wrap-up | Final demo run, README, findings + go/no-go in the design doc | Decision-ready | S | Planned |
 
-Order: A → B (verify) → C (done) → D (done) → H → I → J → K → E → F → G (H–K added 2026-10-20; K has no dependencies and can move earlier). Hard dependencies: C before D; H before I; H and I before J.
+Order: A → B (verify) → C (done) → D (done) → H → I → J → K (done) → E → F → G (H–K added 2026-10-20; K has no dependencies and moved earlier, ahead of H-J). Hard dependencies: C before D; H before I; H and I before J.
 **Phase D decision (2026-10-20): option B.** Workmate HRM is multi-tenant SaaS: client HR admins design workflows, so the designer must be simple, run no client code on shared servers, keep routes in our tenant-filtered tables, and survive Elsa upgrades (our route model is the contract; Elsa definitions are generated). Elsa and Elsa Studio are MIT, but ABP's Elsa Pro integration needs an ABP Team licence (ruled out). Studio may be added later for Aramis staff only. Scope added by Ahmad: each step asks the approver type (line manager, manager's manager, role → which role, specific user → which user); routing value inputs adapt to the chosen field's type. For go/no-go, record that Studio hosting/auth was not proven.
 
 **Decisions Ahmad still owes:** whether F is in PoC scope; SQLite pin.
@@ -135,7 +143,8 @@ Order: A → B (verify) → C (done) → D (done) → H → I → J → K → E 
 | `Data/DemoDataSeeder.cs`, `Data/PocDbContext.cs` | Seed data; table prefixes `Hr_`, `Forms_`, `Proc_` |
 | `Controllers/PocController.cs` | `/api/poc/...` routes |
 | `wwwroot/index.html` | Demo UI incl. form designer, workflow designer and routing |
-| `demo.py` | API demo/regression script (steps 1–7, 9; two-part restart check 8) |
+| `wwwroot/js/renderers.js`, `wwwroot/lib/surveyjs/` | `createRenderer(kind, schema, values, readOnly)` contract (native + vendored SurveyJS Form Library) |
+| `demo.py` | API demo/regression script (steps 1–7, 9, 10; two-part restart check 8) |
 
 ## 8. Continuing with spec-kit
 
