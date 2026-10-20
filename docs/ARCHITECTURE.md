@@ -22,77 +22,70 @@ flowchart TB
   classDef base fill:#f1f5f9,stroke:#475569,color:#0f172a
 
   subgraph Browser["Browser (wwwroot)"]
-    UI["index.html<br/>demo UI: requests, inbox,<br/>form / workflow / routing designers"]:::ours
-    RJS["js/renderers.js<br/>createRenderer: native + SurveyJS adapter"]:::ours
-    SJS["SurveyJS Form Library<br/>survey-core + survey-js-ui<br/>(vendored in lib/surveyjs)"]:::survey
+    direction LR
+    UI["index.html<br/>requests, inbox, designers"]:::ours
+    RJS["js/renderers.js<br/>native renderer + SurveyJS adapter"]:::ours
+    SJS["SurveyJS Form Library<br/>survey-core, survey-js-ui"]:::survey
     UI --> RJS --> SJS
   end
 
-  subgraph Host["ASP.NET Core host (.NET 10)"]
-    direction TB
-    subgraph Web["Web layer"]
-      MW["DemoUserMiddleware<br/>fake sign-in (X-Demo-User)"]:::ours
-      MT["Multi-tenancy middleware<br/>tenant from __tenant header"]:::abp
-      UOW["Unit of Work middleware"]:::abp
-      CTRL["PocController<br/>/api/poc/..."]:::ours
-      MVC["ABP AspNetCore.Mvc<br/>controllers, validation, exceptions"]:::abp
-    end
-
-    subgraph App["Application layer"]
-      AS["FormAppService, RoutingAppService,<br/>SubmissionAppService, TaskAppService,<br/>ApprovalWorkflowAppService"]:::ours
-      PM["ProcessManager<br/>binding, start after commit,<br/>tasks, outcomes"]:::ours
-      AR["AssignmentResolver<br/>line manager, role, user, fallback"]:::ours
-      CEP["CurrentEmployeeProvider<br/>+ admin check"]:::ours
-      APPB["ABP Ddd.Application<br/>ApplicationService base"]:::abp
-    end
-
-    subgraph Dom["Domain + data"]
-      DOM["Forms, Processes,<br/>ApprovalWorkflows, Employee"]:::ours
-      DBC["PocDbContext + DemoDataSeeder"]:::ours
-      EFA["ABP EntityFrameworkCore.Sqlite<br/>repositories, IMultiTenant filter,<br/>audit fields"]:::abp
-      TS["ABP config tenant store<br/>(Acme, Globex)"]:::abp
-    end
-
-    subgraph WE["WorkflowEngine (only door into Elsa)"]
-      GW["IWorkflowGateway /<br/>ElsaWorkflowGateway"]:::ours
-      GB["ApprovalWorkflowGraphBuilder<br/>designed steps to Elsa graph"]:::ours
-      ACT["Custom activities<br/>HumanTask, CompleteProcess"]:::ours
-      WFC["Code workflows<br/>leave-approval, hr-only-approval"]:::ours
-    end
-
-    subgraph Elsa["Elsa Workflows 3"]
-      RT["Workflow runtime<br/>instances, bookmarks, resume"]:::elsa
-      MG["Workflow management<br/>definitions, versions, publish"]:::elsa
-      FC["Flowchart + built-in activities"]:::elsa
-      EP["Elsa.Persistence.EFCore.Sqlite"]:::elsa
-    end
-
-    DI["ABP Autofac<br/>DI + module system"]:::abp
+  subgraph Web["Web layer"]
+    direction LR
+    MW["DemoUserMiddleware<br/>fake sign-in"]:::ours
+    MT["Multi-tenancy<br/>tenant resolver + config store"]:::abp
+    UOW["Unit of Work"]:::abp
+    MVC["AspNetCore.Mvc<br/>routing, validation, errors"]:::abp
+    CTRL["PocController<br/>/api/poc/..."]:::ours
+    MW --> MT --> UOW --> MVC --> CTRL
   end
 
-  DB1[("workmate-poc.db<br/>Hr_, Forms_, Proc_ tables")]:::base
+  subgraph App["Application layer"]
+    direction LR
+    AS["App services<br/>Form, Routing, Submission,<br/>Task, ApprovalWorkflow"]:::ours
+    APPB["Ddd.Application<br/>ApplicationService base"]:::abp
+    PM["ProcessManager<br/>start after commit, tasks"]:::ours
+    AR["AssignmentResolver<br/>manager, role, user, fallback"]:::ours
+    AS --- APPB
+    AS --> PM --> AR
+  end
+
+  subgraph WE["WorkflowEngine: only door into Elsa"]
+    direction LR
+    GW["IWorkflowGateway<br/>ElsaWorkflowGateway"]:::ours
+    GB["ApprovalWorkflowGraphBuilder"]:::ours
+    ACT["Activities<br/>HumanTask, CompleteProcess"]:::ours
+    WFC["Code workflows"]:::ours
+  end
+
+  subgraph Elsa["Elsa Workflows 3.7"]
+    direction LR
+    RT["Runtime<br/>instances, bookmarks"]:::elsa
+    MG["Management<br/>definitions, publish"]:::elsa
+    FC["Flowchart activities"]:::elsa
+    EP["Persistence.EFCore.Sqlite"]:::elsa
+  end
+
+  subgraph Data["Domain and data"]
+    direction LR
+    DOM["Entities<br/>Forms, Processes,<br/>ApprovalWorkflows, Employee"]:::ours
+    DBC["PocDbContext<br/>DemoDataSeeder"]:::ours
+    EFA["EntityFrameworkCore.Sqlite<br/>repositories, tenant filter"]:::abp
+    DOM --> DBC --> EFA
+  end
+
+  DI["ABP Autofac: DI and module system (hosts everything)"]:::abp
+  DB1[("workmate-poc.db<br/>Hr_, Forms_, Proc_")]:::base
   DB2[("workmate-elsa.db<br/>Elsa tables")]:::base
 
-  UI -->|"HTTP + JSON"| MW --> MT --> UOW --> CTRL
-  CTRL --> MVC
-  CTRL --> AS
-  AS --> APPB
-  AS --> PM
-  AS --> CEP
-  PM --> AR
+  Browser -->|HTTP + JSON| Web
+  Web --> App
+  App --> Data
   PM --> GW
-  AS --> DOM
-  DOM --> DBC --> EFA --> DB1
-  MT --> TS
-  GW --> RT
-  GW --> MG
-  GB --> FC
-  ACT -->|"create task / finish"| PM
-  RT --> ACT
-  WFC --> FC
-  RT --> EP
-  MG --> EP
+  WE --> Elsa
+  ACT -->|create task, finish| PM
+  EFA --> DB1
   EP --> DB2
+  Data ~~~ DI
 ```
 
 ## 2. Runtime flow: submit and approve
