@@ -23,6 +23,8 @@ public class DemoDataSeeder : ITransientDependency
     private readonly ICurrentTenant _currentTenant;
     private readonly IGuidGenerator _guids;
     private readonly IRepository<Employee, Guid> _employees;
+    private readonly IRepository<JobRole, Guid> _jobRoles;
+    private readonly IRepository<EmployeeJobRole, Guid> _jobRoleLinks;
     private readonly IRepository<FormDefinition, Guid> _forms;
     private readonly IRepository<FormDefinitionVersion, Guid> _versions;
     private readonly IRepository<ProcessBinding, Guid> _bindings;
@@ -36,13 +38,14 @@ public class DemoDataSeeder : ITransientDependency
 
     public DemoDataSeeder(IUnitOfWorkManager uow, IDbContextProvider<PocDbContext> db, ICurrentTenant currentTenant,
         IGuidGenerator guids, IRepository<Employee, Guid> employees,
+        IRepository<JobRole, Guid> jobRoles, IRepository<EmployeeJobRole, Guid> jobRoleLinks,
         IRepository<FormDefinition, Guid> forms, IRepository<FormDefinitionVersion, Guid> versions,
         IRepository<ProcessBinding, Guid> bindings, IRepository<CompanyFormSettings, Guid> companySettings,
         ITenantRepository tenants, TenantManager tenantManager, IdentityUserManager userManager,
         TenantAdminRoleSeeder adminRoleSeeder, IPermissionManager permissionManager, OpenIddictDataSeeder openIddictSeeder)
     {
         _uow = uow; _db = db; _currentTenant = currentTenant; _guids = guids;
-        _employees = employees; _forms = forms; _versions = versions; _bindings = bindings; _companySettings = companySettings;
+        _employees = employees; _jobRoles = jobRoles; _jobRoleLinks = jobRoleLinks; _forms = forms; _versions = versions; _bindings = bindings; _companySettings = companySettings;
         _tenants = tenants; _tenantManager = tenantManager; _userManager = userManager;
         _adminRoleSeeder = adminRoleSeeder; _permissionManager = permissionManager; _openIddictSeeder = openIddictSeeder;
     }
@@ -132,6 +135,11 @@ public class DemoDataSeeder : ITransientDependency
             // visible once CurrentTenant switches here via X-Act-As-Tenant (TenantAdminRoleSeeder doc comment).
             var role = await _adminRoleSeeder.EnsureCompanyAdminRoleAsync(vendorAdminId);
 
+            // Spec 004: every company gets the built-in job roles; each demo person holds their old single role.
+            var jobRoles = new Dictionary<string, JobRole>();
+            foreach (var name in BuiltInJobRoles.All)
+                await _jobRoles.InsertAsync(jobRoles[name] = new JobRole(_guids.Create(), abpTenant.Id, name, isBuiltIn: true));
+
             var companySlug = tenant.Name.Split(' ')[0].ToLowerInvariant(); // "Acme Trading" -> "acme", for email addresses only
             var people = new Dictionary<string, Employee>();
             foreach (var p in staff)
@@ -141,9 +149,10 @@ public class DemoDataSeeder : ITransientDependency
                 await CreateUserAsync(identityUser);
 
                 var managerId = p.Manager != null ? people[p.Manager].Id : (Guid?)null;
-                var e = new Employee(_guids.Create(), abpTenant.Id, identityUser.Id, p.Name, p.Role, managerId);
+                var e = new Employee(_guids.Create(), abpTenant.Id, identityUser.Id, p.Name, email, managerId);
                 people[p.Name] = e;
                 await _employees.InsertAsync(e);
+                await _jobRoleLinks.InsertAsync(new EmployeeJobRole(_guids.Create(), abpTenant.Id, e.Id, jobRoles[p.Role].Id));
 
                 if (p.IsAdmin)
                 {

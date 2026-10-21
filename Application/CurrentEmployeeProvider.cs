@@ -24,7 +24,10 @@ public class CurrentEmployeeProvider : ITransientDependency
     {
         if (_currentUser.Id == null)
             throw new UserFriendlyException("Sign in before continuing.");
-        return await _employees.FindAsync(e => e.UserId == _currentUser.Id.Value)
-               ?? throw new UserFriendlyException("This user does not belong to the selected company.");
+        var employee = await _employees.FindAsync(e => e.UserId == _currentUser.Id.Value)
+                       ?? throw new UserFriendlyException("This user does not belong to the selected company.");
+        // A token issued before deactivation stays valid until it expires (spec 004 research R4).
+        if (!employee.IsActive) throw new UserFriendlyException("This account is deactivated.");
+        return employee;
     }
 }

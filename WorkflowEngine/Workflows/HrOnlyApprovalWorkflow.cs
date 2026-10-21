@@ -26,6 +26,7 @@ public class HrOnlyApprovalWorkflow : WorkflowBase
                     StepKey = new("hr-approval"),
                     TaskTitle = new("HR review"),
                     AssignmentRule = new("role:HR"),
+                    FallbackRule = new("role:HR"), // never stuck (constitution III); also the target when an approver is deactivated (spec 004 FR-007)
                     Result = new(hrOutcome)
                 },
                 new CompleteProcess

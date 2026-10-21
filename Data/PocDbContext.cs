@@ -52,6 +52,9 @@ public class PocDbContext : AbpDbContext<PocDbContext>,
     public DbSet<PermissionGrant> PermissionGrants => Set<PermissionGrant>();
 
     public DbSet<Employee> Employees => Set<Employee>();
+    public DbSet<JobRole> JobRoles => Set<JobRole>();
+    public DbSet<EmployeeJobRole> EmployeeJobRoles => Set<EmployeeJobRole>();
+    public DbSet<DepartmentHead> DepartmentHeads => Set<DepartmentHead>();
     public DbSet<FormDefinition> FormDefinitions => Set<FormDefinition>();
     public DbSet<FormDefinitionVersion> FormDefinitionVersions => Set<FormDefinitionVersion>();
     public DbSet<FormSubmission> FormSubmissions => Set<FormSubmission>();
@@ -79,6 +82,22 @@ public class PocDbContext : AbpDbContext<PocDbContext>,
         // SQLite has no schemas, so module ownership is shown with table prefixes:
         // Hr_ (stand-in for the HR module), Forms_ (Forms module), Proc_ (Processes module).
         b.Entity<Employee>(e => { e.ToTable("Hr_Employees"); e.ConfigureByConvention(); });
+        b.Entity<JobRole>(e =>
+        {
+            e.ToTable("Hr_JobRoles"); e.ConfigureByConvention();
+            e.Property(x => x.Name).UseCollation("NOCASE"); // "HR" and "hr" are the same role
+            e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+        });
+        b.Entity<EmployeeJobRole>(e =>
+        {
+            e.ToTable("Hr_EmployeeJobRoles"); e.ConfigureByConvention();
+            e.HasIndex(x => new { x.EmployeeId, x.JobRoleId }).IsUnique();
+        });
+        b.Entity<DepartmentHead>(e =>
+        {
+            e.ToTable("Hr_DepartmentHeads"); e.ConfigureByConvention();
+            e.HasIndex(x => x.OrganizationUnitId).IsUnique();
+        });
 
         b.Entity<FormDefinition>(e =>
         {

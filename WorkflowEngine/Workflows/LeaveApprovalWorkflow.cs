@@ -31,6 +31,7 @@ public class LeaveApprovalWorkflow : WorkflowBase
                     StepKey = new("manager-approval"),
                     TaskTitle = new("Line manager approval"),
                     AssignmentRule = new("line-manager"),
+                    FallbackRule = new("role:HR"), // never stuck (constitution III); also the target when an approver is deactivated (spec 004 FR-007)
                     Result = new(managerOutcome)
                 },
                 new If(context => managerOutcome.Get(context) == TaskOutcomes.Approved)
@@ -44,6 +45,7 @@ public class LeaveApprovalWorkflow : WorkflowBase
                                 StepKey = new("hr-approval"),
                                 TaskTitle = new("HR approval"),
                                 AssignmentRule = new("role:HR"),
+                                FallbackRule = new("role:HR"), // never stuck (constitution III); also the target when an approver is deactivated (spec 004 FR-007)
                                 Result = new(hrOutcome)
                             },
                             new CompleteProcess

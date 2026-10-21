@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
@@ -26,13 +25,16 @@ public class TenantOnboardingAppService : ApplicationService
     private readonly IRepository<Employee, Guid> _employees;
     private readonly TenantAdminRoleSeeder _adminRoleSeeder;
     private readonly IDataFilter _dataFilter;
+    private readonly IRepository<JobRole, Guid> _jobRoles;
+    private readonly IRepository<EmployeeJobRole, Guid> _jobRoleLinks;
 
     public TenantOnboardingAppService(ICurrentTenant currentTenant, ITenantRepository tenants, TenantManager tenantManager,
         IdentityUserManager userManager, IRepository<Employee, Guid> employees, TenantAdminRoleSeeder adminRoleSeeder,
-        IDataFilter dataFilter)
+        IDataFilter dataFilter, IRepository<JobRole, Guid> jobRoles, IRepository<EmployeeJobRole, Guid> jobRoleLinks)
     {
         _currentTenant = currentTenant; _tenants = tenants; _tenantManager = tenantManager;
         _userManager = userManager; _employees = employees; _adminRoleSeeder = adminRoleSeeder; _dataFilter = dataFilter;
+        _jobRoles = jobRoles; _jobRoleLinks = jobRoleLinks;
     }
 
     /// <summary>Creates the tenant, its first admin user (in the Workmate.CompanyAdmin role) and matching Employee row.</summary>
@@ -48,7 +50,7 @@ public class TenantOnboardingAppService : ApplicationService
         var tenant = await _tenantManager.CreateAsync(name);
         await _tenants.InsertAsync(tenant);
 
-        var password = GeneratePassword();
+        var password = PasswordGenerator.New();
         Guid employeeId;
 
         using (_currentTenant.Change(tenant.Id))
@@ -66,8 +68,16 @@ public class TenantOnboardingAppService : ApplicationService
                 throw new UserFriendlyException(string.Join(" ", roleResult.Errors.Select(e => e.Description)));
 
             // First person in a new company: no line manager of their own yet (US1 AC1 — "sees an empty company").
-            var employee = new Employee(GuidGenerator.Create(), tenant.Id, user.Id, adminName, EmployeeRoles.Manager, null);
+            var employee = new Employee(GuidGenerator.Create(), tenant.Id, user.Id, adminName, email, null);
             await _employees.InsertAsync(employee);
+
+            // Spec 004: seed the company's built-in job roles; the first admin is a Manager.
+            foreach (var roleName in BuiltInJobRoles.All)
+            {
+                var jobRole = await _jobRoles.InsertAsync(new JobRole(GuidGenerator.Create(), tenant.Id, roleName, isBuiltIn: true));
+                if (roleName == EmployeeRoles.Manager)
+                    await _jobRoleLinks.InsertAsync(new EmployeeJobRole(GuidGenerator.Create(), tenant.Id, employee.Id, jobRole.Id));
+            }
             employeeId = employee.Id;
         }
 
@@ -80,7 +90,7 @@ public class TenantOnboardingAppService : ApplicationService
     {
         var employee = await FindEmployeeAnyTenantAsync(input.EmployeeId);
 
-        var password = GeneratePassword();
+        var password = PasswordGenerator.New();
         using (_currentTenant.Change(employee.TenantId))
         {
             var user = await _userManager.GetByIdAsync(employee.UserId);
@@ -138,13 +148,5 @@ public class TenantOnboardingAppService : ApplicationService
     {
         if (!result.Succeeded)
             throw new UserFriendlyException(string.Join(" ", result.Errors.Select(e => e.Description)));
-    }
-
-    private static string GeneratePassword()
-    {
-        const string alphanumeric = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-        var bytes = RandomNumberGenerator.GetBytes(10);
-        var core = new string(bytes.Select(b => alphanumeric[b % alphanumeric.Length]).ToArray());
-        return core + "1!"; // guarantees a digit + a non-alphanumeric, satisfying ABP's default password policy
     }
 }

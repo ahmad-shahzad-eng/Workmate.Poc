@@ -80,6 +80,9 @@ public class ProcessTask : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string StepKey { get; set; } = default!;
     public string Title { get; set; } = default!;
     public string AssignmentRule { get; set; } = default!;
+
+    /// <summary>Copied from HumanTask at creation; null (tasks created before spec 004) means role:HR (research R4).</summary>
+    public string? FallbackRule { get; set; }
     public string Status { get; set; } = TaskStatusValues.Pending;
     public string? Outcome { get; set; }
     public string? Comment { get; set; }

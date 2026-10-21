@@ -126,3 +126,28 @@ Changes made while getting the PoC to build, start and pass the README demo.
 - Convergence (T029): `TenantOnboardingAppService.AssignClientAdminAsync` + `POST tenants/assign-admin` lets the vendor admin make another employee the company admin, optionally removing the departed one (spec edge case "client admin leaves"). Takes effect at that user's next sign-in, since role membership travels in the token. New `demo.py` checks 11k–11m.
 - Convergence fix (T030): `ResetClientAdminPasswordAsync` now also lifts lockout (so a locked-out admin can sign in with the new password) and refuses employees who are not company admins. New `demo.py` checks 11i–11j.
 - Verified: steps 1-7, 9-11 (74/74); app restart → step 8 restart check (3/3 before, 11/11 after).
+
+## Spec 004: employees and organisation structure (Phase 2 + US1)
+
+Needs `Poc:ResetDatabaseOnStartup=true` once: `Hr_Employees.Role` is gone and new `Hr_*` tables were added.
+
+- T001 `Application/PasswordGenerator.cs` (new): the one-time password generator, moved out of `TenantOnboardingAppService` so employee creation reuses it.
+- T002 `Domain/Organization.cs` (new): `JobRole` (company role catalogue; the name is the `role:{Name}` rule key and never changes), `EmployeeJobRole` (an employee holds zero or more roles), `DepartmentHead`, `BuiltInJobRoles`.
+- T003 `Domain/Employee.cs`: `Role` removed; `Email`, `JobTitle`, `DepartmentId`, `IsActive` added.
+- T004 `Domain/Processes.cs`: `ProcessTask.FallbackRule`, so a task knows where to go if its approver is deactivated.
+- T005 `Data/PocDbContext.cs`: `Hr_JobRoles` (unique, case-insensitive name per company), `Hr_EmployeeJobRoles`, `Hr_DepartmentHeads`.
+- T006 `Application/JobRoleLookup.cs` (new): role catalogue reads shared by routing, HR access and workflow validation.
+- T007 `Application/AssignmentResolver.cs`: `role:X` means every active holder of catalogue role X; deactivated people are never candidates for any rule.
+- T008 `Application/SubmissionAppService.cs`: "HR may view any request" now checks the HR role link.
+- T009 `Application/ApprovalWorkflowAppService.cs`: a role step or role fallback must name a catalogue role with at least one active holder.
+- T010 `Application/ProcessManager.cs` stores each task's fallback rule; `LeaveApprovalWorkflow`/`HrOnlyApprovalWorkflow` steps get fallback `role:HR` (constitution III). Behaviour change: a leave request from someone with no line manager now goes to HR instead of getting stuck.
+- T011 `Data/DemoDataSeeder.cs`, `TenantOnboardingAppService`: every company gets the built-in roles (Employee, Manager, HR, Finance); demo people keep their old role; a new company's first admin is a Manager. `GET users` returns `{ email, jobTitle, roles[], managerId, departmentId, departmentName, isActive, ... }`, active people only, by name.
+- Phase 2 gate: fresh reset → `demo.py` 74/74; restart check 3/3 before, 11/11 after.
+- T012 `Application/Dtos.cs`: `SaveEmployeeInput`, `EmployeeCreatedDto`, `DeactivationResultDto`.
+- T013 `Application/CurrentEmployeeProvider.cs`: refuses a deactivated employee, since a token issued before deactivation is still valid until it expires.
+- T014 `Application/TaskReassignmentService.cs` (new): on deactivation, each open task the person could act on goes to its fallback approver, with a `TaskReassigned` timeline entry. Only task candidate rows change; Elsa is not called (Principle VI).
+- T015 `Application/EmployeeAppService.cs` (new): create (sign-in account + HR record together; password shown once), edit (refuses reporting loops, self-management, unknown roles, other companies' managers/departments; email change updates the sign-in name too), deactivate (blocks sign-in, moves open tasks; you can't deactivate yourself), re-activate.
+- T016 `Controllers/PocController.cs`: `POST employees`, `PUT employees/{id}`, `POST employees/{id}/deactivate|activate`; `GET users?includeInactive=true` for employee managers.
+- T017 `wwwroot/index.html`: Employees tab (company admins only): list, add/edit form with roles and line manager, deactivate/re-activate, one-time password notice.
+- T018 `demo.py` step 12 (US1 part): 12a six employees each sign in; 12d manager loop refused; 12e duplicate email refused in one company, allowed in another; 12j non-admin refused; 12h deactivating an approver moves the open task to HR with a timeline entry; 12i deactivated person can't sign in and their old token is refused.
+- US1 gate: `demo.py` 80/80; restart check 3/3 before, 11/11 after.

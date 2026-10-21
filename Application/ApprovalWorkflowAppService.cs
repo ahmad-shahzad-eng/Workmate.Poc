@@ -21,13 +21,14 @@ public class ApprovalWorkflowAppService : ApplicationService
     private readonly IRepository<Employee, Guid> _employees;
     private readonly IRepository<ApprovalWorkflow, Guid> _workflows;
     private readonly IRepository<ApprovalWorkflowVersion, Guid> _versions;
+    private readonly JobRoleLookup _jobRoles;
 
     public ApprovalWorkflowAppService(IWorkflowGateway gateway,
         IRepository<Employee, Guid> employees, IRepository<ApprovalWorkflow, Guid> workflows,
-        IRepository<ApprovalWorkflowVersion, Guid> versions)
+        IRepository<ApprovalWorkflowVersion, Guid> versions, JobRoleLookup jobRoles)
     {
         _gateway = gateway; _employees = employees;
-        _workflows = workflows; _versions = versions;
+        _workflows = workflows; _versions = versions; _jobRoles = jobRoles;
     }
 
     [Authorize(WorkmatePermissions.WorkflowsDesign)]
@@ -136,8 +137,8 @@ public class ApprovalWorkflowAppService : ApplicationService
     {
         foreach (var step in schema.Steps)
         {
-            if (step.ApproverType == ApproverTypes.Role && !await _employees.AnyAsync(e => e.Role == step.Role))
-                throw new UserFriendlyException($"Role '{step.Role}' has no employees in this company yet.");
+            if (step.ApproverType == ApproverTypes.Role)
+                await EnsureRoleHasHoldersAsync(step.Role!, $"Role '{step.Role}'");
             if (step.ApproverType == ApproverTypes.User && !await _employees.AnyAsync(e => e.Id == step.UserId))
                 throw new UserFriendlyException($"The chosen user for '{step.Title}' does not belong to this company.");
         }
@@ -145,10 +146,19 @@ public class ApprovalWorkflowAppService : ApplicationService
         if (!requireFallback && string.IsNullOrWhiteSpace(fallbackRule)) return; // draft: fallback is optional until publish
 
         var (type, role, userId) = FallbackRules.Parse(fallbackRule);
-        if (type == ApproverTypes.Role && !await _employees.AnyAsync(e => e.Role == role))
-            throw new UserFriendlyException($"Fallback role '{role}' has no employees in this company yet.");
+        if (type == ApproverTypes.Role)
+            await EnsureRoleHasHoldersAsync(role!, $"Fallback role '{role}'");
         if (type == ApproverTypes.User && !await _employees.AnyAsync(e => e.Id == userId))
             throw new UserFriendlyException("The fallback user does not belong to this company.");
+    }
+
+    /// <summary>The role must be in the catalogue and held by at least one active employee (spec 004 FR-004).</summary>
+    private async Task EnsureRoleHasHoldersAsync(string role, string label)
+    {
+        if (await _jobRoles.FindAsync(role) == null)
+            throw new UserFriendlyException($"Role '{role}' is not in this company's role list.");
+        if ((await _jobRoles.GetActiveHoldersAsync(role)).Count == 0)
+            throw new UserFriendlyException($"{label} has no employees in this company yet.");
     }
 
     private async Task<ApprovalWorkflow> GetWorkflowAsync(string key) =>

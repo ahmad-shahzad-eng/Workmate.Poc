@@ -7,15 +7,21 @@ namespace Workmate.Poc.Application;
 /// <summary>
 /// Resolves who may act on a task from HR data. Workflow definitions only name a rule key,
 /// so org changes never require editing workflows.
-/// Rules: "line-manager", "manager-of-manager", "role:{Role}", "user:{EmployeeId}".
-/// The submitter is always excluded from their own request's candidates, for every rule.
+/// Rules: "line-manager", "manager-of-manager", "role:{Role}" (every active holder of that catalogue
+/// role, spec 004 FR-004), "user:{EmployeeId}".
+/// The submitter is always excluded from their own request's candidates, for every rule, and so is
+/// anyone deactivated (spec 004 FR-007).
 /// When the result is empty and a fallback rule is given, the fallback is resolved instead.
 /// </summary>
 public class AssignmentResolver : ITransientDependency
 {
     private readonly IRepository<Employee, Guid> _employees;
+    private readonly JobRoleLookup _jobRoles;
 
-    public AssignmentResolver(IRepository<Employee, Guid> employees) => _employees = employees;
+    public AssignmentResolver(IRepository<Employee, Guid> employees, JobRoleLookup jobRoles)
+    {
+        _employees = employees; _jobRoles = jobRoles;
+    }
 
     public async Task<(List<Employee> People, bool UsedFallback)> ResolveAsync(string rule, Guid submitterUserId, string? fallbackRule = null)
     {
@@ -28,7 +34,7 @@ public class AssignmentResolver : ITransientDependency
     }
 
     private async Task<List<Employee>> ResolveExcludingSubmitterAsync(string rule, Guid submitterUserId) =>
-        (await ResolveRuleAsync(rule, submitterUserId)).Where(p => p.Id != submitterUserId).ToList();
+        (await ResolveRuleAsync(rule, submitterUserId)).Where(p => p.Id != submitterUserId && p.IsActive).ToList();
 
     private async Task<List<Employee>> ResolveRuleAsync(string rule, Guid submitterUserId)
     {
@@ -52,8 +58,7 @@ public class AssignmentResolver : ITransientDependency
 
         if (rule.StartsWith("role:", StringComparison.OrdinalIgnoreCase))
         {
-            var role = rule["role:".Length..];
-            return await _employees.GetListAsync(e => e.Role == role);
+            return await _jobRoles.GetActiveHoldersAsync(rule["role:".Length..]);
         }
 
         if (rule.StartsWith("user:", StringComparison.OrdinalIgnoreCase) && Guid.TryParse(rule["user:".Length..], out var userId))

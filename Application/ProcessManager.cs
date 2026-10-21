@@ -113,7 +113,7 @@ public class ProcessManager : ITransientDependency
             var (people, usedFallback) = await _assignment.ResolveAsync(assignmentRule, submission.SubmittedByUserId, fallbackRule);
 
             var task = new ProcessTask(_guids.Create(), inputs.TenantId, instance.Id, submission.Id,
-                elsaWorkflowInstanceId, bookmarkId, stepKey, title, assignmentRule);
+                elsaWorkflowInstanceId, bookmarkId, stepKey, title, assignmentRule) { FallbackRule = fallbackRule };
             await _tasks.InsertAsync(task);
 
             foreach (var person in people)

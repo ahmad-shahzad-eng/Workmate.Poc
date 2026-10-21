@@ -21,17 +21,20 @@ public class SubmissionAppService : ApplicationService
     private readonly IRepository<ProcessTaskCandidate, Guid> _candidates;
     private readonly IRepository<ProcessEvent, Guid> _events;
     private readonly IRepository<CompanyFormSettings, Guid> _companySettings;
+    private readonly JobRoleLookup _jobRoles;
 
     public SubmissionAppService(CurrentEmployeeProvider currentEmployee, ProcessManager processes,
         IRepository<Employee, Guid> employees, IRepository<FormDefinition, Guid> forms,
         IRepository<FormDefinitionVersion, Guid> versions, IRepository<FormSubmission, Guid> submissions,
         IRepository<FormSubmissionValue, Guid> values, IRepository<ProcessInstance, Guid> instances,
         IRepository<ProcessTask, Guid> tasks, IRepository<ProcessTaskCandidate, Guid> candidates,
-        IRepository<ProcessEvent, Guid> events, IRepository<CompanyFormSettings, Guid> companySettings)
+        IRepository<ProcessEvent, Guid> events, IRepository<CompanyFormSettings, Guid> companySettings,
+        JobRoleLookup jobRoles)
     {
         _currentEmployee = currentEmployee; _processes = processes; _employees = employees; _forms = forms;
         _versions = versions; _submissions = submissions; _values = values; _instances = instances;
         _tasks = tasks; _candidates = candidates; _events = events; _companySettings = companySettings;
+        _jobRoles = jobRoles;
     }
 
     public virtual async Task<Guid> SubmitAsync(SubmitFormInput input)
@@ -85,7 +88,7 @@ public class SubmissionAppService : ApplicationService
         var taskIds = tasks.Select(t => t.Id).ToList();
         var candidates = await _candidates.GetListAsync(c => taskIds.Contains(c.TaskId));
 
-        var mayView = submission.SubmittedByUserId == me.Id || me.Role == EmployeeRoles.Hr || candidates.Any(c => c.UserId == me.Id);
+        var mayView = submission.SubmittedByUserId == me.Id || await _jobRoles.HoldsAsync(me.Id, EmployeeRoles.Hr) || candidates.Any(c => c.UserId == me.Id);
         if (!mayView) throw new UserFriendlyException("You can only open your own requests or requests assigned to you.");
 
         var people = (await _employees.GetListAsync()).ToDictionary(e => e.Id, e => e.Name);

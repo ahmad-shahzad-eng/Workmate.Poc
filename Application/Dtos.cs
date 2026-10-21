@@ -1,7 +1,8 @@
 namespace Workmate.Poc.Application;
 
 public record TenantDto(Guid Id, string Name);
-public record EmployeeDto(Guid Id, string Name, string Role, string? ManagerName);
+public record EmployeeDto(Guid Id, string Name, string Email, string? JobTitle, List<string> Roles, Guid? ManagerId,
+    string? ManagerName, Guid? DepartmentId, string? DepartmentName, bool IsActive);
 
 public record FormSummaryDto(string Key, string Name, string Category, Guid VersionId, int VersionNo, string SchemaJson, string EffectiveRenderer);
 public record FormVersionDto(Guid Id, int VersionNo, string Status, string SchemaJson, DateTime? PublishedAt);
@@ -105,3 +106,17 @@ public class AssignClientAdminInput
     public Guid EmployeeId { get; set; }
     public Guid? RemoveEmployeeId { get; set; }
 }
+
+// --- Employees (client admin; spec 004 US1)
+public class SaveEmployeeInput
+{
+    public string Name { get; set; } = default!;
+    public string Email { get; set; } = default!;
+    public string? JobTitle { get; set; }
+    public List<string> Roles { get; set; } = new();
+    public Guid? ManagerId { get; set; }
+    public Guid? DepartmentId { get; set; }
+}
+
+public record EmployeeCreatedDto(EmployeeDto Employee, string GeneratedPassword);
+public record DeactivationResultDto(EmployeeDto Employee, int ReassignedTaskCount);

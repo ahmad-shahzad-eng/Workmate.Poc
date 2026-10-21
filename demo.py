@@ -451,6 +451,109 @@ def s11():
     code, _ = call("POST", "/tenants/assign-admin", sara_tok, {"employeeId": acme_ids["Sara"]})
     check("11m a non-vendor-admin cannot assign company admins", code == 403, f"http {code}")
 
+def s12():
+    """Spec 004: a client admin builds their company's people and structure, and requests route from it.
+    Runs in fresh vendor-created companies so it never disturbs the Acme/Globex data steps 1-10 rely on.
+    Deactivation runs last: it removes an approver the routing checks need."""
+    ctx = s12_setup()
+    s12_employees(ctx)
+    s12_deactivation(ctx)
+
+def s12_company(vendor_tok, name, admin_first):
+    """Vendor creates a company; returns (company_name, admin_token)."""
+    admin_email = f"{admin_first.lower()}-{RUN_SUFFIX}@{slug(name)}.demo"
+    code, created = call("POST", "/tenants", vendor_tok, {"name": name, "adminName": f"{admin_first} Admin", "adminEmail": admin_email})
+    if code != 200: raise RuntimeError(f"could not create company {name}: http {code}")
+    _, tok, _ = sign_in(admin_email, created["generatedPassword"], tenant_name=name)
+    return tok
+
+def s12_setup():
+    company = f"Umbrella {RUN_SUFFIX}"
+    _, vendor_tok, _ = sign_in(VENDOR_EMAIL)
+    admin = s12_company(vendor_tok, company, "Ada")
+    ctx = {"company": company, "vendor": vendor_tok, "admin": admin, "ids": {}, "tok": {}, "email": {}, "pw": {}}
+
+    # 12a (US1 part): six employees with roles and line managers. Rita -> Frank -> Paula -> Carl; Ivan
+    # reports to Frank; Hana is HR (the workflow fallback). Departments come in the US2 part.
+    staff = [("Rita", "Manager", None), ("Frank", "Manager", "Rita"), ("Paula", "Manager", "Frank"),
+             ("Carl", "Employee", "Paula"), ("Ivan", "Employee", "Frank"), ("Hana", "HR", None)]
+    ok = True
+    for first, role, mgr in staff:
+        email = f"{first.lower()}-{RUN_SUFFIX}@umbrella.demo"
+        code, created = call("POST", "/employees", admin, {"name": f"{first} Umbrella", "email": email, "jobTitle": role,
+                                                          "roles": [role], "managerId": ctx["ids"].get(mgr)})
+        if code != 200: ok = False; continue
+        ctx["ids"][first] = created["employee"]["id"]; ctx["email"][first] = email; ctx["pw"][first] = created["generatedPassword"]
+        _, ctx["tok"][first], _ = sign_in(email, created["generatedPassword"], tenant_name=company)
+        ok = ok and ctx["tok"][first] is not None and created["employee"]["roles"] == [role]
+    check("12a admin adds 6 employees with roles and managers; each signs in with the password shown once", ok and len(ctx["ids"]) == 6,
+          str(sorted(ctx["ids"])))
+    return ctx
+
+def s12_employees(ctx):
+    admin, ids = ctx["admin"], ctx["ids"]
+    _, people = call("GET", "/users", admin)
+    rita = next(p for p in people or [] if p["id"] == ids["Rita"])
+
+    # 12d: Rita reporting to Carl would close the loop Carl -> Paula -> Frank -> Rita -> Carl.
+    body = {"name": rita["name"], "email": rita["email"], "roles": rita["roles"], "managerId": ids["Carl"]}
+    code, b = call("PUT", f"/employees/{ids['Rita']}", admin, body)
+    check("12d a manager cycle is refused (US1 AC2)", code == 403 and "loop" in json.dumps(b), f"http {code}")
+
+    # 12e: duplicate email refused in the same company, accepted in another company.
+    code, b = call("POST", "/employees", admin, {"name": "Carl Again", "email": ctx["email"]["Carl"], "roles": []})
+    other_admin = s12_company(ctx["vendor"], f"Wayne {RUN_SUFFIX}", "Bruce")
+    code2, _ = call("POST", "/employees", other_admin, {"name": "Carl Elsewhere", "email": ctx["email"]["Carl"], "roles": []})
+    check("12e duplicate email refused in the same company, allowed in another (US1 AC3)", code == 403 and code2 == 200,
+          f"same={code} other={code2}")
+
+    # 12j: an ordinary employee cannot manage employees.
+    code, _ = call("POST", "/employees", ctx["tok"]["Carl"], {"name": "Nope", "email": f"nope-{RUN_SUFFIX}@umbrella.demo", "roles": []})
+    check("12j a non-admin cannot add employees", code == 403, f"http {code}")
+
+def s12_publish_workflow(ctx, key, name, steps, fallback="role:HR"):
+    """Creates, drafts and publishes a designed workflow; returns its Elsa definition id."""
+    admin = ctx["admin"]
+    call("POST", "/workflows/design", admin, {"key": key, "name": name})
+    call("PUT", f"/workflows/design/{key}/draft", admin, {"stepsJson": json.dumps({"steps": steps}), "fallbackRule": fallback})
+    code, _ = call("POST", f"/workflows/design/{key}/publish", admin)
+    _, wfs = call("GET", "/workflows", admin)
+    return next((w["definitionId"] for w in wfs or [] if w["name"] == name), None) if code == 200 else None
+
+def s12_form(ctx, key, definition_id):
+    """Creates and publishes a one-field form bound to the given workflow."""
+    admin = ctx["admin"]
+    call("POST", "/forms", admin, {"key": key, "name": key, "category": "Test"})
+    schema = {"title": key, "fields": [{"key": "details", "label": "Details", "type": "text", "required": True}]}
+    call("PUT", f"/forms/{key}/draft", admin, {"schemaJson": json.dumps(schema)})
+    call("POST", f"/forms/{key}/publish", admin)
+    code, _ = call("POST", f"/forms/{key}/bindings", admin, {"workflowDefinitionId": definition_id, "priority": 1})
+    return code == 200
+
+def s12_deactivation(ctx):
+    admin, ids, tok = ctx["admin"], ctx["ids"], ctx["tok"]
+    def_id = s12_publish_workflow(ctx, f"manager-only-{RUN_SUFFIX}", "Manager only",
+                                  [{"title": "Manager approval", "approverType": "line-manager", "onReject": "end"}])
+    bound = def_id is not None and s12_form(ctx, f"ask-{RUN_SUFFIX}", def_id)
+    sid = submit(tok["Carl"], {"details": "new laptop"}, f"ask-{RUN_SUFFIX}") if bound else None
+    before = inbox_task(tok["Paula"], sid) if sid else None
+
+    # 12h: deactivating Paula moves her open task to the fallback (HR: Hana), with a timeline entry (FR-007).
+    paula_old_token = tok["Paula"]
+    code, r = call("POST", f"/employees/{ids['Paula']}/deactivate", admin)
+    moved = inbox_task(tok["Hana"], sid) if sid else None
+    d = detail(tok["Carl"], sid) if sid else {}
+    reassigned = any(ev.get("eventType") == "TaskReassigned" for ev in (d or {}).get("events", []))
+    check("12h deactivating an approver moves their open task to the fallback, with a timeline entry (FR-007)",
+          before is not None and code == 200 and (r or {}).get("reassignedTaskCount") == 1 and moved is not None and reassigned,
+          f"before={before is not None} http={code} moved={moved is not None} timeline={reassigned}")
+
+    # 12i: Paula can no longer sign in, and the token she already had stops working.
+    code_sign, new_tok, _ = sign_in(ctx["email"]["Paula"], ctx["pw"]["Paula"], tenant_name=ctx["company"])  # her real password
+    code_old, _ = call("GET", "/tasks/inbox", paula_old_token)
+    check("12i a deactivated employee cannot sign in, and their existing token is refused",
+          new_tok is None and code_old == 403, f"sign-in={code_sign} old-token={code_old}")
+
 def restart_before():
     """Puts one request per tenant at a pending human step, then records their ids for restart_after."""
     at = tokens_for(ACME, ACME_NAMES); state["acme_tok"] = at
@@ -532,7 +635,8 @@ if __name__ == "__main__":
                      ("Step 1 happy path", s1), ("Step 2 conditional routing", s2), ("Step 3 reject path", s3),
                      ("Step 4 form versioning", s4), ("Step 5 tenant isolation", s5), ("Step 6 reporting values", s6),
                      ("Step 7 form creation, routing, admin-only", s7), ("Step 9 workflow designer", step9),
-                     ("Step 10 server gatekeeper + conditional field (US3/US4)", s10)]:
+                     ("Step 10 server gatekeeper + conditional field (US3/US4)", s10),
+                     ("Step 12 employees and organisation structure (spec 004)", s12)]:
             step(n, f)
     else:
         log(f"Unknown mode {mode!r}. Use no argument, 'restart-before' or 'restart-after'.")

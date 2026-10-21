@@ -139,6 +139,7 @@
     <button data-view="inbox">Inbox <span class="count" id="inboxCount" hidden></span></button>
     <button data-view="designer" id="designerNav" hidden>Form designer</button>
     <button data-view="workflows" id="workflowsNav" hidden>Workflow designer</button>
+    <button data-view="employees" id="employeesNav" hidden>Employees</button>
   </nav>
   <main id="main"></main>
 </div>
@@ -549,7 +550,7 @@ async function renderFormEditor(main, key) {
 const APPROVER_TYPES = [
   ["line-manager", "Line manager"], ["manager-of-manager", "Manager's manager"],
   ["role", "Role"], ["user", "Specific user"]];
-const rolesOf = () => [...new Set(state.users.map(u => u.role))];
+const rolesOf = () => [...new Set(state.users.flatMap(u => u.roles))].sort();
 const employeesOf = () => state.users;
 
 async function viewWorkflows(main) {
@@ -666,7 +667,77 @@ async function renderWorkflowEditor(main, key) {
 }
 
 // ---------- Shell ----------
-const views = { new: viewNew, mine: viewMine, inbox: viewInbox, designer: viewDesigner, workflows: viewWorkflows };
+// ---------- Employees (spec 004 US1): company admins add, edit, deactivate and re-activate people ----------
+async function viewEmployees(main) {
+  const [people, departments] = await Promise.all([
+    api("/api/poc/users?includeInactive=true"),
+    api("/api/poc/departments").catch(() => null)]); // the Organisation tab (US2) adds departments
+  const picked = people.find(p => p.id === state.employeeId) || null;
+  const e = picked || { name: "", email: "", jobTitle: "", roles: [], managerId: null, departmentId: null, isActive: true };
+  const managers = people.filter(p => p.isActive && p.id !== e.id);
+  main.innerHTML = `
+    <h2>Employees</h2>
+    <p class="lead">Everyone here can sign in. Roles decide who "Role" approval steps go to; the line manager and department
+      decide who "Line manager" and "Head of my department" steps go to. People with requests or tasks are never deleted, only deactivated.</p>
+    <div id="msg"></div>
+    <div class="split">
+      <div>
+        <div class="actions" style="margin-top:0"><button class="btn secondary" id="newEmp">Add employee</button></div>
+        <ul class="rows">${people.map(p => `<li><button data-id="${p.id}" aria-pressed="${p.id === e.id}">
+          <span>${esc(p.name)}${p.isActive ? "" : " (deactivated)"}</span><small>${esc(p.roles.join(", ") || "no role")}</small>
+          <small>${esc(p.email)}</small><small>${p.managerName ? "reports to " + esc(p.managerName) : ""}</small></button></li>`).join("")}</ul>
+      </div>
+      <div class="panel">
+        <h3 style="margin-top:0">${picked ? esc(picked.name) : "New employee"}</h3>
+        <div class="field"><label for="eName">Name <span class="req">*</span></label><input id="eName" value="${esc(e.name)}"></div>
+        <div class="field"><label for="eEmail">Email (signs in with this) <span class="req">*</span></label><input id="eEmail" type="email" value="${esc(e.email)}"></div>
+        <div class="field"><label for="eTitle">Job title</label><input id="eTitle" value="${esc(e.jobTitle || "")}"></div>
+        <fieldset class="field" style="border:0;padding:0;margin-inline:0"><legend style="font-weight:600;font-size:14px;margin-bottom:4px">Roles</legend>${rolesOf().map(r => `<label style="display:inline-block;margin-right:14px;font-weight:400">
+          <input type="checkbox" data-role="${esc(r)}" ${e.roles.includes(r) ? "checked" : ""}> ${esc(r)}</label>`).join("")}</fieldset>
+        <div class="field"><label for="eManager">Line manager</label><select id="eManager"><option value="">None</option>${managers.map(m =>
+          `<option value="${m.id}" ${m.id === e.managerId ? "selected" : ""}>${esc(m.name)}</option>`).join("")}</select></div>
+        ${departments ? `<div class="field"><label for="eDept">Department</label><select id="eDept"><option value="">None</option>${departments.map(d =>
+          `<option value="${d.id}" ${d.id === e.departmentId ? "selected" : ""}>${esc(d.name)}</option>`).join("")}</select></div>` : ""}
+        <div class="actions">
+          <button class="btn" id="saveEmp">${picked ? "Save changes" : "Create employee"}</button>
+          ${picked ? `<button class="btn secondary" id="toggleEmp">${picked.isActive ? "Deactivate" : "Re-activate"}</button>` : ""}
+        </div>
+      </div>
+    </div>`;
+  const show = (kind, text) => $("#msg").innerHTML = message(kind, text);
+  main.querySelectorAll(".rows button").forEach(b => b.addEventListener("click", () => { state.employeeId = b.dataset.id; viewEmployees(main); }));
+  $("#newEmp").addEventListener("click", () => { state.employeeId = null; viewEmployees(main); });
+  $("#saveEmp").addEventListener("click", async () => {
+    const body = { name: $("#eName").value, email: $("#eEmail").value, jobTitle: $("#eTitle").value,
+      roles: [...main.querySelectorAll("[data-role]:checked")].map(c => c.dataset.role),
+      managerId: $("#eManager").value || null, departmentId: departments ? ($("#eDept").value || null) : e.departmentId };
+    try {
+      if (picked) {
+        await api(`/api/poc/employees/${picked.id}`, { method: "PUT", body: JSON.stringify(body) });
+        await loadUsers(); await viewEmployees(main); show("ok", "Saved. Manager or department changes apply to new approval steps only.");
+      } else {
+        const created = await api("/api/poc/employees", { method: "POST", body: JSON.stringify(body) });
+        state.employeeId = created.employee.id; await loadUsers(); await viewEmployees(main);
+        // Shown once (spec 004 clarification Q4) until spec 005 emails a set-password link.
+        show("ok", `Created ${created.employee.name}. First password (shown once, pass it on securely): ${created.generatedPassword}`);
+      }
+    } catch (err) { show("error", err.message); }
+  });
+  $("#toggleEmp")?.addEventListener("click", async () => {
+    try {
+      if (picked.isActive) {
+        const r = await api(`/api/poc/employees/${picked.id}/deactivate`, { method: "POST" });
+        await loadUsers(); await viewEmployees(main);
+        show("ok", `${r.employee.name} can no longer sign in. ${r.reassignedTaskCount} open task(s) moved to the fallback approver.`);
+      } else {
+        await api(`/api/poc/employees/${picked.id}/activate`, { method: "POST" });
+        await loadUsers(); await viewEmployees(main); show("ok", `${picked.name} can sign in again.`);
+      }
+    } catch (err) { show("error", err.message); }
+  });
+}
+
+const views = { new: viewNew, mine: viewMine, inbox: viewInbox, designer: viewDesigner, workflows: viewWorkflows, employees: viewEmployees };
 
 async function refreshInboxCount() {
   try { const n = (await api("/api/poc/tasks/inbox")).length; const el = $("#inboxCount"); el.textContent = n; el.hidden = n === 0; }
@@ -678,6 +749,8 @@ async function render() {
   $("#workflowsNav").hidden = !hasPermission("Workmate.Workflows.Design");
   if (state.view === "designer" && !hasPermission("Workmate.Forms.Design")) state.view = "new";
   if (state.view === "workflows" && !hasPermission("Workmate.Workflows.Design")) state.view = "new";
+  $("#employeesNav").hidden = !hasPermission("Workmate.Employees.Manage");
+  if (state.view === "employees" && !hasPermission("Workmate.Employees.Manage")) state.view = "new";
   document.querySelectorAll("nav button").forEach(b => b.toggleAttribute("aria-current", b.dataset.view === state.view));
   document.querySelectorAll("nav button[aria-current]").forEach(b => b.setAttribute("aria-current", "page"));
   const main = $("#main");

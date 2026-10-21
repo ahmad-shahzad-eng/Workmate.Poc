@@ -25,14 +25,16 @@ public class PocController : AbpControllerBase
     private readonly ITenantRepository _tenants;
     private readonly TenantOnboardingAppService _onboarding;
     private readonly IPermissionChecker _permissionChecker;
+    private readonly EmployeeAppService _employeeService;
 
     public PocController(FormAppService forms, SubmissionAppService submissions, TaskAppService tasks,
         RoutingAppService routing, ApprovalWorkflowAppService approvalWorkflows, IRepository<Employee, Guid> employees,
-        ITenantRepository tenants, TenantOnboardingAppService onboarding, IPermissionChecker permissionChecker)
+        ITenantRepository tenants, TenantOnboardingAppService onboarding, IPermissionChecker permissionChecker,
+        EmployeeAppService employeeService)
     {
         _forms = forms; _submissions = submissions; _tasks = tasks; _routing = routing;
         _approvalWorkflows = approvalWorkflows; _employees = employees; _tenants = tenants; _onboarding = onboarding;
-        _permissionChecker = permissionChecker;
+        _permissionChecker = permissionChecker; _employeeService = employeeService;
     }
 
     [HttpPost("tenants")]
@@ -67,14 +69,21 @@ public class PocController : AbpControllerBase
         return result;
     }
 
+    [HttpPost("employees")]
+    public Task<EmployeeCreatedDto> CreateEmployeeAsync([FromBody] SaveEmployeeInput input) => _employeeService.CreateAsync(input);
+
+    [HttpPut("employees/{id:guid}")]
+    public Task<EmployeeDto> UpdateEmployeeAsync(Guid id, [FromBody] SaveEmployeeInput input) => _employeeService.UpdateAsync(id, input);
+
+    [HttpPost("employees/{id:guid}/deactivate")]
+    public Task<DeactivationResultDto> DeactivateEmployeeAsync(Guid id) => _employeeService.DeactivateAsync(id);
+
+    [HttpPost("employees/{id:guid}/activate")]
+    public Task<EmployeeDto> ActivateEmployeeAsync(Guid id) => _employeeService.ActivateAsync(id);
+
     [HttpGet("users")]
-    public async Task<List<EmployeeDto>> GetUsersAsync()
-    {
-        var all = await _employees.GetListAsync();
-        var users = all.OrderBy(e => e.Role).ThenBy(e => e.Name).Select(e => new EmployeeDto(e.Id, e.Name, e.Role,
-            all.FirstOrDefault(m => m.Id == e.ManagerId)?.Name)).ToList();
-        return users;
-    }
+    public Task<List<EmployeeDto>> GetUsersAsync([FromQuery] bool includeInactive = false) =>
+        _employeeService.GetListAsync(includeInactive);
 
     [HttpGet("forms")]
     public Task<List<FormSummaryDto>> GetFormsAsync() => _forms.GetPublishedAsync();
