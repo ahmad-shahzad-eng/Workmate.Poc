@@ -97,3 +97,11 @@ public class ResetAdminPasswordInput
 }
 
 public record ResetAdminPasswordDto(string GeneratedPassword);
+
+/// <summary>Edge case "client admin leaves": make another employee the company admin, optionally
+/// removing the departed one in the same call.</summary>
+public class AssignClientAdminInput
+{
+    public Guid EmployeeId { get; set; }
+    public Guid? RemoveEmployeeId { get; set; }
+}

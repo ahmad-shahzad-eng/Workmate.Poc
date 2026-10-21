@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Volo.Abp.Authorization.Permissions;
 using Volo.Abp.AspNetCore.Mvc;
@@ -8,7 +9,10 @@ using Workmate.Poc.Domain;
 
 namespace Workmate.Poc.Controllers;
 
-/// <summary>Explicit routes for the demo UI. Production can use ABP's auto API controllers instead.</summary>
+/// <summary>Explicit routes for the demo UI. Production can use ABP's auto API controllers instead.
+/// Every route needs a signed-in caller: an anonymous request still resolves a tenant from the
+/// <c>__tenant</c> header (needed for /connect/token), so without this it could read that tenant's data.</summary>
+[Authorize]
 [Route("api/poc")]
 public class PocController : AbpControllerBase
 {
@@ -38,7 +42,11 @@ public class PocController : AbpControllerBase
     public Task<ResetAdminPasswordDto> ResetAdminPasswordAsync([FromBody] ResetAdminPasswordInput input) =>
         _onboarding.ResetClientAdminPasswordAsync(input);
 
+    [HttpPost("tenants/assign-admin")]
+    public Task AssignAdminAsync([FromBody] AssignClientAdminInput input) => _onboarding.AssignClientAdminAsync(input);
+
     /// <summary>Anonymous: the sign-in screen's Company picker needs this before anyone is authenticated.</summary>
+    [AllowAnonymous]
     [HttpGet("tenants")]
     public async Task<List<TenantDto>> GetTenantsAsync() =>
         (await _tenants.GetListAsync()).Select(t => new TenantDto(t.Id, t.Name)).ToList();

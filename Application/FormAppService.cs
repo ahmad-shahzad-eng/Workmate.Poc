@@ -110,6 +110,7 @@ public class FormAppService : ApplicationService
         return await GetDesignAsync(key);
     }
 
+    [Authorize(WorkmatePermissions.FormsDesign)]
     public virtual async Task<FormDesignDto> GetDesignAsync(string key)
     {
         var form = await GetFormAsync(key);

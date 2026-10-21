@@ -74,26 +74,70 @@ public class TenantOnboardingAppService : ApplicationService
         return new CompanyCreatedDto(tenant.Id, employeeId, email, password);
     }
 
-    /// <summary>Edge case: the client admin is locked out / forgot their password (spec 005 will add email; shown on screen until then).</summary>
+    /// <summary>Edge case: the client admin is locked out / forgot their password (spec 005 will add email; shown on screen until then).
+    /// Only a company admin's password can be reset this way, and the reset also lifts any lockout.</summary>
     public virtual async Task<ResetAdminPasswordDto> ResetClientAdminPasswordAsync(ResetAdminPasswordInput input)
     {
-        Employee employee;
-        using (_dataFilter.Disable<IMultiTenant>()) // host context can't otherwise see a specific tenant's employee by id
-        {
-            employee = await _employees.GetAsync(input.EmployeeId);
-        }
+        var employee = await FindEmployeeAnyTenantAsync(input.EmployeeId);
 
         var password = GeneratePassword();
         using (_currentTenant.Change(employee.TenantId))
         {
             var user = await _userManager.GetByIdAsync(employee.UserId);
+            if (!await _userManager.IsInRoleAsync(user, TenantAdminRoleSeeder.RoleName))
+                throw new UserFriendlyException("Only a company admin's password can be reset here.");
+
             await _userManager.RemovePasswordAsync(user);
             var result = await _userManager.AddPasswordAsync(user, password);
             if (!result.Succeeded)
                 throw new UserFriendlyException(string.Join(" ", result.Errors.Select(e => e.Description)));
+            await _userManager.SetLockoutEndDateAsync(user, null);
+            await _userManager.ResetAccessFailedCountAsync(user);
         }
 
         return new ResetAdminPasswordDto(password);
+    }
+
+    /// <summary>Edge case: the client admin leaves — make another employee of the same company admin,
+    /// optionally removing the departed admin. The change applies from each user's next sign-in, since
+    /// role membership travels in the access token.</summary>
+    public virtual async Task AssignClientAdminAsync(AssignClientAdminInput input)
+    {
+        var employee = await FindEmployeeAnyTenantAsync(input.EmployeeId);
+        var removed = input.RemoveEmployeeId == null ? null : await FindEmployeeAnyTenantAsync(input.RemoveEmployeeId.Value);
+        if (removed != null && removed.TenantId != employee.TenantId)
+            throw new UserFriendlyException("Both employees must belong to the same company.");
+        if (removed?.Id == employee.Id)
+            throw new UserFriendlyException("Cannot assign and remove the same employee.");
+
+        using (_currentTenant.Change(employee.TenantId))
+        {
+            var role = await _adminRoleSeeder.EnsureCompanyAdminRoleAsync();
+            var user = await _userManager.GetByIdAsync(employee.UserId);
+            if (!await _userManager.IsInRoleAsync(user, role.Name))
+                ThrowIfFailed(await _userManager.AddToRoleAsync(user, role.Name));
+
+            if (removed != null)
+            {
+                var removedUser = await _userManager.GetByIdAsync(removed.UserId);
+                if (await _userManager.IsInRoleAsync(removedUser, role.Name))
+                    ThrowIfFailed(await _userManager.RemoveFromRoleAsync(removedUser, role.Name));
+            }
+        }
+    }
+
+    private async Task<Employee> FindEmployeeAnyTenantAsync(Guid employeeId)
+    {
+        using (_dataFilter.Disable<IMultiTenant>()) // host context can't otherwise see a specific tenant's employee by id
+        {
+            return await _employees.GetAsync(employeeId);
+        }
+    }
+
+    private static void ThrowIfFailed(Microsoft.AspNetCore.Identity.IdentityResult result)
+    {
+        if (!result.Succeeded)
+            throw new UserFriendlyException(string.Join(" ", result.Errors.Select(e => e.Description)));
     }
 
     private static string GeneratePassword()

@@ -46,10 +46,11 @@ def sign_in(email, password=DEMO_PASSWORD, tenant_name=None):
     payload = json.loads(raw) if raw else None
     return code, (payload.get("access_token") if code == 200 and payload else None), payload
 
-def call(method, path, token=None, body=None, act_as_tenant=None):
+def call(method, path, token=None, body=None, act_as_tenant=None, tenant_header=None):
     h = {"Content-Type": "application/json", "Accept": "application/json"}
     if token: h["Authorization"] = f"Bearer {token}"
     if act_as_tenant: h["X-Act-As-Tenant"] = act_as_tenant
+    if tenant_header: h["__tenant"] = tenant_header
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(BASE + path, data=data, method=method, headers=h)
     try:
@@ -225,6 +226,8 @@ def s7():
     check("7a HR cannot open the form designer", code == 403, f"http {code}")
     code, b = call("POST", "/forms", t["Sara"], {"key": "nope", "name": "Nope", "category": "X"})
     check("7b employee cannot create forms", code == 403, f"http {code}")
+    code, b = call("GET", "/forms/leave-request/design", t["Sara"])
+    check("7r employee cannot read a form design (drafts included)", code == 403, f"http {code}")
     _, forms = call("GET", "/forms", t["Sara"])
     check("7c seeded employee forms published", {"leave-request", "work-from-home", "expense-claim", "letter-request"} <= {f["key"] for f in forms},
           str(sorted(f["key"] for f in forms)))
@@ -416,6 +419,37 @@ def s11():
     code, locked_tok, body = sign_in(admin_email, password, tenant_name=company)
     check("11g account locked out after repeated failed sign-ins, even with the correct password (US2 AC3)",
           code != 200 and locked_tok is None, f"http {code} {str(body)[:150]}")
+
+    # Anonymous callers still resolve a tenant from __tenant (needed for /connect/token), so every
+    # data route must refuse them outright (Constitution IV, SC-002).
+    codes = {p: call("GET", p, None, tenant_header=ACME)[0]
+             for p in ["/users", "/forms", "/forms/leave-request/design", "/company-settings/renderer"]}
+    check("11h anonymous caller with a __tenant header cannot read that tenant's data",
+          all(c == 401 for c in codes.values()), str(codes))
+
+    # Edge case "forgot password": the reset also lifts the lockout 11g just triggered.
+    code, reset = call("POST", "/tenants/reset-admin-password", vendor_tok, {"employeeId": created.get("adminEmployeeId")})
+    new_password = (reset or {}).get("generatedPassword") if code == 200 else None
+    code, bill_tok2, _ = sign_in(admin_email, new_password or "x", tenant_name=company)
+    check("11i vendor admin resets a locked-out admin's password and the admin signs in again",
+          bill_tok2 is not None, f"http {code}")
+
+    acme_ids = roster(sara_tok)
+    code, _ = call("POST", "/tenants/reset-admin-password", vendor_tok, {"employeeId": acme_ids["Sara"]})
+    check("11j vendor admin cannot reset a non-admin employee's password", code == 403, f"http {code}")
+
+    # Edge case "client admin leaves": assign another admin, then hand it back. Role membership
+    # travels in the token, so Sara signs in again after each change.
+    def sara_can_design():
+        _, tok, _ = sign_in(email_for("Sara", ACME), tenant_name=ACME)
+        _, perms = call("GET", "/my-permissions", tok)
+        return "Workmate.Forms.Design" in (perms or [])
+    code, _ = call("POST", "/tenants/assign-admin", vendor_tok, {"employeeId": acme_ids["Sara"]})
+    check("11k vendor admin assigns another employee as company admin", code in (200, 204) and sara_can_design(), f"http {code}")
+    code, _ = call("POST", "/tenants/assign-admin", vendor_tok, {"employeeId": acme_ids["Khalid"], "removeEmployeeId": acme_ids["Sara"]})
+    check("11l assigning a new admin can remove the departed one", code in (200, 204) and not sara_can_design(), f"http {code}")
+    code, _ = call("POST", "/tenants/assign-admin", sara_tok, {"employeeId": acme_ids["Sara"]})
+    check("11m a non-vendor-admin cannot assign company admins", code == 403, f"http {code}")
 
 def restart_before():
     """Puts one request per tenant at a pending human step, then records their ids for restart_after."""
