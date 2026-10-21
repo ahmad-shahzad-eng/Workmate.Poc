@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Volo.Abp.Authorization.Permissions;
 using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.TenantManagement;
 using Workmate.Poc.Application;
 using Workmate.Poc.Domain;
 
@@ -16,26 +18,53 @@ public class PocController : AbpControllerBase
     private readonly RoutingAppService _routing;
     private readonly ApprovalWorkflowAppService _approvalWorkflows;
     private readonly IRepository<Employee, Guid> _employees;
+    private readonly ITenantRepository _tenants;
+    private readonly TenantOnboardingAppService _onboarding;
+    private readonly IPermissionChecker _permissionChecker;
 
     public PocController(FormAppService forms, SubmissionAppService submissions, TaskAppService tasks,
-        RoutingAppService routing, ApprovalWorkflowAppService approvalWorkflows, IRepository<Employee, Guid> employees)
+        RoutingAppService routing, ApprovalWorkflowAppService approvalWorkflows, IRepository<Employee, Guid> employees,
+        ITenantRepository tenants, TenantOnboardingAppService onboarding, IPermissionChecker permissionChecker)
     {
         _forms = forms; _submissions = submissions; _tasks = tasks; _routing = routing;
-        _approvalWorkflows = approvalWorkflows; _employees = employees;
+        _approvalWorkflows = approvalWorkflows; _employees = employees; _tenants = tenants; _onboarding = onboarding;
+        _permissionChecker = permissionChecker;
     }
 
+    [HttpPost("tenants")]
+    public Task<CompanyCreatedDto> CreateCompanyAsync([FromBody] CreateCompanyInput input) => _onboarding.CreateCompanyAsync(input);
+
+    [HttpPost("tenants/reset-admin-password")]
+    public Task<ResetAdminPasswordDto> ResetAdminPasswordAsync([FromBody] ResetAdminPasswordInput input) =>
+        _onboarding.ResetClientAdminPasswordAsync(input);
+
+    /// <summary>Anonymous: the sign-in screen's Company picker needs this before anyone is authenticated.</summary>
     [HttpGet("tenants")]
-    public List<TenantDto> GetTenants() =>
-        DemoTenants.All.Select(t => new TenantDto(t.Id, t.Name, t.DisplayName)).ToList();
+    public async Task<List<TenantDto>> GetTenantsAsync() =>
+        (await _tenants.GetListAsync()).Select(t => new TenantDto(t.Id, t.Name)).ToList();
+
+    /// <summary>The signed-in user's own granted Workmate permissions, so the UI can decide menu
+    /// visibility without the removed Employee.IsAdmin flag (spec 003 US3).</summary>
+    [HttpGet("my-permissions")]
+    public async Task<List<string>> GetMyPermissionsAsync()
+    {
+        var all = new[]
+        {
+            WorkmatePermissions.FormsDesign, WorkmatePermissions.RoutingManage, WorkmatePermissions.WorkflowsDesign,
+            WorkmatePermissions.EmployeesManage, WorkmatePermissions.OrgManage, WorkmatePermissions.TenantsManage
+        };
+        var result = new List<string>();
+        foreach (var p in all)
+            if (await _permissionChecker.IsGrantedAsync(p)) result.Add(p);
+        return result;
+    }
 
     [HttpGet("users")]
     public async Task<List<EmployeeDto>> GetUsersAsync()
     {
         var all = await _employees.GetListAsync();
         var users = all.OrderBy(e => e.Role).ThenBy(e => e.Name).Select(e => new EmployeeDto(e.Id, e.Name, e.Role,
-            all.FirstOrDefault(m => m.Id == e.ManagerId)?.Name, e.IsAdmin)).ToList();
-        // The vendor admin is not an employee of any company; listed so the demo can act as them.
-        users.Add(new EmployeeDto(DemoTenants.VendorAdminId, DemoTenants.VendorAdminName, "Vendor admin", null, true));
+            all.FirstOrDefault(m => m.Id == e.ManagerId)?.Name)).ToList();
         return users;
     }
 

@@ -5,9 +5,11 @@ One runnable slice of the target design: **ABP Framework** (multi-tenancy, data,
 joined by our own Processes code (bindings, tasks, assignment, timeline).
 
 Two demo companies, each with employee self-service forms (leave request, work from home, expense claim,
-letter request). Only **admins** design forms, workflows and routing; everyone else only takes part in the workflows. There are two kinds:
-a **company admin** is an ordinary employee with an admin flag (still has a manager, still submits and approves),
-and the **vendor admin** (Aramis Support) is a host-side user of the HRM vendor who can design for any company but is not an employee there.
+letter request). Everyone signs in for real (ABP Identity + OpenIddict, Phase H) — there is no sign-up.
+Only **admins** design forms, workflows and routing; everyone else only takes part in the workflows. There are two kinds:
+a **company admin** is an ordinary employee in the `Workmate.CompanyAdmin` role (still has a manager, still submits and approves),
+and the **vendor admin** (Aramis Support) is a host-side user of the HRM vendor — no tenant of their own — who can design for
+any company (acting within it via the UI's "Acting as" company picker) but is not an employee there and cannot submit or approve.
 Besides the two built-in workflows, company admins can build their own in **Workflow designer** (Phase D): an ordered list
 of steps, each naming who approves (line manager, manager's manager, a role, or a specific person), with a required
 fallback approver and a reject action (end, or back to the previous step) per step.
@@ -16,6 +18,10 @@ fallback approver and a reject action (end, or back to the previous step) per st
 | --- | --- | --- |
 | Acme Trading | Sara (employee, reports to Omar), Omar (manager), Huda (HR), Layla (Finance, reports to Omar), Khalid (employee + company admin, reports to Omar) | Sick leave and letter requests go to HR only; everything else goes line manager, then HR |
 | Globex Logistics | Ali (employee, reports to Fatima), Fatima (manager), Yousef (HR), Yara (Finance, reports to Fatima), Noor (employee + company admin, reports to Fatima) | Letter requests go to HR only; everything else goes line manager, then HR |
+
+Sign in as anyone above with `<firstname>@<acme|globex>.demo` (e.g. `sara@acme.demo`, `khalid@acme.demo`,
+`fatima@globex.demo`) and password `1q2w3E*`. The vendor admin is `aramis@workmate.vendor`, same password,
+no company — pick "Vendor / host (no company)" on the sign-in screen.
 
 ## Architecture
 
@@ -71,7 +77,9 @@ dotnet run -- --Poc:ResetDatabaseOnStartup=true
 ```
 
 Wait for `Now listening on: http://localhost:5080`, then open http://localhost:5080.
-Both `workmate-poc.db` and `workmate-elsa.db` are deleted and re-created, and the two demo companies are seeded.
+Both `workmate-poc.db` and `workmate-elsa.db` are deleted and re-created, and the two demo companies are seeded
+— including real sign-in accounts for everyone (Phase H: ABP Identity + OpenIddict + TenantManagement +
+PermissionManagement add 14 tables to `workmate-poc.db`; the reset above is required once after pulling this phase).
 
 ### 4. Normal runs (data kept between restarts)
 
@@ -99,9 +107,11 @@ No line in `demo.log` should start with `FAIL`. Run it on a freshly reset databa
 
 ### 6. Using the demo UI
 
-Use the **Company** and **Acting as** dropdowns at the top to switch tenant and person, and the **Renderer** toggle to
-switch between the native renderer and SurveyJS. Sign-in is faked with an `X-Demo-User` header
-(`Http/DemoUserMiddleware.cs`); production uses ABP Identity + OpenIddict (spec 003).
+Sign in with one of the demo accounts above (real ABP Identity + OpenIddict — resource-owner-password-credentials
+grant at `/connect/token`, spec 003). There is no sign-up. The vendor admin additionally gets an "Acting as"
+company picker in the top bar to design forms/workflows/routing for any company; ordinary employees don't see it —
+their own company comes from their signed-in account, not a header they could change. Use the **Renderer** toggle
+to switch between the native renderer and SurveyJS, this browser only.
 
 ### Troubleshooting
 
@@ -127,16 +137,11 @@ switch between the native renderer and SurveyJS. Sign-in is faked with an `X-Dem
 4. **Form versioning.** As a company admin (Khalid), open Form designer, add a field, for example
    `{ "key": "handoverTo", "label": "Handover to", "type": "text", "required": true }`, save the draft and publish v2.
    New requests show the new field; requests sent on v1 still render with v1 (marked as replaced).
-5. **Tenant isolation.** Switch to Globex. None of Acme's requests, tasks or users are visible, and the same form key
-   runs Globex's own binding. To try crossing tenants on purpose, call the API with an Acme user id and Globex's tenant id:
-
-   ```bash
-   curl -H "__tenant: b2b2b2b2-0000-0000-0000-000000000002" \
-        -H "X-Demo-User: <an Acme employee id from /api/poc/users>" \
-        http://localhost:5080/api/poc/submissions/mine
-   ```
-
-   The request is refused ("This user does not belong to the selected company").
+5. **Tenant isolation.** Sign out and sign in as an Ali (Globex). None of Acme's requests, tasks or users are
+   visible, and the same form key runs Globex's own binding. Which company a request can see comes entirely from
+   the signed-in token's own tenant claim — not a header a user could change — so crossing tenants on purpose no
+   longer has an attack surface to try: even a forged `X-Act-As-Tenant` header (the one mechanism that *can*
+   switch company, and only for the vendor admin) is silently ignored for an ordinary employee's token.
 6. **Reporting values.** Open `workmate-poc.db` in any SQLite browser and query `Forms_SubmissionValues`:
    reportable fields are stored typed (`NumberValue`, `DateValue`), so analytics never parses JSON.
 
@@ -161,7 +166,12 @@ switch between the native renderer and SurveyJS. Sign-in is faked with an `X-Dem
     dropped (never stored), and `leaveType=Sick` with no value is refused. Use the RTL checkbox to preview either
     renderer right-to-left (demo-only, no translations).
 
-`demo.py` runs steps 1-7, 9 and 10 against the API and writes `demo.log` (`python3 demo.py` with the app freshly started).
+11. **Real sign-in and onboarding (Phase H).** As the vendor admin, create a new company (name + admin email) —
+    the admin's generated password is shown on screen (no email yet, spec 005). Sign in as that admin: the company
+    starts empty and isolated. There is no sign-up path anywhere, and repeated wrong passwords lock an account out
+    (ABP Identity's default lockout) even once the correct password is used again.
+
+`demo.py` runs steps 1-7, 9, 10 and 11 against the API and writes `demo.log` (`python3 demo.py` with the app freshly started).
 Step 8 is two-part, around a manual restart:
 
 ```bash
@@ -192,6 +202,11 @@ python3 demo.py restart-after    # resumes and completes them, checks tenant iso
 | `wwwroot/index.html` | Demo UI: form renderer, my requests, inbox, form designer, workflow designer |
 | `wwwroot/js/renderers.js` | `createRenderer(kind, schema, values, readOnly)`: native HTML renderer and the SurveyJS adapter, same `{mount, getData, validate}` contract |
 | `wwwroot/lib/surveyjs/` | Vendored SurveyJS Form Library (MIT, no CDN at runtime) — rendering only, not Creator/Dashboard/PDF Generator |
+| `Application/WorkmatePermissions.cs`, `WorkmatePermissionDefinitionProvider.cs` | Real ABP permissions (Phase H) — replace the old `Employee.IsAdmin` flag |
+| `Application/TenantOnboardingAppService.cs` | Vendor admin creates a company + its first admin user (host-only) |
+| `Application/TenantAdminRoleSeeder.cs` | Shared "grant the `Workmate.CompanyAdmin` role + permissions, in this tenant" step — used at seed time and at onboarding time |
+| `Http/HostActAsTenantResolveContributor.cs` | The only legitimate way a signed-in user can pick a tenant other than their own: a host user (no tenant claim), via `X-Act-As-Tenant` |
+| `Data/OpenIddictDataSeeder.cs` | Registers the one public OAuth client the demo UI and `demo.py` sign in with |
 
 ## Upgrading packages
 
@@ -210,7 +225,7 @@ The project builds and passes `demo.py` on the pinned versions. If you move to n
 
 | Shortcut | Production |
 | --- | --- |
-| Fake sign-in from a header | ABP Identity + OpenIddict, permissions per role |
+| ~~Fake sign-in from a header~~ **Done** (Phase H): real ABP Identity + OpenIddict, permissions replace `IsAdmin` | Add MFA/SSO per client; move off the password grant to authorization-code + PKCE for a future separate SPA/mobile client |
 | Workflow start via `OnCompleted` after commit | `FormSubmittedEto` on ABP's distributed event bus with the outbox |
 | Elsa EF Core persistence in its own SQLite file | Same server as ABP, own schema |
 | Two workflows defined in C#; others admin-designed (own builder, no Elsa Studio) | Elsa Studio stays vendor-staff-only, behind OpenIddict; clients never see it (ruled out: no client code/expressions on shared servers) |

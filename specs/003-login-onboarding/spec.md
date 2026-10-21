@@ -4,6 +4,11 @@
 
 **Input**: Ahmad, 2026-10-20: "Add login. Sign-up must not be available for client users. The vendor admin creates an admin user for each client; that admin then adds employees and the organisation structure."
 
+## Clarifications
+
+### Session 2026-10-20
+- Q: How should the demo UI authenticate against the API — cookie sign-in or an OAuth2 token flow? → A: OAuth2 token (password grant), `Authorization: Bearer <token>`.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Vendor onboards a new client (Priority: P1)
@@ -37,8 +42,8 @@ Employees sign in with email + password. There is no sign-up link or endpoint. T
 - **FR-004**: Each `Employee` MUST link to an Identity user (`UserId`), one user per employee per tenant; the vendor admin is a host user with no employee.
 - **FR-005**: `CurrentEmployeeProvider` MUST resolve the employee from the signed-in user; `DemoUserMiddleware` and the `X-Demo-User` header are removed.
 - **FR-006**: Admin checks MUST use permissions (Principle VII), not `IsAdmin`.
-- **FR-007**: The demo UI MUST sign in via the OpenIddict authorization-code flow (or cookie sign-in for the PoC page) and call the API with the resulting token/cookie. [NEEDS CLARIFICATION: cookie sign-in on the same site (simplest for the PoC) or token-based for a future SPA/mobile client?]
-- **FR-008**: `demo.py` MUST sign in as each demo user (password grant or a test-only token endpoint) instead of sending `X-Demo-User`.
+- **FR-007**: The demo UI MUST sign in via OpenIddict's resource-owner-password-credentials (ROPC) grant at `/connect/token`, store the returned access token (and refresh token) in the browser, and call the API with `Authorization: Bearer <token>` on every request.
+- **FR-008**: `demo.py` MUST sign in as each demo user via the same `/connect/token` ROPC grant (FR-007) and send the returned access token as `Authorization: Bearer <token>`, instead of the `X-Demo-User` header.
 
 ## Success Criteria *(mandatory)*
 - **SC-001**: Vendor creates a company + admin; admin signs in and sees an empty company (demo.py step 10).

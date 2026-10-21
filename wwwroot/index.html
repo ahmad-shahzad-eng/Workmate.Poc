@@ -121,17 +121,18 @@
 </style>
 </head>
 <body data-tenant="acme">
-<header class="identity">
+<header class="identity" id="identityBar" hidden>
   <h1>Workmate HRM</h1>
-  <label>Company <select id="tenant"></select></label>
-  <label>Acting as <select id="user"></select></label>
+  <span id="whoAmI" class="meta" style="color:inherit;margin:0"></span>
+  <label id="actAsWrap" hidden>Acting as <select id="actAsTenant"></select></label>
   <label>Renderer <select id="rendererOverride">
     <option value="">Per form/company</option>
     <option value="native">Native</option>
     <option value="surveyjs">SurveyJS</option></select></label>
   <label><input type="checkbox" id="rtlToggle"> RTL</label>
+  <button class="btn secondary" id="signOut" type="button">Sign out</button>
 </header>
-<div class="shell">
+<div class="shell" id="shell" hidden>
   <nav aria-label="Sections">
     <button data-view="new" aria-current="page">New request</button>
     <button data-view="mine">My requests</button>
@@ -141,24 +142,61 @@
   </nav>
   <main id="main"></main>
 </div>
+<main id="signInShell" style="max-width:420px;margin:60px auto;padding:0 20px">
+  <h2>Sign in</h2>
+  <p class="lead">Use your work email and password. There is no sign-up — the vendor admin or your company admin creates your account.</p>
+  <div id="signInMsg"></div>
+  <form class="panel" id="signInForm" novalidate>
+    <div class="field"><label for="siCompany">Company</label><select id="siCompany">
+      <option value="">Vendor / host (no company)</option></select></div>
+    <div class="field"><label for="siEmail">Email</label><input id="siEmail" type="email" required autocomplete="username"></div>
+    <div class="field"><label for="siPassword">Password</label><input id="siPassword" type="password" required autocomplete="current-password"></div>
+    <div class="actions"><button class="btn" type="submit">Sign in</button></div>
+  </form>
+</main>
 
 <!-- Vendored (no CDN at run time); if either fails to load, renderers.js falls back to the native renderer. -->
 <script src="/lib/surveyjs/survey.core.min.js"></script>
 <script src="/lib/surveyjs/survey-js-ui.min.js"></script>
 <script src="/js/renderers.js"></script>
 <script>
-const state = { tenants: [], users: [], view: "new", selected: null, formKey: null, designKey: null, editMode: "visual", workflowKey: null };
-const isAdmin = () => state.users.find(u => u.id === $("#user").value)?.isAdmin === true;
+const state = { tenants: [], users: [], permissions: [], view: "new", selected: null, formKey: null, designKey: null, editMode: "visual", workflowKey: null };
+const hasPermission = p => state.permissions.includes(p);
 const $ = (s, el = document) => el.querySelector(s);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const when = d => new Date(d).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 const statusLabel = s => ({ InProcess: "In approval" }[s] || s);
+const slug = name => (name || "").split(" ")[0].toLowerCase();
+
+// ---------- Sign-in: real OpenIddict password grant (spec 003), no X-Demo-User/__tenant per call ----------
+function decodeJwt(token) {
+  try { return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))); }
+  catch { return {}; }
+}
+function session() {
+  const token = sessionStorage.getItem("accessToken");
+  return token ? { token, claims: decodeJwt(token) } : null;
+}
+function isHost(s) { return s && !s.claims.tenantid; }
+async function signIn(email, password, tenantName) {
+  const body = new URLSearchParams({ grant_type: "password", username: email, password, client_id: "Workmate_Demo", scope: "Workmate offline_access" });
+  const headers = { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" };
+  if (tenantName) headers["__tenant"] = tenantName;
+  const res = await fetch("/connect/token", { method: "POST", headers, body });
+  const payload = await res.json();
+  if (!res.ok) throw new Error(payload.error_description || payload.error || "Sign-in failed");
+  sessionStorage.setItem("accessToken", payload.access_token);
+  return payload;
+}
+function signOut() { sessionStorage.removeItem("accessToken"); location.reload(); }
 
 async function api(path, options = {}) {
-  const headers = { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest", "Content-Type": "application/json" };
-  if ($("#tenant").value) headers["__tenant"] = $("#tenant").value;
-  if ($("#user").value) headers["X-Demo-User"] = $("#user").value;
+  const s = session();
+  const headers = { "Accept": "application/json", "Content-Type": "application/json" };
+  if (s) headers["Authorization"] = `Bearer ${s.token}`;
+  if (isHost(s) && $("#actAsTenant")?.value) headers["X-Act-As-Tenant"] = $("#actAsTenant").value;
   const res = await fetch(path, { ...options, headers });
+  if (res.status === 401) { signOut(); throw new Error("Session expired. Please sign in again."); }
   const text = await res.text();
   const body = text ? JSON.parse(text) : null;
   if (!res.ok) throw new Error(body?.error?.message || `Request failed (${res.status})`);
@@ -511,8 +549,8 @@ async function renderFormEditor(main, key) {
 const APPROVER_TYPES = [
   ["line-manager", "Line manager"], ["manager-of-manager", "Manager's manager"],
   ["role", "Role"], ["user", "Specific user"]];
-const rolesOf = () => [...new Set(state.users.filter(u => u.role !== "Vendor admin").map(u => u.role))];
-const employeesOf = () => state.users.filter(u => u.role !== "Vendor admin");
+const rolesOf = () => [...new Set(state.users.map(u => u.role))];
+const employeesOf = () => state.users;
 
 async function viewWorkflows(main) {
   const workflows = await api("/api/poc/workflows/design");
@@ -636,9 +674,10 @@ async function refreshInboxCount() {
 }
 
 async function render() {
-  $("#designerNav").hidden = !isAdmin();
-  $("#workflowsNav").hidden = !isAdmin();
-  if ((state.view === "designer" || state.view === "workflows") && !isAdmin()) state.view = "new";
+  $("#designerNav").hidden = !hasPermission("Workmate.Forms.Design");
+  $("#workflowsNav").hidden = !hasPermission("Workmate.Workflows.Design");
+  if (state.view === "designer" && !hasPermission("Workmate.Forms.Design")) state.view = "new";
+  if (state.view === "workflows" && !hasPermission("Workmate.Workflows.Design")) state.view = "new";
   document.querySelectorAll("nav button").forEach(b => b.toggleAttribute("aria-current", b.dataset.view === state.view));
   document.querySelectorAll("nav button[aria-current]").forEach(b => b.setAttribute("aria-current", "page"));
   const main = $("#main");
@@ -647,18 +686,20 @@ async function render() {
 }
 
 async function loadUsers() {
-  const tenant = state.tenants.find(t => t.id === $("#tenant").value);
-  document.body.dataset.tenant = tenant.name;
-  $("#user").value = "";
-  state.users = await api("/api/poc/users");
-  $("#user").innerHTML = state.users.map(u => `<option value="${u.id}">${esc(u.name)}, ${esc(u.role)}${u.isAdmin && u.role !== "Vendor admin" ? " + admin" : ""}${u.managerName ? ` (reports to ${esc(u.managerName)})` : ""}</option>`).join("");
-  const employee = state.users.find(u => u.role === "Employee" && !u.isAdmin);
-  if (employee) $("#user").value = employee.id;
+  try { state.users = await api("/api/poc/users"); } catch { state.users = []; }
 }
 
 document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => { state.view = b.dataset.view; state.selected = null; render(); }));
-$("#tenant").addEventListener("change", async () => { state.selected = null; await loadUsers(); render(); });
-$("#user").addEventListener("change", () => { state.selected = null; render(); });
+$("#signOut").addEventListener("click", signOut);
+$("#actAsTenant").addEventListener("change", async () => {
+  state.selected = null;
+  const t = state.tenants.find(x => x.id === $("#actAsTenant").value);
+  document.body.dataset.tenant = t ? slug(t.name) : "";
+  // The vendor admin's permissions depend on which company they're now acting as (X-Act-As-Tenant
+  // changes what /my-permissions reports) — must be re-fetched on every change, not just at sign-in.
+  state.permissions = await api("/api/poc/my-permissions");
+  await loadUsers(); render();
+});
 // Demo-only overrides, remembered in this browser (spec 006 US2): the renderer toggle beats every
 // form/company setting; RTL is a visual check only, no translations.
 $("#rendererOverride").value = localStorage.getItem("rendererOverride") || "";
@@ -668,11 +709,47 @@ $("#rendererOverride").addEventListener("change", e => {
 });
 $("#rtlToggle").addEventListener("change", e => { document.documentElement.dir = e.target.checked ? "rtl" : "ltr"; });
 
-(async () => {
-  state.tenants = await api("/api/poc/tenants");
-  $("#tenant").innerHTML = state.tenants.map(t => `<option value="${t.id}">${esc(t.displayName)}</option>`).join("");
+$("#signInForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const btn = e.submitter; btn.disabled = true;
+  try {
+    await signIn($("#siEmail").value.trim(), $("#siPassword").value, $("#siCompany").value || null);
+    await afterSignIn();
+  } catch (err) { $("#signInMsg").innerHTML = message("error", err.message); btn.disabled = false; }
+});
+
+async function afterSignIn() {
+  const s = session();
+  $("#signInShell").hidden = true;
+  $("#identityBar").hidden = false;
+  $("#shell").hidden = false;
+  $("#whoAmI").textContent = s.claims.preferred_username || s.claims.email || "Signed in";
+
+  if (isHost(s)) {
+    state.tenants = await api("/api/poc/tenants");
+    $("#actAsWrap").hidden = false;
+    $("#actAsTenant").innerHTML = state.tenants.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
+    document.body.dataset.tenant = slug(state.tenants[0]?.name);
+    // Populating innerHTML auto-selects the first <option>, but that's a DOM default, not a user
+    // "change" event — my-permissions must be fetched AFTER this, with that selection already in
+    // place, or a host user's permissions come back host-only (no company acted-as yet).
+    state.permissions = await api("/api/poc/my-permissions");
+  } else {
+    $("#actAsWrap").hidden = true;
+    document.body.removeAttribute("data-tenant");
+    state.permissions = await api("/api/poc/my-permissions");
+  }
   await loadUsers();
   render();
+}
+
+(async () => {
+  const s = session();
+  if (s) { await afterSignIn(); return; }
+  try {
+    const tenants = await api("/api/poc/tenants");
+    $("#siCompany").innerHTML += tenants.map(t => `<option value="${esc(t.name)}">${esc(t.name)}</option>`).join("");
+  } catch { /* sign-in screen still works without the picker pre-filled */ }
 })();
 </script>
 </body>

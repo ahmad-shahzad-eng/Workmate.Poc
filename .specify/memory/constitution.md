@@ -23,7 +23,7 @@ Reportable fields are written to `Forms_SubmissionValues` as typed values at sub
 All calls to Elsa's runtime and stores stay inside `IWorkflowGateway` / `ElsaWorkflowGateway`. Domain records (submission, process, task, timeline) are the system of record, not Elsa state.
 
 ### VII. Admin is a permission
-Form design and routing are admin-only (company admin flag or vendor admin). Everyone else only takes part in workflows. A company admin is still an ordinary employee for submitting and approving.
+Form design and routing are admin-only: a real ABP permission (`Workmate.Forms.Design`, `Workmate.Routing.Manage`, `Workmate.Workflows.Design`), granted via the per-tenant `Workmate.CompanyAdmin` role or the host-level `Workmate.Tenants.Manage` permission for the vendor admin — never a boolean flag on `Employee`. Everyone else only takes part in workflows. A company admin is still an ordinary employee for submitting and approving.
 
 ## Technology and Boundaries
 
@@ -31,7 +31,7 @@ Form design and routing are admin-only (company admin flag or vendor admin). Eve
 - No commercial packages (ABP Pro, SurveyJS Creator, etc.) and no Elsa or ABP version change without Ahmad's approval.
 - Never change the architecture or data model just to make something compile; adapt to the library API. If a principle cannot be kept, stop and ask.
 - Do not push to any remote or touch `workmate-platform-api`.
-- The fake sign-in (`X-Demo-User`) and the PoC admin check stay until a phase explicitly replaces them.
+- ~~The fake sign-in (`X-Demo-User`) and the PoC admin check stay until a phase explicitly replaces them.~~ **Retired by Phase H** (2026-10-20): real ABP Identity + OpenIddict sign-in (resource-owner-password-credentials grant at `/connect/token`), permissions per Principle VII. No commercial Account module needed — confirmed the ROPC handler lives in `Volo.Abp.OpenIddict.AspNetCore` itself.
 
 ## Development Workflow and Quality Gates
 
@@ -45,4 +45,4 @@ Form design and routing are admin-only (company admin flag or vendor admin). Eve
 
 This constitution overrides other practices in this repo. If code and the design doc disagree, follow the design rules and tell Ahmad. Amendments need Ahmad's approval, a version bump and a CHANGELOG line. Every plan's Constitution Check lists Principles I–VII and the gates above.
 
-**Version**: 1.1.0 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-10-20 (III: specific-user steps, approved by Ahmad)
+**Version**: 1.2.0 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-10-20 (VII: real ABP permissions replace the `IsAdmin` flag; fake sign-in boundary retired — Phase H)

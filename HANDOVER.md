@@ -45,11 +45,14 @@ Then read `README.md` (how to run, demo steps) and `CHANGELOG.md` (every change 
 - `demo.py` step 7 (7a–7q) covers all of the above. The previous step-7 run was invalid (an old app instance held port 5080). Re-run on 2026-10-20: all steps pass.
 
 ### Demo people
+Tenants no longer have fixed ids (Phase H — `Tenant`'s constructor is ABP-internal, so `TenantManager.CreateAsync`
+always generates one); look them up by name (`GET /api/poc/tenants`) or sign in with the emails below.
+
 | Company | People |
 | --- | --- |
-| Acme Trading (`a1a1a1a1-0000-0000-0000-000000000001`) | Sara (employee → Omar), Omar (manager), Huda (HR), Khalid (employee + company admin → Omar) |
-| Globex Logistics (`b2b2b2b2-0000-0000-0000-000000000002`) | Ali (employee → Fatima), Fatima (manager), Yousef (HR), Noor (employee + company admin → Fatima) |
-| Vendor | Aramis Support (vendor admin, any company) |
+| Acme Trading | Sara (employee → Omar), Omar (manager), Huda (HR), Layla (Finance → Omar), Khalid (employee + `Workmate.CompanyAdmin` → Omar) |
+| Globex Logistics | Ali (employee → Fatima), Fatima (manager), Yousef (HR), Yara (Finance → Fatima), Noor (employee + `Workmate.CompanyAdmin` → Fatima) |
+| Vendor | Aramis Support (`aramis@workmate.vendor`, host user, any company) |
 
 ### Open items (awaiting Ahmad's decision unless noted)
 1. ~~**No-manager fallback:** anyone without a line manager (e.g. Omar) gets stuck at a "line-manager" step.~~ **Closed by Phase D** (FR-010): every designed workflow requires a fallback approver, used whenever a rule (including `manager-of-manager`) resolves to nobody. The two code-defined workflows (`leave-approval`, `hr-only-approval`) are unchanged and keep today's "stuck, rule or HR data needs fixing" behaviour until they are re-created in the designer (FR-011).
@@ -81,6 +84,13 @@ Then read `README.md` (how to run, demo steps) and `CHANGELOG.md` (every change 
 - Real bug found only by actually running the seeder (not just building it): seeding Acme's v2 re-fetched the just-inserted v1 version by id, racing ABP's `InsertAsync` (no auto-save by default) and throwing `EntityNotFoundException` on every startup — fixed with an explicit `autoSave: true` on that insert.
 - **SC-003 findings (not independently verified — no browser tool available this session, see §2):** both renderers cover all six field types, pagination and the full `visibleIf`/description/placeholder vocabulary used in this PoC, confirmed by code inspection of `renderers.js` and a live field-by-field comparison would be the natural next check once a browser tool is available. RTL (`dir="rtl"` toggle) is wired (`document.documentElement.dir`) but its visual correctness in either renderer was not confirmed by this session — flag for Phase G's design-doc comparison.
 
+### Done and verified (demo.py steps 1-7, 9-11: 67 PASS, 0 FAIL; step 8 restart check re-verified, 3 PASS before + 11 PASS after)
+**Phase H — real sign-in and client onboarding**
+- `DemoUserMiddleware`/`X-Demo-User`/`__tenant`-per-call are gone. Real ABP Identity + OpenIddict: everyone signs in via the resource-owner-password-credentials grant at `/connect/token`, gets a JWT, and calls the API with `Authorization: Bearer`. `Employee.IsAdmin` is gone too — "company admin" is membership in a real per-tenant `Workmate.CompanyAdmin` role; the vendor admin is a genuine ABP host user (no tenant, no `Employee` row at all).
+- Tenant spoofing (the thing step 5's old curl example demonstrated being refused) is now structurally harder to even attempt: ABP's built-in `CurrentUserTenantResolveContributor` resolves tenant from the signed-in token's own claim, ahead of any header, for every authenticated request. The one deliberate exception — `HostActAsTenantResolveContributor` (new) — only ever fires for a genuine host user (no tenant claim at all), letting the vendor admin pick a company via `X-Act-As-Tenant`; an ordinary employee's forged header is always a no-op, confirmed live.
+- Seven real bugs found only by starting the app and calling `/connect/token` for real (not discoverable by building alone) — full list with root causes in `specs/003-login-onboarding/tasks.md`'s Phase 2/3 gates. Two worth knowing for future phases: (a) ABP's `PermissionChecker` gates `MultiTenancySide` eligibility on the **signed-in token's own tenant claim**, never on the ambient `ICurrentTenant.Id` a custom resolver changes — a host-authenticated principal can never satisfy a tenant-only permission, full stop, regardless of any grant (so "vendor admin can design for any company" needed those three permissions declared `Both`, not `Tenant`); (b) `Tenant`'s own constructor is `protected internal` to ABP's TenantManagement module, so there is no way to force a specific tenant id from application code — `demo.py` and the UI now look tenants up by `Name`, not a fixed guid.
+- Demo credentials: `<firstname>@<acme|globex>.demo` / `1q2w3E*` for every seeded person (e.g. `sara@acme.demo`); vendor admin is `aramis@workmate.vendor` / `1q2w3E*`, no company.
+
 ## 4. The plan to complete the PoC
 
 Each phase ends with something demoable, and `demo.py` gains checks for it.
@@ -91,7 +101,7 @@ Each phase ends with something demoable, and `demo.py` gains checks for it.
 | B | Form creation + routing UI | See §3 | Admin creates and routes a new form with no code | M | **Done; verified** |
 | C | Elsa persistence (Phase 2 item 1) | Elsa on EF Core (SQLite for the PoC); turn off DB reset on startup | Restart mid-approval resumes correctly; prerequisite for D | M | **Done; verified** |
 | D | Workflow designer | **Option A:** host Elsa Studio behind ABP OpenIddict + permissions (Phase 2 item 2) and enable Elsa multi-tenancy from ABP's `ICurrentTenant` (Phase 2 item 3). **Option B:** own approval-route designer (ordered steps, assignment rule, reject behaviour) that the gateway turns into an Elsa definition | Admin draws a new workflow, binds it to a form, runs it, isolated per tenant | M | **Done; verified** (option B, 2026-10-20); spec `specs/002-route-designer` |
-| H | Sign-in + client onboarding | ABP Identity/OpenIddict/Account/TenantManagement (open source); no self-registration; vendor admin creates company + client admin; permissions replace `IsAdmin` | Real auth, no sign-up, tenant from the account | L | Spec `specs/003-login-onboarding` |
+| H | Sign-in + client onboarding | ABP Identity/OpenIddict/TenantManagement/PermissionManagement (open source, **not** Account — see spec); no self-registration; vendor admin creates company + client admin; permissions replace `IsAdmin` | Real auth, no sign-up, tenant from the account | L | **Done; verified** (2026-10-20); spec `specs/003-login-onboarding` |
 | I | Employees + org structure | Client admin manages employees, departments (OrganizationUnit), unit heads, roles catalogue; new `department-head` approver | Client runs without vendor help | M | Spec `specs/004-employees-org` |
 | J | Email notifications | Assigned / approved / rejected / sent back emails; per-form templates for initiator and approver side; Mailpit locally | Notifications with editable templates | M | Spec `specs/005-email-notifications` |
 | K | Switchable renderer | SurveyJS Form Library (MIT) next to the native renderer; demo toggle, per-form and company setting; canonical schema unchanged | Compare renderers on the same forms | S–M | **Done; verified** (2026-10-20, API-level; visual/RTL check pending a browser tool); spec `specs/006-surveyjs-renderer` |
@@ -99,7 +109,7 @@ Each phase ends with something demoable, and `demo.py` gains checks for it.
 | F | Reliable start (Phase 2 item 5) | ABP distributed event bus + outbox replaces `CurrentUnitOfWork.OnCompleted` start hook | Crash between submit and start loses nothing | M | **In-scope decision pending** |
 | G | Wrap-up | Final demo run, README, findings + go/no-go in the design doc | Decision-ready | S | Planned |
 
-Order: A → B (verify) → C (done) → D (done) → H → I → J → K (done) → E → F → G (H–K added 2026-10-20; K has no dependencies and moved earlier, ahead of H-J). Hard dependencies: C before D; H before I; H and I before J.
+Order: A → B (verify) → C (done) → D (done) → H (done) → I → J → K (done) → E → F → G (H–K added 2026-10-20; K was done first since it had no dependencies). Hard dependencies: C before D; H before I; H and I before J.
 **Phase D decision (2026-10-20): option B.** Workmate HRM is multi-tenant SaaS: client HR admins design workflows, so the designer must be simple, run no client code on shared servers, keep routes in our tenant-filtered tables, and survive Elsa upgrades (our route model is the contract; Elsa definitions are generated). Elsa and Elsa Studio are MIT, but ABP's Elsa Pro integration needs an ABP Team licence (ruled out). Studio may be added later for Aramis staff only. Scope added by Ahmad: each step asks the approver type (line manager, manager's manager, role → which role, specific user → which user); routing value inputs adapt to the chosen field's type. For go/no-go, record that Studio hosting/auth was not proven.
 
 **Decisions Ahmad still owes:** whether F is in PoC scope; SQLite pin.
@@ -113,7 +123,7 @@ Order: A → B (verify) → C (done) → D (done) → H → I → J → K (done)
 5. Reportable fields are written to `Forms_SubmissionValues` at submit time.
 6. **All calls to Elsa's runtime and stores stay inside `IWorkflowGateway` / `ElsaWorkflowGateway`.**
 7. Domain records (submission, process, task, timeline) are the system of record, not Elsa state.
-8. Form design and routing are admin-only (company admin flag or vendor admin); everyone else only takes part in workflows.
+8. Form design and routing are admin-only (`Workmate.CompanyAdmin` role or the host-level `Workmate.Tenants.Manage` permission); everyone else only takes part in workflows.
 
 ## 6. Boundaries
 
@@ -121,20 +131,23 @@ Order: A → B (verify) → C (done) → D (done) → H → I → J → K (done)
 - Keep all `Volo.Abp.*` packages on one version; Elsa stays on 3.7.x unless Ahmad agrees.
 - Do not change architecture or data model just to make something compile; adapt to the library API. If a design rule cannot be kept, stop and ask.
 - Do not push to any remote or touch `workmate-platform-api`.
-- The fake sign-in (`X-Demo-User` header) and the PoC admin check are intentional; leave them unless a phase replaces them (Phase H brings OpenIddict; Elsa Studio, if ever hosted, is vendor-staff-only, not client-facing — Phase D is option B, no Studio).
+- ~~The fake sign-in (`X-Demo-User` header) and the PoC admin check are intentional~~ — **retired by Phase H** (2026-10-20): real ABP Identity + OpenIddict sign-in, `Workmate.*` permissions replace `IsAdmin`. Elsa Studio, if ever hosted, is vendor-staff-only, not client-facing — Phase D is option B, no Studio.
 - Log every change in `CHANGELOG.md`, one line each.
 
 ## 7. Code map (short)
 
 | Path | Role |
 | --- | --- |
-| `Domain/Forms.cs`, `Domain/Processes.cs`, `Domain/Employee.cs` | Forms (definitions, immutable versions, submissions, typed values, schema), Processes (bindings, instances, tasks, timeline), HR stand-in (`IsAdmin`) |
+| `Domain/Forms.cs`, `Domain/Processes.cs`, `Domain/Employee.cs` | Forms (definitions, immutable versions, submissions, typed values, schema), Processes (bindings, instances, tasks, timeline), HR record linked to a real `IdentityUser` (`Employee.UserId`) |
 | `Application/ProcessManager.cs` | Glue: picks a binding, starts the workflow after commit, creates tasks, records outcomes |
 | `Application/AssignmentResolver.cs` | `line-manager`, `manager-of-manager`, `role:{Role}`, `user:{EmployeeId}`; submitter always excluded; fallback when empty |
-| `Application/FormAppService.cs`, `RoutingAppService.cs` | Admin-only form design and routing (merges code-defined + designed workflows; tenant-scoped binding validation) |
+| `Application/FormAppService.cs`, `RoutingAppService.cs` | Admin-only (`[Authorize(WorkmatePermissions.X)]`) form design and routing (merges code-defined + designed workflows; tenant-scoped binding validation) |
 | `Application/ApprovalWorkflowAppService.cs` | Workflow designer: create/draft/publish a designed workflow |
 | `Application/SubmissionAppService.cs`, `TaskAppService.cs` | Submit, my requests, inbox, complete task |
-| `Application/CurrentEmployeeProvider.cs` | Current employee + `EnsureAdminAsync` |
+| `Application/CurrentEmployeeProvider.cs` | Resolves the signed-in user's `Employee` row by `UserId` |
+| `Application/WorkmatePermissions.cs`, `WorkmatePermissionDefinitionProvider.cs`, `TenantAdminRoleSeeder.cs`, `TenantOnboardingAppService.cs` | Phase H: real permissions, the `Workmate.CompanyAdmin` role, vendor onboarding |
+| `Http/HostActAsTenantResolveContributor.cs` | Phase H: lets only a signed-in host user act within a chosen tenant (`X-Act-As-Tenant`) |
+| `Data/OpenIddictDataSeeder.cs` | Phase H: registers the one public OAuth client the demo UI/`demo.py` sign in with |
 | `WorkflowEngine/IWorkflowGateway.cs`, `ElsaWorkflowGateway.cs` | The only door into Elsa |
 | `WorkflowEngine/Activities/HumanTask.cs`, `CompleteProcess.cs` | Custom activities (bookmark + outcomes; final status) |
 | `WorkflowEngine/Workflows/*.cs` | `leave-approval` ("Line manager, then HR"), `hr-only-approval` ("HR only") — code-defined |
@@ -144,7 +157,7 @@ Order: A → B (verify) → C (done) → D (done) → H → I → J → K (done)
 | `Controllers/PocController.cs` | `/api/poc/...` routes |
 | `wwwroot/index.html` | Demo UI incl. form designer, workflow designer and routing |
 | `wwwroot/js/renderers.js`, `wwwroot/lib/surveyjs/` | `createRenderer(kind, schema, values, readOnly)` contract (native + vendored SurveyJS Form Library) |
-| `demo.py` | API demo/regression script (steps 1–7, 9, 10; two-part restart check 8) |
+| `demo.py` | API demo/regression script (steps 1–7, 9, 10, 11; two-part restart check 8); real sign-in (`sign_in()`/bearer tokens, Phase H), no more `X-Demo-User` |
 
 ## 8. Continuing with spec-kit
 

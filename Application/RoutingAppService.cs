@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -18,24 +19,23 @@ public class RoutingAppService : ApplicationService
     // actually distinguish "global, code-defined" from "tenant-owned, designed" below.
     private static readonly HashSet<string> CodeDefinedIds = new() { LeaveApprovalWorkflow.DefinitionId, HrOnlyApprovalWorkflow.DefinitionId };
 
-    private readonly CurrentEmployeeProvider _currentEmployee;
     private readonly IWorkflowGateway _gateway;
     private readonly IRepository<FormDefinition, Guid> _forms;
     private readonly IRepository<FormDefinitionVersion, Guid> _versions;
     private readonly IRepository<ProcessBinding, Guid> _bindings;
     private readonly IRepository<ApprovalWorkflow, Guid> _approvalWorkflows;
 
-    public RoutingAppService(CurrentEmployeeProvider currentEmployee, IWorkflowGateway gateway,
+    public RoutingAppService(IWorkflowGateway gateway,
         IRepository<FormDefinition, Guid> forms, IRepository<FormDefinitionVersion, Guid> versions,
         IRepository<ProcessBinding, Guid> bindings, IRepository<ApprovalWorkflow, Guid> approvalWorkflows)
     {
-        _currentEmployee = currentEmployee; _gateway = gateway; _forms = forms; _versions = versions;
+        _gateway = gateway; _forms = forms; _versions = versions;
         _bindings = bindings; _approvalWorkflows = approvalWorkflows;
     }
 
+    [Authorize(WorkmatePermissions.RoutingManage)]
     public virtual async Task<List<WorkflowDefinitionDto>> GetWorkflowsAsync()
     {
-        await _currentEmployee.EnsureAdminAsync();
         var codeDefined = (await _gateway.ListPublishedAsync())
             .Where(w => CodeDefinedIds.Contains(w.DefinitionId))
             .Select(w => new WorkflowDefinitionDto(w.DefinitionId, w.Name));
@@ -47,9 +47,9 @@ public class RoutingAppService : ApplicationService
     private async Task<List<ApprovalWorkflow>> GetPublishedDesignedWorkflowsAsync() =>
         await _approvalWorkflows.GetListAsync(w => w.IsActive && w.CurrentVersionId != null);
 
+    [Authorize(WorkmatePermissions.RoutingManage)]
     public virtual async Task<List<ProcessBindingDto>> GetBindingsAsync(string formKey)
     {
-        await _currentEmployee.EnsureAdminAsync();
         var form = await GetFormAsync(formKey);
         var fields = (await LatestVersionAsync(form)).Fields;
         return (await _bindings.GetListAsync(b => b.FormDefinitionId == form.Id))
@@ -64,9 +64,9 @@ public class RoutingAppService : ApplicationService
         return field == null || !field.ValidateValue(b.ConditionValue ?? "");
     }
 
+    [Authorize(WorkmatePermissions.RoutingManage)]
     public virtual async Task<ProcessBindingDto> CreateBindingAsync(string formKey, SaveBindingInput input)
     {
-        await _currentEmployee.EnsureAdminAsync();
         var form = await GetFormAsync(formKey);
         await ValidateAsync(form, input);
 
@@ -76,9 +76,9 @@ public class RoutingAppService : ApplicationService
         return Map(binding);
     }
 
+    [Authorize(WorkmatePermissions.RoutingManage)]
     public virtual async Task<ProcessBindingDto> UpdateBindingAsync(Guid id, SaveBindingInput input)
     {
-        await _currentEmployee.EnsureAdminAsync();
         var binding = await _bindings.GetAsync(id); // tenant-filtered
         var form = await _forms.GetAsync(binding.FormDefinitionId);
         await ValidateAsync(form, input);
@@ -93,9 +93,9 @@ public class RoutingAppService : ApplicationService
     }
 
     /// <summary>Soft delete. Running processes keep their BindingId for the audit trail.</summary>
+    [Authorize(WorkmatePermissions.RoutingManage)]
     public virtual async Task DeleteBindingAsync(Guid id)
     {
-        await _currentEmployee.EnsureAdminAsync();
         await _bindings.DeleteAsync(id);
     }
 

@@ -15,6 +15,19 @@
     <PackageReference Include="Volo.Abp.EntityFrameworkCore.Sqlite" Version="9.1.0" />
     <PackageReference Include="Volo.Abp.Ddd.Application" Version="9.1.0" />
 
+    <!-- ABP Identity + OpenIddict + TenantManagement + PermissionManagement (Phase H: real sign-in) -->
+    <PackageReference Include="Volo.Abp.Identity.Domain" Version="9.1.0" />
+    <PackageReference Include="Volo.Abp.Identity.EntityFrameworkCore" Version="9.1.0" />
+    <PackageReference Include="Volo.Abp.Identity.AspNetCore" Version="9.1.0" />
+    <PackageReference Include="Volo.Abp.OpenIddict.Domain" Version="9.1.0" />
+    <PackageReference Include="Volo.Abp.OpenIddict.EntityFrameworkCore" Version="9.1.0" />
+    <PackageReference Include="Volo.Abp.OpenIddict.AspNetCore" Version="9.1.0" />
+    <PackageReference Include="Volo.Abp.TenantManagement.Domain" Version="9.1.0" />
+    <PackageReference Include="Volo.Abp.TenantManagement.EntityFrameworkCore" Version="9.1.0" />
+    <PackageReference Include="Volo.Abp.PermissionManagement.Domain" Version="9.1.0" />
+    <PackageReference Include="Volo.Abp.PermissionManagement.EntityFrameworkCore" Version="9.1.0" />
+    <PackageReference Include="Volo.Abp.PermissionManagement.Domain.Identity" Version="9.1.0" />
+
     <!-- Elsa Workflows 3 (core + management + runtime, in-memory stores by default) -->
     <PackageReference Include="Elsa" Version="3.7.0" />
     <PackageReference Include="Elsa.Persistence.EFCore.Sqlite" Version="3.7.0" />

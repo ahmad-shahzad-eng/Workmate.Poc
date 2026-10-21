@@ -1,14 +1,56 @@
 using Microsoft.EntityFrameworkCore;
 using Volo.Abp.Data;
+using Volo.Abp.DependencyInjection;
 using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore.Modeling;
+using Volo.Abp.Identity;
+using Volo.Abp.Identity.EntityFrameworkCore;
+using Volo.Abp.OpenIddict.Applications;
+using Volo.Abp.OpenIddict.Authorizations;
+using Volo.Abp.OpenIddict.EntityFrameworkCore;
+using Volo.Abp.OpenIddict.Scopes;
+using Volo.Abp.OpenIddict.Tokens;
+using Volo.Abp.PermissionManagement;
+using Volo.Abp.PermissionManagement.EntityFrameworkCore;
+using Volo.Abp.TenantManagement;
+using Volo.Abp.TenantManagement.EntityFrameworkCore;
 using Workmate.Poc.Domain;
 
 namespace Workmate.Poc.Data;
 
+// Phase H: one shared DbContext for every ABP module too (Identity/OpenIddict/TenantManagement/
+// PermissionManagement), via [ReplaceDbContext] — so the single EnsureCreatedAsync() call still
+// creates the whole schema, same as every other module in this PoC (see HANDOVER's reset-required note).
+[ReplaceDbContext(typeof(IIdentityDbContext))]
+[ReplaceDbContext(typeof(IOpenIddictDbContext))]
+[ReplaceDbContext(typeof(ITenantManagementDbContext))]
+[ReplaceDbContext(typeof(IPermissionManagementDbContext))]
 [ConnectionStringName("Default")]
-public class PocDbContext : AbpDbContext<PocDbContext>
+public class PocDbContext : AbpDbContext<PocDbContext>,
+    IIdentityDbContext, IOpenIddictDbContext, ITenantManagementDbContext, IPermissionManagementDbContext
 {
+    // --- Identity
+    public DbSet<IdentityUser> Users => Set<IdentityUser>();
+    public DbSet<IdentityRole> Roles => Set<IdentityRole>();
+    public DbSet<IdentityClaimType> ClaimTypes => Set<IdentityClaimType>();
+    public DbSet<OrganizationUnit> OrganizationUnits => Set<OrganizationUnit>();
+    public DbSet<IdentitySecurityLog> SecurityLogs => Set<IdentitySecurityLog>();
+    public DbSet<IdentityLinkUser> LinkUsers => Set<IdentityLinkUser>();
+    public DbSet<IdentityUserDelegation> UserDelegations => Set<IdentityUserDelegation>();
+    public DbSet<IdentitySession> Sessions => Set<IdentitySession>();
+    // --- OpenIddict
+    public DbSet<OpenIddictApplication> Applications => Set<OpenIddictApplication>();
+    public DbSet<OpenIddictAuthorization> Authorizations => Set<OpenIddictAuthorization>();
+    public DbSet<OpenIddictScope> Scopes => Set<OpenIddictScope>();
+    public DbSet<OpenIddictToken> Tokens => Set<OpenIddictToken>();
+    // --- TenantManagement
+    public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<TenantConnectionString> TenantConnectionStrings => Set<TenantConnectionString>();
+    // --- PermissionManagement
+    public DbSet<PermissionGroupDefinitionRecord> PermissionGroups => Set<PermissionGroupDefinitionRecord>();
+    public DbSet<PermissionDefinitionRecord> Permissions => Set<PermissionDefinitionRecord>();
+    public DbSet<PermissionGrant> PermissionGrants => Set<PermissionGrant>();
+
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<FormDefinition> FormDefinitions => Set<FormDefinition>();
     public DbSet<FormDefinitionVersion> FormDefinitionVersions => Set<FormDefinitionVersion>();
@@ -28,6 +70,11 @@ public class PocDbContext : AbpDbContext<PocDbContext>
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
+
+        b.ConfigureIdentity();
+        b.ConfigureOpenIddict();
+        b.ConfigureTenantManagement();
+        b.ConfigurePermissionManagement();
 
         // SQLite has no schemas, so module ownership is shown with table prefixes:
         // Hr_ (stand-in for the HR module), Forms_ (Forms module), Proc_ (Processes module).

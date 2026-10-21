@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -16,23 +17,22 @@ public class ApprovalWorkflowAppService : ApplicationService
     {"steps":[{"title":"Step 1","approverType":"line-manager","onReject":"end"}]}
     """;
 
-    private readonly CurrentEmployeeProvider _currentEmployee;
     private readonly IWorkflowGateway _gateway;
     private readonly IRepository<Employee, Guid> _employees;
     private readonly IRepository<ApprovalWorkflow, Guid> _workflows;
     private readonly IRepository<ApprovalWorkflowVersion, Guid> _versions;
 
-    public ApprovalWorkflowAppService(CurrentEmployeeProvider currentEmployee, IWorkflowGateway gateway,
+    public ApprovalWorkflowAppService(IWorkflowGateway gateway,
         IRepository<Employee, Guid> employees, IRepository<ApprovalWorkflow, Guid> workflows,
         IRepository<ApprovalWorkflowVersion, Guid> versions)
     {
-        _currentEmployee = currentEmployee; _gateway = gateway; _employees = employees;
+        _gateway = gateway; _employees = employees;
         _workflows = workflows; _versions = versions;
     }
 
+    [Authorize(WorkmatePermissions.WorkflowsDesign)]
     public virtual async Task<List<ApprovalWorkflowListItemDto>> GetAllAsync()
     {
-        await _currentEmployee.EnsureAdminAsync();
         var workflows = await _workflows.GetListAsync();
         var workflowIds = workflows.Select(w => w.Id).ToList();
         var versions = await _versions.GetListAsync(v => workflowIds.Contains(v.ApprovalWorkflowId));
@@ -46,9 +46,9 @@ public class ApprovalWorkflowAppService : ApplicationService
         }).ToList();
     }
 
+    [Authorize(WorkmatePermissions.WorkflowsDesign)]
     public virtual async Task<ApprovalWorkflowDesignDto> CreateAsync(CreateApprovalWorkflowInput input)
     {
-        await _currentEmployee.EnsureAdminAsync();
         var key = (input.Key ?? "").Trim().ToLowerInvariant();
         if (!KeyPattern.IsMatch(key))
             throw new UserFriendlyException("Workflow key must be 2-50 characters: lowercase letters, digits and dashes, starting with a letter.");
@@ -74,9 +74,9 @@ public class ApprovalWorkflowAppService : ApplicationService
     }
 
     /// <summary>Updates the open draft, or opens a new draft after the latest published version.</summary>
+    [Authorize(WorkmatePermissions.WorkflowsDesign)]
     public virtual async Task<ApprovalWorkflowVersionDto> SaveDraftAsync(string key, SaveApprovalWorkflowDraftInput input)
     {
-        await _currentEmployee.EnsureAdminAsync();
         var schema = ApprovalWorkflowSchema.Parse(input.StepsJson);
         await ValidateTargetsAsync(schema, input.FallbackRule, requireFallback: false);
 
@@ -100,9 +100,9 @@ public class ApprovalWorkflowAppService : ApplicationService
     }
 
     /// <summary>Builds the Elsa graph and publishes it through the gateway. The previous version is retired but keeps running instances on their own version.</summary>
+    [Authorize(WorkmatePermissions.WorkflowsDesign)]
     public virtual async Task<ApprovalWorkflowVersionDto> PublishAsync(string key)
     {
-        await _currentEmployee.EnsureAdminAsync();
         var workflow = await GetWorkflowAsync(key);
         var versions = await GetVersionsAsync(workflow.Id);
         var draft = versions.FirstOrDefault(v => v.Status == FormVersionStatus.Draft)

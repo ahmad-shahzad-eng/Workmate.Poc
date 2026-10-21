@@ -1,21 +1,55 @@
 #!/usr/bin/env python3
-"""Runs README demo steps 1-7, 9 and 10 (no args), or the two-part restart check (step 8: `restart-before` /
-`restart-after`, run with a manual app restart in between), against the running PoC. Stdlib only."""
-import json, sqlite3, sys, time, urllib.request, urllib.error, os
+"""Runs README demo steps 1-7, 9, 10 and 11 (no args), or the two-part restart check (step 8:
+`restart-before` / `restart-after`, run with a manual app restart in between), against the running
+PoC. Everyone signs in for real (spec 003) via OpenIddict's password grant at /connect/token — no more
+X-Demo-User header. Stdlib only."""
+import json, sqlite3, sys, time, urllib.request, urllib.error, urllib.parse, os
 
 BASE = "http://localhost:5080/api/poc"
-ACME, GLOBEX = "a1a1a1a1-0000-0000-0000-000000000001", "b2b2b2b2-0000-0000-0000-000000000002"
+TOKEN_URL = "http://localhost:5080/connect/token"
+CLIENT_ID = "Workmate_Demo"
+ACME, GLOBEX = "Acme Trading", "Globex Logistics"
+DEMO_PASSWORD = "1q2w3E*"
+VENDOR_EMAIL = "aramis@workmate.vendor"
 LOG = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo.log"), "w")
 RESTART_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo_restart.json")
-RUN_SUFFIX = str(int(time.time()))[-6:]  # keeps form keys unique across repeated runs on a non-empty database
+RUN_SUFFIX = str(int(time.time()))[-6:]  # keeps form/company keys unique across repeated runs on a non-empty database
 results = []
 
 def log(*a):
     s = " ".join(str(x) for x in a); print(s); LOG.write(s + "\n"); LOG.flush()
 
-def call(method, path, tenant, user=None, body=None):
-    h = {"__tenant": tenant, "Content-Type": "application/json", "Accept": "application/json"}
-    if user: h["X-Demo-User"] = user
+def slug(tenant_name):
+    return tenant_name.split()[0].lower()  # "Acme Trading" -> "acme" — matches DemoDataSeeder's email scheme
+
+def email_for(first_name, tenant_name):
+    return f"{first_name.lower()}@{slug(tenant_name)}.demo"
+
+def sign_in(email, password=DEMO_PASSWORD, tenant_name=None):
+    """ROPC grant at /connect/token (spec 003 FR-007). tenant_name is sent as the __tenant header —
+    the one legitimate unauthenticated use of that header (plan.md Design §4): it just tells the
+    server which company's user table to check the password against. Host users (the vendor admin)
+    omit it. Returns (http_code, access_token_or_None, parsed_body)."""
+    body = urllib.parse.urlencode({
+        "grant_type": "password", "username": email, "password": password,
+        "client_id": CLIENT_ID, "scope": "Workmate"
+    }).encode()
+    headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"}
+    if tenant_name: headers["__tenant"] = tenant_name
+    req = urllib.request.Request(TOKEN_URL, data=body, method="POST", headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            raw = r.read().decode(); code = r.status
+    except urllib.error.HTTPError as e:
+        raw = e.read().decode(); code = e.code
+    log(f"  POST /connect/token ({email}) -> {code} {raw[:300]}")
+    payload = json.loads(raw) if raw else None
+    return code, (payload.get("access_token") if code == 200 and payload else None), payload
+
+def call(method, path, token=None, body=None, act_as_tenant=None):
+    h = {"Content-Type": "application/json", "Accept": "application/json"}
+    if token: h["Authorization"] = f"Bearer {token}"
+    if act_as_tenant: h["X-Act-As-Tenant"] = act_as_tenant
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(BASE + path, data=data, method=method, headers=h)
     try:
@@ -31,32 +65,41 @@ def call(method, path, tenant, user=None, body=None):
 def check(step, ok, note=""):
     results.append((step, ok, note)); log(f"[{'PASS' if ok else 'FAIL'}] {step} {note}")
 
-def users(tenant):
-    _, us = call("GET", "/users", tenant)
-    return {u["name"].split()[0]: u["id"] for u in us}
+def tokens_for(tenant_name, first_names):
+    """Signs in as every named demo person once; returns {first_name: access_token}."""
+    out = {}
+    for n in first_names:
+        code, tok, _ = sign_in(email_for(n, tenant_name), tenant_name=tenant_name)
+        out[n] = tok
+        if tok is None: log(f"  WARNING: sign-in failed for {n} ({email_for(n, tenant_name)}): http {code}")
+    return out
 
-def counts_for(tenant):
-    _, us = call("GET", "/users", tenant)
-    _, fs = call("GET", "/forms", tenant)
+def roster(any_token):
+    _, us = call("GET", "/users", any_token)
+    return {u["name"].split()[0]: u["id"] for u in us or []}
+
+def counts_for(any_token):
+    _, us = call("GET", "/users", any_token)
+    _, fs = call("GET", "/forms", any_token)
     return {"employees": len(us or []), "forms": len(fs or [])}
 
-def inbox_task(tenant, user, submission_id, wait=8):
+def inbox_task(token, submission_id, wait=8):
     end = time.time() + wait
     while True:
-        _, items = call("GET", "/tasks/inbox", tenant, user)
+        _, items = call("GET", "/tasks/inbox", token)
         for i in items or []:
             if i["submissionId"] == submission_id: return i["taskId"]
         if time.time() > end: return None
         time.sleep(1)
 
-def submit(tenant, user, data, form_key="leave-request"):
-    code, sid = call("POST", "/submissions", tenant, user, {"formKey": form_key, "data": data})
+def submit(token, data, form_key="leave-request"):
+    code, sid = call("POST", "/submissions", token, {"formKey": form_key, "data": data})
     return sid if code == 200 else None
 
-def detail(tenant, user, sid, wait_status=None, wait=8):
+def detail(token, sid, wait_status=None, wait=8):
     end = time.time() + wait
     while True:
-        _, d = call("GET", f"/submissions/{sid}", tenant, user)
+        _, d = call("GET", f"/submissions/{sid}", token)
         if not wait_status or (isinstance(d, dict) and d.get("status") == wait_status) or time.time() > end: return d
         time.sleep(1)
 
@@ -72,76 +115,95 @@ def step(name, fn):
     except Exception as e: check(name, False, f"exception: {e!r}")
 
 state = {}
+ACME_NAMES = ["Omar", "Huda", "Sara", "Khalid", "Layla"]
+GLOBEX_NAMES = ["Fatima", "Yousef", "Ali", "Noor", "Yara"]
+
+def tenant_ids():
+    """Anonymous: the sign-in screen's Company picker needs this before anyone is authenticated."""
+    _, ts = call("GET", "/tenants")
+    return {t["name"]: t["id"] for t in ts or []}
 
 def s1():
-    u = users(ACME); state["acme"] = u
-    sid = submit(ACME, u["Sara"], annual); state["s1"] = sid
-    t = inbox_task(ACME, u["Omar"], sid); check("1a Omar gets task", t is not None)
-    call("POST", f"/tasks/{t}/complete", ACME, u["Omar"], {"outcome": "Approved", "comment": "OK"})
-    t2 = inbox_task(ACME, u["Huda"], sid); check("1b Huda gets task after Omar", t2 is not None)
-    call("POST", f"/tasks/{t2}/complete", ACME, u["Huda"], {"outcome": "Approved"})
-    d = detail(ACME, u["Sara"], sid, "Approved")
+    t = tokens_for(ACME, ACME_NAMES); state["acme_tok"] = t
+    state["acme"] = roster(t["Sara"])
+    sid = submit(t["Sara"], annual); state["s1"] = sid
+    tk = inbox_task(t["Omar"], sid); check("1a Omar gets task", tk is not None)
+    call("POST", f"/tasks/{tk}/complete", t["Omar"], {"outcome": "Approved", "comment": "OK"})
+    tk2 = inbox_task(t["Huda"], sid); check("1b Huda gets task after Omar", tk2 is not None)
+    call("POST", f"/tasks/{tk2}/complete", t["Huda"], {"outcome": "Approved"})
+    d = detail(t["Sara"], sid, "Approved")
     check("1c Sara sees Approved + timeline", d.get("status") == "Approved" and len(d.get("events", [])) >= 3,
           f"status={d.get('status')} events={len(d.get('events', []))}")
 
 def s2():
-    u = state["acme"]
-    sid = submit(ACME, u["Sara"], sick)
-    check("2a Omar gets no task", inbox_task(ACME, u["Omar"], sid, wait=3) is None)
-    t = inbox_task(ACME, u["Huda"], sid); check("2b Huda gets task directly", t is not None)
-    d = detail(ACME, u["Sara"], sid)
+    t = state["acme_tok"]
+    sid = submit(t["Sara"], sick); state["acme_sick_sid"] = sid
+    check("2a Omar gets no task", inbox_task(t["Omar"], sid, wait=3) is None)
+    tk = inbox_task(t["Huda"], sid); check("2b Huda gets task directly", tk is not None)
+    d = detail(t["Sara"], sid)
     check("2c hr-only-approval workflow used", d.get("workflowDefinitionId") == "hr-only-approval", str(d.get("workflowDefinitionId")))
-    if t: call("POST", f"/tasks/{t}/complete", ACME, u["Huda"], {"outcome": "Approved"})
+    if tk: call("POST", f"/tasks/{tk}/complete", t["Huda"], {"outcome": "Approved"})
 
 def s3():
-    u = state["acme"]
-    sid = submit(ACME, u["Sara"], annual)
-    t = inbox_task(ACME, u["Omar"], sid)
-    call("POST", f"/tasks/{t}/complete", ACME, u["Omar"], {"outcome": "Rejected", "comment": "Busy period"})
-    d = detail(ACME, u["Sara"], sid, "Rejected")
+    t = state["acme_tok"]
+    sid = submit(t["Sara"], annual)
+    tk = inbox_task(t["Omar"], sid)
+    call("POST", f"/tasks/{tk}/complete", t["Omar"], {"outcome": "Rejected", "comment": "Busy period"})
+    d = detail(t["Sara"], sid, "Rejected")
     check("3a status Rejected", d.get("status") == "Rejected", str(d.get("status")))
-    check("3b no HR step", len(d.get("tasks", [])) == 1 and inbox_task(ACME, u["Huda"], sid, wait=2) is None,
+    check("3b no HR step", len(d.get("tasks", [])) == 1 and inbox_task(t["Huda"], sid, wait=2) is None,
           f"tasks={len(d.get('tasks', []))}")
 
 def s4():
-    u = state["acme"]
-    _, design = call("GET", "/forms/leave-request/design", ACME, u["Khalid"])
+    t = state["acme_tok"]
+    _, design = call("GET", "/forms/leave-request/design", t["Khalid"])
     cur = next(v for v in design["versions"] if v["id"] == design["currentVersionId"])
     schema = json.loads(cur["schemaJson"]); old_no = cur["versionNo"]; new_no = max(v["versionNo"] for v in design["versions"]) + 1
     schema["fields"] = [x for x in schema["fields"] if x["key"] != "handoverTo"]
     schema["fields"].append({"key": "handoverTo", "label": "Handover to", "type": "text", "required": True})
-    c1, _ = call("PUT", "/forms/leave-request/draft", ACME, u["Khalid"], {"schemaJson": json.dumps(schema)})
-    c2, v2 = call("POST", "/forms/leave-request/publish", ACME, u["Khalid"])
+    c1, _ = call("PUT", "/forms/leave-request/draft", t["Khalid"], {"schemaJson": json.dumps(schema)})
+    c2, v2 = call("POST", "/forms/leave-request/publish", t["Khalid"])
     check("4a draft saved + new version published", c1 == 200 and c2 == 200 and v2.get("versionNo") == new_no, str(v2)[:100])
-    _, forms = call("GET", "/forms", ACME, u["Sara"])
+    _, forms = call("GET", "/forms", t["Sara"])
     f = next(x for x in forms if x["key"] == "leave-request")
     check("4b new requests use new version with new field", f["versionNo"] == new_no and "handoverTo" in f["schemaJson"])
     no_handover = {k: v for k, v in annual.items() if k != "handoverTo"}
-    code, _ = call("POST", "/submissions", ACME, u["Sara"], {"formKey": "leave-request", "data": no_handover})
+    code, _ = call("POST", "/submissions", t["Sara"], {"formKey": "leave-request", "data": no_handover})
     check("4c new version enforces required handoverTo", code >= 400, f"http {code}")
-    sid = submit(ACME, u["Sara"], dict(annual, handoverTo="Omar"))
-    d2 = detail(ACME, u["Sara"], sid)
+    sid = submit(t["Sara"], dict(annual, handoverTo="Omar"))
+    d2 = detail(t["Sara"], sid)
     check("4d new-version submission accepted", d2.get("versionNo") == new_no, str(d2.get("versionNo")))
-    d1 = detail(ACME, u["Sara"], state["s1"])
+    d1 = detail(t["Sara"], state["s1"])
     check("4e older submission still renders its own version, marked replaced",
           d1.get("versionNo") == old_no and d1.get("schemaJson") == cur["schemaJson"] and d1.get("versionStatus") != "Published",
           f"v={d1.get('versionNo')} versionStatus={d1.get('versionStatus')}")
 
 def s5():
-    g = users(GLOBEX); a = state["acme"]
-    check("5a Globex sees only its users", set(g) == {"Fatima", "Yousef", "Ali", "Noor", "Yara", "Aramis"}, str(sorted(g)))
-    _, mine_before = call("GET", "/submissions/mine", GLOBEX, g["Ali"])
-    sid = submit(GLOBEX, g["Ali"], sick)
-    t = inbox_task(GLOBEX, g["Fatima"], sid)
-    check("5c Globex sick leave goes to manager (own binding)", t is not None)
-    _, mine_after = call("GET", "/submissions/mine", GLOBEX, g["Ali"])
+    gt = tokens_for(GLOBEX, GLOBEX_NAMES); state["globex_tok"] = gt
+    g = roster(gt["Ali"]); state["globex"] = g
+    at = state["acme_tok"]
+    check("5a Globex sees only its users", set(g) == {"Fatima", "Yousef", "Ali", "Noor", "Yara"}, str(sorted(g)))
+    _, mine_before = call("GET", "/submissions/mine", gt["Ali"])
+    sid = submit(gt["Ali"], sick); state["globex_sick_sid"] = sid
+    tk = inbox_task(gt["Fatima"], sid)
+    check("5c Globex sick leave goes to manager (own binding)", tk is not None)
+    _, mine_after = call("GET", "/submissions/mine", gt["Ali"])
     check("5b Ali's own requests gained this one and include no Acme ids",
           len(mine_after or []) == len(mine_before or []) + 1 and all(m["id"] != state["s1"] for m in mine_after or []),
           f"{len(mine_before or [])} -> {len(mine_after or [])}")
-    _, inbox = call("GET", "/tasks/inbox", ACME, a["Omar"])
+    _, inbox = call("GET", "/tasks/inbox", at["Omar"])
     check("5d Acme inbox has no Globex task", all(i["submissionId"] != sid for i in inbox or []))
-    code, body = call("GET", "/submissions/mine", GLOBEX, a["Sara"])
-    check("5e cross-tenant call refused", code >= 400 and "does not belong" in json.dumps(body), f"http {code}")
+    # 5e: a real, signed token from one tenant cannot reach another tenant's submission by id — claims-based
+    # tenant resolution (not a header) decides which tenant's data a request can see at all (spec 003 US2 scenario 2).
+    code, body = call("GET", f"/submissions/{sid}", at["Sara"])
+    check("5e Acme token cannot fetch a Globex submission by id", code >= 400, f"http {code}")
+    # 5f: an ordinary employee's forged X-Act-As-Tenant header has no effect — only a signed-in HOST user
+    # (no tenant of their own) can use it; Sara still sees only her own company's forms (plan.md Design §4).
+    tids = tenant_ids()
+    _, forms_spoofed = call("GET", "/forms", at["Sara"], act_as_tenant=tids[GLOBEX])
+    check("5f forged X-Act-As-Tenant header is ignored for a non-host token",
+          {f["key"] for f in forms_spoofed or []} == {f["key"] for f in call("GET", "/forms", at["Sara"])[1]},
+          str(sorted(f["key"] for f in forms_spoofed or [])))
 
 def s6():
     db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "workmate-poc.db")
@@ -157,180 +219,219 @@ def s6():
 
 def s7():
     biz, asset = f"business-trip-{RUN_SUFFIX}", f"asset-request-{RUN_SUFFIX}"
-    u = state["acme"]; g = users(GLOBEX)
-    code, b = call("GET", "/forms/all", ACME, u["Huda"])
-    check("7a HR cannot open the form designer", code == 403 and "Only Admin" in json.dumps(b), f"http {code}")
-    code, b = call("POST", "/forms", ACME, u["Sara"], {"key": "nope", "name": "Nope", "category": "X"})
-    check("7b employee cannot create forms", code == 403 and "Only Admin" in json.dumps(b), f"http {code}")
-    _, forms = call("GET", "/forms", ACME, u["Sara"])
+    t = state["acme_tok"]; gt = state["globex_tok"]
+    tids = tenant_ids()
+    code, b = call("GET", "/forms/all", t["Huda"])
+    check("7a HR cannot open the form designer", code == 403, f"http {code}")
+    code, b = call("POST", "/forms", t["Sara"], {"key": "nope", "name": "Nope", "category": "X"})
+    check("7b employee cannot create forms", code == 403, f"http {code}")
+    _, forms = call("GET", "/forms", t["Sara"])
     check("7c seeded employee forms published", {"leave-request", "work-from-home", "expense-claim", "letter-request"} <= {f["key"] for f in forms},
           str(sorted(f["key"] for f in forms)))
-    _, wfs = call("GET", "/workflows", ACME, u["Khalid"])
+    _, wfs = call("GET", "/workflows", t["Khalid"])
     ids = {w["definitionId"] for w in wfs or []}
     check("7d admin lists published workflows", {"leave-approval", "hr-only-approval"} <= ids, str(wfs))
-    code, d = call("POST", "/forms", ACME, u["Khalid"], {"key": biz, "name": "Business trip", "category": "Travel"})
+    code, d = call("POST", "/forms", t["Khalid"], {"key": biz, "name": "Business trip", "category": "Travel"})
     check("7e admin creates a form with a v1 draft", code == 200 and d["versions"][0]["status"] == "Draft")
-    code, b = call("POST", "/forms", ACME, u["Khalid"], {"key": biz, "name": "Again", "category": "Travel"})
+    code, b = call("POST", "/forms", t["Khalid"], {"key": biz, "name": "Again", "category": "Travel"})
     check("7f duplicate key refused", code == 403 and "already exists" in json.dumps(b), f"http {code}")
-    code, _ = call("POST", "/submissions", ACME, u["Sara"], {"formKey": biz, "data": {"details": "x"}})
+    code, _ = call("POST", "/submissions", t["Sara"], {"formKey": biz, "data": {"details": "x"}})
     check("7g unpublished form cannot be submitted", code >= 400, f"http {code}")
     schema = {"title": "Business trip", "fields": [
         {"key": "tripType", "label": "Trip type", "type": "select", "options": ["Domestic", "International"], "required": True, "reportable": True, "workflowVariable": True},
         {"key": "destination", "label": "Destination", "type": "text", "required": True, "reportable": True},
         {"key": "days", "label": "Days", "type": "number", "required": True, "reportable": True}]}
-    call("PUT", f"/forms/{biz}/draft", ACME, u["Khalid"], {"schemaJson": json.dumps(schema)})
-    code, v = call("POST", f"/forms/{biz}/publish", ACME, u["Khalid"])
+    call("PUT", f"/forms/{biz}/draft", t["Khalid"], {"schemaJson": json.dumps(schema)})
+    code, v = call("POST", f"/forms/{biz}/publish", t["Khalid"])
     check("7h admin publishes v1", code == 200 and v["versionNo"] == 1)
-    code, b = call("POST", f"/forms/{biz}/bindings", ACME, u["Khalid"], {"workflowDefinitionId": "made-up", "priority": 10})
+    code, b = call("POST", f"/forms/{biz}/bindings", t["Khalid"], {"workflowDefinitionId": "made-up", "priority": 10})
     check("7i unknown workflow refused", code == 403 and "not published" in json.dumps(b), f"http {code}")
-    code, b = call("POST", f"/forms/{biz}/bindings", ACME, u["Khalid"], {"workflowDefinitionId": "leave-approval", "conditionField": "nope", "conditionValue": "x", "priority": 1})
+    code, b = call("POST", f"/forms/{biz}/bindings", t["Khalid"], {"workflowDefinitionId": "leave-approval", "conditionField": "nope", "conditionValue": "x", "priority": 1})
     check("7j condition on unknown field refused", code == 403 and "not on the form" in json.dumps(b), f"http {code}")
-    c1, _ = call("POST", f"/forms/{biz}/bindings", ACME, u["Khalid"], {"workflowDefinitionId": "leave-approval", "priority": 10})
-    c2, _ = call("POST", f"/forms/{biz}/bindings", ACME, u["Khalid"], {"workflowDefinitionId": "hr-only-approval", "conditionField": "tripType", "conditionValue": "Domestic", "priority": 1})
+    c1, _ = call("POST", f"/forms/{biz}/bindings", t["Khalid"], {"workflowDefinitionId": "leave-approval", "priority": 10})
+    c2, _ = call("POST", f"/forms/{biz}/bindings", t["Khalid"], {"workflowDefinitionId": "hr-only-approval", "conditionField": "tripType", "conditionValue": "Domestic", "priority": 1})
     check("7k admin adds default + conditional routes", c1 == 200 and c2 == 200)
-    sid = submit(ACME, u["Sara"], {"tripType": "Domestic", "destination": "Riyadh", "days": "2"}, biz)
-    check("7l domestic trip routed to HR only", inbox_task(ACME, u["Huda"], sid) is not None and inbox_task(ACME, u["Omar"], sid, wait=2) is None)
-    sid = submit(ACME, u["Sara"], {"tripType": "International", "destination": "London", "days": "4"}, biz)
-    check("7m international trip routed to line manager", inbox_task(ACME, u["Omar"], sid) is not None)
+    sid = submit(t["Sara"], {"tripType": "Domestic", "destination": "Riyadh", "days": "2"}, biz)
+    check("7l domestic trip routed to HR only", inbox_task(t["Huda"], sid) is not None and inbox_task(t["Omar"], sid, wait=2) is None)
+    sid = submit(t["Sara"], {"tripType": "International", "destination": "London", "days": "4"}, biz)
+    check("7m international trip routed to line manager", inbox_task(t["Omar"], sid) is not None)
     # Company admin is still an employee: their own request routes to their line manager.
-    sid = submit(ACME, u["Khalid"], dict(annual, handoverTo="Sara"))
-    check("7o company admin's own request reaches their manager", inbox_task(ACME, u["Omar"], sid) is not None)
-    # Vendor admin designs for any company but is not an employee there.
-    code, d = call("POST", "/forms", GLOBEX, u["Aramis"], {"key": asset, "name": "Asset request", "category": "IT"})
+    sid = submit(t["Khalid"], dict(annual, handoverTo="Sara"))
+    check("7o company admin's own request reaches their manager", inbox_task(t["Omar"], sid) is not None)
+    # Vendor admin designs for any company but is not an employee there — acts as Globex via X-Act-As-Tenant.
+    vendor_tok = state["vendor_tok"]
+    code, d = call("POST", "/forms", vendor_tok, {"key": asset, "name": "Asset request", "category": "IT"}, act_as_tenant=tids[GLOBEX])
     check("7p vendor admin creates a form for Globex", code == 200, f"http {code}")
-    code, b = call("POST", "/submissions", GLOBEX, u["Aramis"], {"formKey": "leave-request", "data": annual})
+    code, b = call("POST", "/submissions", vendor_tok, {"formKey": "leave-request", "data": annual}, act_as_tenant=tids[GLOBEX])
     check("7q vendor admin cannot submit requests", code == 403 and "does not belong" in json.dumps(b), f"http {code}")
-    _, gforms = call("GET", "/forms", GLOBEX, g["Ali"])
+    _, gforms = call("GET", "/forms", gt["Ali"])
     check("7n Globex does not see Acme's new form", all(f["key"] != biz for f in gforms or []))
 
 def step9():
     """Phase D (option B): a company admin builds, publishes, binds and runs a designed workflow."""
-    a = users(ACME); g = users(GLOBEX)
+    a_ids = state["acme"]; t = state["acme_tok"]; gt = state["globex_tok"]
     wf_key = f"expense-3step-{RUN_SUFFIX}"
 
     # 9a: build and publish a 3-step workflow: line manager -> role Finance -> specific user (Huda).
-    code, _ = call("POST", "/workflows/design", ACME, a["Khalid"], {"key": wf_key, "name": "Expense: manager, finance, HR"})
+    code, _ = call("POST", "/workflows/design", t["Khalid"], {"key": wf_key, "name": "Expense: manager, finance, HR"})
     check("9a admin creates a designed workflow", code == 200, f"http {code}")
     steps = {"steps": [
         {"title": "Manager approval", "approverType": "line-manager", "onReject": "end"},
         {"title": "Finance review", "approverType": "role", "role": "Finance", "onReject": "back-to-previous"},
-        {"title": "HR sign-off", "approverType": "user", "userId": a["Huda"], "onReject": "end"},
+        {"title": "HR sign-off", "approverType": "user", "userId": a_ids["Huda"], "onReject": "end"},
     ]}
-    code, _ = call("PUT", f"/workflows/design/{wf_key}/draft", ACME, a["Khalid"],
+    code, _ = call("PUT", f"/workflows/design/{wf_key}/draft", t["Khalid"],
                    {"stepsJson": json.dumps(steps), "fallbackRule": "role:HR"})
     check("9a draft saved", code == 200, f"http {code}")
-    code, v = call("POST", f"/workflows/design/{wf_key}/publish", ACME, a["Khalid"])
+    code, v = call("POST", f"/workflows/design/{wf_key}/publish", t["Khalid"])
     check("9a published", code == 200 and v.get("status") == "Published", str(v)[:120])
 
-    _, wfs = call("GET", "/workflows", ACME, a["Khalid"])
+    _, wfs = call("GET", "/workflows", t["Khalid"])
     def_id = next((w["definitionId"] for w in wfs or [] if w["name"] == "Expense: manager, finance, HR"), None)
     check("9a workflow listed for Acme", def_id is not None)
 
     # 9b: Globex can neither see nor bind Acme's designed workflow.
-    _, gwfs = call("GET", "/workflows", GLOBEX, g["Noor"])
+    _, gwfs = call("GET", "/workflows", gt["Noor"])
     check("9b Globex does not see Acme's designed workflow", all(w["definitionId"] != def_id for w in gwfs or []))
-    code, _ = call("POST", "/forms/leave-request/bindings", GLOBEX, g["Noor"], {"workflowDefinitionId": def_id, "priority": 1})
+    code, _ = call("POST", "/forms/leave-request/bindings", gt["Noor"], {"workflowDefinitionId": def_id, "priority": 1})
     check("9b Globex cannot bind to Acme's workflow", code >= 400, f"http {code}")
 
     # 9c: bind to Expense claim and run it end to end, with one reject-to-previous-step.
-    code, _ = call("POST", "/forms/expense-claim/bindings", ACME, a["Khalid"], {"workflowDefinitionId": def_id, "priority": 1})
+    code, _ = call("POST", "/forms/expense-claim/bindings", t["Khalid"], {"workflowDefinitionId": def_id, "priority": 1})
     check("9c bound to Expense claim", code == 200, f"http {code}")
 
-    sid = submit(ACME, a["Sara"], {"expenseDate": "2026-11-01", "expenseType": "Travel", "amount": "120", "description": "Taxi"}, "expense-claim")
-    t = inbox_task(ACME, a["Omar"], sid)
-    check("9c Omar gets manager-approval task", t is not None)
-    if t: call("POST", f"/tasks/{t}/complete", ACME, a["Omar"], {"outcome": "Approved"})
+    sid = submit(t["Sara"], {"expenseDate": "2026-11-01", "expenseType": "Travel", "amount": "120", "description": "Taxi"}, "expense-claim")
+    tk = inbox_task(t["Omar"], sid)
+    check("9c Omar gets manager-approval task", tk is not None)
+    if tk: call("POST", f"/tasks/{tk}/complete", t["Omar"], {"outcome": "Approved"})
 
-    t2 = inbox_task(ACME, a["Layla"], sid)
-    check("9c Layla (Finance role) gets task", t2 is not None)
-    if t2: call("POST", f"/tasks/{t2}/complete", ACME, a["Layla"], {"outcome": "Rejected", "comment": "needs re-check"})
+    tk2 = inbox_task(t["Layla"], sid)
+    check("9c Layla (Finance role) gets task", tk2 is not None)
+    if tk2: call("POST", f"/tasks/{tk2}/complete", t["Layla"], {"outcome": "Rejected", "comment": "needs re-check"})
 
-    t3 = inbox_task(ACME, a["Omar"], sid)
-    check("9c reject sends the task back to Omar (back-to-previous)", t3 is not None)
-    if t3: call("POST", f"/tasks/{t3}/complete", ACME, a["Omar"], {"outcome": "Approved"})
+    tk3 = inbox_task(t["Omar"], sid)
+    check("9c reject sends the task back to Omar (back-to-previous)", tk3 is not None)
+    if tk3: call("POST", f"/tasks/{tk3}/complete", t["Omar"], {"outcome": "Approved"})
 
-    t4 = inbox_task(ACME, a["Layla"], sid)
-    check("9c Layla gets the task again after Omar re-approves", t4 is not None)
-    if t4: call("POST", f"/tasks/{t4}/complete", ACME, a["Layla"], {"outcome": "Approved"})
+    tk4 = inbox_task(t["Layla"], sid)
+    check("9c Layla gets the task again after Omar re-approves", tk4 is not None)
+    if tk4: call("POST", f"/tasks/{tk4}/complete", t["Layla"], {"outcome": "Approved"})
 
-    t5 = inbox_task(ACME, a["Huda"], sid)
-    check("9c Huda (specific user) gets the final task", t5 is not None)
-    if t5: call("POST", f"/tasks/{t5}/complete", ACME, a["Huda"], {"outcome": "Approved"})
+    tk5 = inbox_task(t["Huda"], sid)
+    check("9c Huda (specific user) gets the final task", tk5 is not None)
+    if tk5: call("POST", f"/tasks/{tk5}/complete", t["Huda"], {"outcome": "Approved"})
 
-    d = detail(ACME, a["Sara"], sid, "Approved")
+    d = detail(t["Sara"], sid, "Approved")
     check("9c request Approved after all steps", d.get("status") == "Approved", str(d.get("status")))
 
     # 9d: a rule that resolves to nobody (manager's manager, for someone whose own manager has no
     # manager) falls back instead of leaving the request stuck (SC-004; closes HANDOVER.md §3 item 1).
     fb_key = f"fallback-test-{RUN_SUFFIX}"
-    call("POST", "/workflows/design", ACME, a["Khalid"], {"key": fb_key, "name": "Fallback test"})
-    call("PUT", f"/workflows/design/{fb_key}/draft", ACME, a["Khalid"], {"fallbackRule": "role:HR", "stepsJson": json.dumps(
+    call("POST", "/workflows/design", t["Khalid"], {"key": fb_key, "name": "Fallback test"})
+    call("PUT", f"/workflows/design/{fb_key}/draft", t["Khalid"], {"fallbackRule": "role:HR", "stepsJson": json.dumps(
         {"steps": [{"title": "Manager's manager", "approverType": "manager-of-manager", "onReject": "end"}]})})
-    code, _ = call("POST", f"/workflows/design/{fb_key}/publish", ACME, a["Khalid"])
+    code, _ = call("POST", f"/workflows/design/{fb_key}/publish", t["Khalid"])
     check("9d fallback-test workflow published", code == 200, f"http {code}")
-    _, wfs2 = call("GET", "/workflows", ACME, a["Khalid"])
+    _, wfs2 = call("GET", "/workflows", t["Khalid"])
     fb_def_id = next((w["definitionId"] for w in wfs2 or [] if w["name"] == "Fallback test"), None)
-    call("POST", "/forms/letter-request/bindings", ACME, a["Khalid"], {"workflowDefinitionId": fb_def_id,
+    call("POST", "/forms/letter-request/bindings", t["Khalid"], {"workflowDefinitionId": fb_def_id,
          "conditionField": "letterType", "conditionValue": "No objection certificate", "priority": 1})
 
     # Khalid reports to Omar, who has no manager: manager-of-manager resolves to nobody here.
-    sid2 = submit(ACME, a["Khalid"], {"letterType": "No objection certificate", "addressedTo": "Bank", "purpose": "Mortgage"}, "letter-request")
-    t6 = inbox_task(ACME, a["Huda"], sid2)
-    check("9d rule resolving to nobody falls back to the fallback approver", t6 is not None)
-    if t6: call("POST", f"/tasks/{t6}/complete", ACME, a["Huda"], {"outcome": "Approved"})
-    d2 = detail(ACME, a["Khalid"], sid2, "Approved")
+    sid2 = submit(t["Khalid"], {"letterType": "No objection certificate", "addressedTo": "Bank", "purpose": "Mortgage"}, "letter-request")
+    tk6 = inbox_task(t["Huda"], sid2)
+    check("9d rule resolving to nobody falls back to the fallback approver", tk6 is not None)
+    if tk6: call("POST", f"/tasks/{tk6}/complete", t["Huda"], {"outcome": "Approved"})
+    d2 = detail(t["Khalid"], sid2, "Approved")
     fallback_event = next((e for e in d2.get("events", []) if "fallback" in e.get("detail", "").lower()), None)
     check("9d timeline records why the fallback was used", fallback_event is not None, str(fallback_event))
 
 def s10():
     """Server-side gatekeeper is renderer-independent (US3), and Acme's v2 leave-request conditional
     field is enforced at the API: hidden values are dropped, required-when-visible is enforced (US4)."""
-    u = state["acme"]
+    t = state["acme_tok"]
 
     missing_type = {k: v for k, v in annual.items() if k != "leaveType"}
-    code, b = call("POST", "/submissions", ACME, u["Sara"], {"formKey": "leave-request", "data": missing_type})
+    code, b = call("POST", "/submissions", t["Sara"], {"formKey": "leave-request", "data": missing_type})
     check("10a missing required field refused with field-level message", code >= 400 and "Leave type" in json.dumps(b), f"http {code}")
 
-    code, b = call("POST", "/submissions", ACME, u["Sara"], {"formKey": "leave-request", "data": dict(annual, leaveType="NotAnOption")})
+    code, b = call("POST", "/submissions", t["Sara"], {"formKey": "leave-request", "data": dict(annual, leaveType="NotAnOption")})
     check("10b unknown select option refused", code >= 400, f"http {code}")
 
-    code, b = call("POST", "/submissions", ACME, u["Sara"], {"formKey": "leave-request", "data": dict(annual, days="not-a-number")})
+    code, b = call("POST", "/submissions", t["Sara"], {"formKey": "leave-request", "data": dict(annual, days="not-a-number")})
     check("10c non-number in a number field refused", code >= 400, f"http {code}")
 
-    sid = submit(ACME, u["Sara"], annual)
-    d = detail(ACME, u["Sara"], sid)
+    sid = submit(t["Sara"], annual)
+    d = detail(t["Sara"], sid)
     check("10d annual leave submits fine without the hidden medicalNoteReference field", sid is not None and d is not None, f"sid={sid}")
 
-    sid2 = submit(ACME, u["Sara"], dict(annual, medicalNoteReference="should-be-dropped"))
-    d2 = detail(ACME, u["Sara"], sid2)
+    sid2 = submit(t["Sara"], dict(annual, medicalNoteReference="should-be-dropped"))
+    d2 = detail(t["Sara"], sid2)
     check("10e a value sent for a hidden field is dropped, not stored",
           sid2 is not None and "medicalNoteReference" not in (d2.get("data") or {}), str(d2.get("data")))
 
     sick_no_note = {k: v for k, v in sick.items() if k != "medicalNoteReference"}
-    code, b = call("POST", "/submissions", ACME, u["Sara"], {"formKey": "leave-request", "data": sick_no_note})
+    code, b = call("POST", "/submissions", t["Sara"], {"formKey": "leave-request", "data": sick_no_note})
     check("10f sick leave without the now-required medical note reference is refused",
           code >= 400 and "Medical note reference is required" in json.dumps(b), f"http {code}")
 
-    sid3 = submit(ACME, u["Sara"], sick)
-    d3 = detail(ACME, u["Sara"], sid3)
+    sid3 = submit(t["Sara"], sick)
+    d3 = detail(t["Sara"], sid3)
     check("10g sick leave with a medical note reference is accepted and the value is stored",
           sid3 is not None and (d3.get("data") or {}).get("medicalNoteReference") == sick["medicalNoteReference"], str(d3.get("data")))
 
+def s11():
+    """Vendor onboards a new client (US1), and real sign-in's remaining guarantees: no sign-up path,
+    lockout after repeated failures (US2). Lockout deliberately burns a throwaway account (the new
+    company's own admin, unused anywhere else) so it can't break any other step in this run."""
+    company = f"Initech {RUN_SUFFIX}"
+    admin_email = f"bill-{RUN_SUFFIX}@initech.demo"
+
+    code, vendor_tok, _ = sign_in(VENDOR_EMAIL)
+    check("11a vendor admin signs in (host, no tenant)", code == 200 and vendor_tok is not None, f"http {code}")
+    state["vendor_tok"] = vendor_tok
+
+    code, created = call("POST", "/tenants", vendor_tok, {"name": company, "adminName": "Bill Lumbergh", "adminEmail": admin_email})
+    check("11b vendor admin creates a company with an admin email", code == 200 and created.get("generatedPassword"), f"http {code}")
+    password = created.get("generatedPassword")
+
+    code, bill_tok, _ = sign_in(admin_email, password, tenant_name=company)
+    check("11c new admin signs in to their own company", code == 200 and bill_tok is not None, f"http {code}")
+
+    _, forms = call("GET", "/forms", bill_tok)
+    _, users_ = call("GET", "/users", bill_tok)
+    check("11d SC-001 new company starts empty and isolated",
+          forms == [] and len(users_ or []) == 1, f"forms={forms} users={users_}")
+
+    # Self-contained (doesn't depend on step 1 having run yet — s11 runs first): sign Sara in directly.
+    _, sara_tok, _ = sign_in(email_for("Sara", ACME), tenant_name=ACME)
+    code, b = call("POST", "/tenants", sara_tok, {"name": "Should not exist", "adminName": "X", "adminEmail": "x@x.demo"})
+    check("11e a non-vendor-admin cannot create a company", code == 403, f"http {code}")
+
+    code, b = call("POST", "/api/account/register", None, {"email": "nope@nope.demo", "password": "x"})
+    check("11f no self-registration endpoint exists (US2 AC1)", code in (404, 405), f"http {code}")
+
+    for i in range(6):
+        code, _, _ = sign_in(admin_email, "wrong-password", tenant_name=company)
+    code, locked_tok, body = sign_in(admin_email, password, tenant_name=company)
+    check("11g account locked out after repeated failed sign-ins, even with the correct password (US2 AC3)",
+          code != 200 and locked_tok is None, f"http {code} {str(body)[:150]}")
+
 def restart_before():
     """Puts one request per tenant at a pending human step, then records their ids for restart_after."""
-    a = users(ACME); state["acme"] = a
-    g = users(GLOBEX); state["globex"] = g
+    at = tokens_for(ACME, ACME_NAMES); state["acme_tok"] = at
+    gt = tokens_for(GLOBEX, GLOBEX_NAMES); state["globex_tok"] = gt
 
-    a1 = submit(ACME, a["Sara"], annual)  # Annual: sits at Omar (line manager)
-    check("8-before A1 Omar gets task", inbox_task(ACME, a["Omar"], a1) is not None)
+    a1 = submit(at["Sara"], annual)  # Annual: sits at Omar (line manager)
+    check("8-before A1 Omar gets task", inbox_task(at["Omar"], a1) is not None)
 
-    a2 = submit(ACME, a["Sara"], sick)  # Sick: routes straight to HR (Huda)
-    check("8-before A2 Huda gets task", inbox_task(ACME, a["Huda"], a2) is not None)
+    a2 = submit(at["Sara"], sick)  # Sick: routes straight to HR (Huda)
+    check("8-before A2 Huda gets task", inbox_task(at["Huda"], a2) is not None)
 
-    g1 = submit(GLOBEX, g["Ali"], annual)  # Globex has only the default route: manager first
-    check("8-before G1 Fatima gets task", inbox_task(GLOBEX, g["Fatima"], g1) is not None)
+    g1 = submit(gt["Ali"], annual)  # Globex has only the default route: manager first
+    check("8-before G1 Fatima gets task", inbox_task(gt["Fatima"], g1) is not None)
 
-    data = {"a1": a1, "a2": a2, "g1": g1, "counts_before": {"acme": counts_for(ACME), "globex": counts_for(GLOBEX)}}
+    data = {"a1": a1, "a2": a2, "g1": g1, "counts_before": {"acme": counts_for(at["Sara"]), "globex": counts_for(gt["Ali"])}}
     with open(RESTART_FILE, "w") as fh: json.dump(data, fh)
     log(f"Wrote {RESTART_FILE}: {data}")
     log("Now restart the app (reset off), then run: python3 demo.py restart-after")
@@ -339,50 +440,50 @@ def restart_after():
     """Reads the ids from restart_before and resumes each workflow from where it left off."""
     with open(RESTART_FILE) as fh: data = json.load(fh)
     a1, a2, g1 = data["a1"], data["a2"], data["g1"]
-    a = users(ACME); state["acme"] = a
-    g = users(GLOBEX); state["globex"] = g
+    at = tokens_for(ACME, ACME_NAMES); state["acme_tok"] = at
+    gt = tokens_for(GLOBEX, GLOBEX_NAMES); state["globex_tok"] = gt
 
     # 8a: A1 (at Omar before restart) resumes manager -> HR -> Approved.
-    t = inbox_task(ACME, a["Omar"], a1)
-    check("8a Omar still has A1 task after restart", t is not None)
-    if t: call("POST", f"/tasks/{t}/complete", ACME, a["Omar"], {"outcome": "Approved"})
-    t2 = inbox_task(ACME, a["Huda"], a1)
-    check("8a Huda gets task after Omar resumes", t2 is not None)
-    if t2: call("POST", f"/tasks/{t2}/complete", ACME, a["Huda"], {"outcome": "Approved"})
-    d = detail(ACME, a["Sara"], a1, "Approved")
+    tk = inbox_task(at["Omar"], a1)
+    check("8a Omar still has A1 task after restart", tk is not None)
+    if tk: call("POST", f"/tasks/{tk}/complete", at["Omar"], {"outcome": "Approved"})
+    tk2 = inbox_task(at["Huda"], a1)
+    check("8a Huda gets task after Omar resumes", tk2 is not None)
+    if tk2: call("POST", f"/tasks/{tk2}/complete", at["Huda"], {"outcome": "Approved"})
+    d = detail(at["Sara"], a1, "Approved")
     check("8a A1 Approved after restart", d.get("status") == "Approved", str(d.get("status")))
 
     # 8b: A2 (at Huda before restart) resumes and rejects: ends with no further tasks.
-    t3 = inbox_task(ACME, a["Huda"], a2)
-    check("8b Huda still has A2 task after restart", t3 is not None)
-    if t3: call("POST", f"/tasks/{t3}/complete", ACME, a["Huda"], {"outcome": "Rejected", "comment": "Not now"})
-    d2 = detail(ACME, a["Sara"], a2, "Rejected")
+    tk3 = inbox_task(at["Huda"], a2)
+    check("8b Huda still has A2 task after restart", tk3 is not None)
+    if tk3: call("POST", f"/tasks/{tk3}/complete", at["Huda"], {"outcome": "Rejected", "comment": "Not now"})
+    d2 = detail(at["Sara"], a2, "Rejected")
     check("8b A2 Rejected, no further tasks", d2.get("status") == "Rejected" and len(d2.get("tasks", [])) == 1,
           f"status={d2.get('status')} tasks={len(d2.get('tasks', []))}")
 
     # 8c: G1 (at Fatima before restart) resumes manager -> HR -> Approved, in the other tenant.
-    tg = inbox_task(GLOBEX, g["Fatima"], g1)
+    tg = inbox_task(gt["Fatima"], g1)
     check("8c Fatima still has G1 task after restart", tg is not None)
-    if tg: call("POST", f"/tasks/{tg}/complete", GLOBEX, g["Fatima"], {"outcome": "Approved"})
-    tg2 = inbox_task(GLOBEX, g["Yousef"], g1)
+    if tg: call("POST", f"/tasks/{tg}/complete", gt["Fatima"], {"outcome": "Approved"})
+    tg2 = inbox_task(gt["Yousef"], g1)
     check("8c Yousef gets task after Fatima resumes", tg2 is not None)
-    if tg2: call("POST", f"/tasks/{tg2}/complete", GLOBEX, g["Yousef"], {"outcome": "Approved"})
-    dg = detail(GLOBEX, g["Ali"], g1, "Approved")
+    if tg2: call("POST", f"/tasks/{tg2}/complete", gt["Yousef"], {"outcome": "Approved"})
+    dg = detail(gt["Ali"], g1, "Approved")
     check("8c G1 Approved after restart", dg.get("status") == "Approved", str(dg.get("status")))
 
     # 8d: resuming one tenant's request never surfaces the other tenant's ids.
-    _, acme_inbox = call("GET", "/tasks/inbox", ACME, a["Omar"])
-    _, acme_mine = call("GET", "/submissions/mine", ACME, a["Sara"])
+    _, acme_inbox = call("GET", "/tasks/inbox", at["Omar"])
+    _, acme_mine = call("GET", "/submissions/mine", at["Sara"])
     check("8d Acme sees none of Globex's ids",
           all(i["submissionId"] != g1 for i in acme_inbox or []) and all(s["id"] != g1 for s in acme_mine or []))
-    _, globex_inbox = call("GET", "/tasks/inbox", GLOBEX, g["Fatima"])
-    _, globex_mine = call("GET", "/submissions/mine", GLOBEX, g["Ali"])
+    _, globex_inbox = call("GET", "/tasks/inbox", gt["Fatima"])
+    _, globex_mine = call("GET", "/submissions/mine", gt["Ali"])
     check("8d Globex sees none of Acme's ids",
           all(i["submissionId"] not in (a1, a2) for i in globex_inbox or []) and
           all(s["id"] not in (a1, a2) for s in globex_mine or []))
 
     # 8e: seeding stayed idempotent across the restart; nothing was re-seeded or lost.
-    counts_after = {"acme": counts_for(ACME), "globex": counts_for(GLOBEX)}
+    counts_after = {"acme": counts_for(at["Sara"]), "globex": counts_for(gt["Ali"])}
     check("8e per-tenant employee/form counts unchanged across restart",
           counts_after == data["counts_before"], f"before={data['counts_before']} after={counts_after}")
 
@@ -393,7 +494,8 @@ if __name__ == "__main__":
     elif mode == "restart-after":
         step("Step 8 (after restart)", restart_after)
     elif mode is None:
-        for n, f in [("Step 1 happy path", s1), ("Step 2 conditional routing", s2), ("Step 3 reject path", s3),
+        for n, f in [("Step 11 vendor onboarding + sign-in guarantees", s11),
+                     ("Step 1 happy path", s1), ("Step 2 conditional routing", s2), ("Step 3 reject path", s3),
                      ("Step 4 form versioning", s4), ("Step 5 tenant isolation", s5), ("Step 6 reporting values", s6),
                      ("Step 7 form creation, routing, admin-only", s7), ("Step 9 workflow designer", step9),
                      ("Step 10 server gatekeeper + conditional field (US3/US4)", s10)]:

@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -11,15 +12,14 @@ public class FormAppService : ApplicationService
 {
     private static readonly Regex KeyPattern = new("^[a-z][a-z0-9-]{1,49}$", RegexOptions.Compiled);
 
-    private readonly CurrentEmployeeProvider _currentEmployee;
     private readonly IRepository<FormDefinition, Guid> _forms;
     private readonly IRepository<FormDefinitionVersion, Guid> _versions;
     private readonly IRepository<CompanyFormSettings, Guid> _companySettings;
 
-    public FormAppService(CurrentEmployeeProvider currentEmployee, IRepository<FormDefinition, Guid> forms,
+    public FormAppService(IRepository<FormDefinition, Guid> forms,
         IRepository<FormDefinitionVersion, Guid> versions, IRepository<CompanyFormSettings, Guid> companySettings)
     {
-        _currentEmployee = currentEmployee; _forms = forms; _versions = versions; _companySettings = companySettings;
+        _forms = forms; _versions = versions; _companySettings = companySettings;
     }
 
     public virtual async Task<List<FormSummaryDto>> GetPublishedAsync()
@@ -38,9 +38,9 @@ public class FormAppService : ApplicationService
     }
 
     /// <summary>Every form of the tenant, including ones not published yet (designer list).</summary>
+    [Authorize(WorkmatePermissions.FormsDesign)]
     public virtual async Task<List<FormListItemDto>> GetAllAsync()
     {
-        await _currentEmployee.EnsureAdminAsync();
         var forms = await _forms.GetListAsync();
         var formIds = forms.Select(f => f.Id).ToList();
         var versions = await _versions.GetListAsync(v => formIds.Contains(v.FormDefinitionId));
@@ -61,9 +61,9 @@ public class FormAppService : ApplicationService
         return settings?.DefaultRenderer ?? FormRenderer.Native;
     }
 
+    [Authorize(WorkmatePermissions.FormsDesign)]
     public virtual async Task SetCompanyRendererAsync(string defaultRenderer)
     {
-        await _currentEmployee.EnsureAdminAsync();
         if (!FormRenderer.Concrete.Contains(defaultRenderer))
             throw new UserFriendlyException($"Company default renderer must be one of: {string.Join(", ", FormRenderer.Concrete)}.");
 
@@ -77,9 +77,9 @@ public class FormAppService : ApplicationService
         }
     }
 
+    [Authorize(WorkmatePermissions.FormsDesign)]
     public virtual async Task<FormDesignDto> SetRendererAsync(string key, string renderer)
     {
-        await _currentEmployee.EnsureAdminAsync();
         if (!FormRenderer.All.Contains(renderer))
             throw new UserFriendlyException($"Renderer must be one of: {string.Join(", ", FormRenderer.All)}.");
 
@@ -90,9 +90,9 @@ public class FormAppService : ApplicationService
     }
 
     /// <summary>Creates a form with a starter v1 draft. It is not offered to employees until published.</summary>
+    [Authorize(WorkmatePermissions.FormsDesign)]
     public virtual async Task<FormDesignDto> CreateAsync(CreateFormInput input)
     {
-        await _currentEmployee.EnsureAdminAsync();
         var key = (input.Key ?? "").Trim().ToLowerInvariant();
         if (!KeyPattern.IsMatch(key))
             throw new UserFriendlyException("Form key must be 2-50 characters: lowercase letters, digits and dashes, starting with a letter.");
@@ -118,9 +118,9 @@ public class FormAppService : ApplicationService
     }
 
     /// <summary>Updates the open draft, or opens a new draft after the latest published version.</summary>
+    [Authorize(WorkmatePermissions.FormsDesign)]
     public virtual async Task<FormVersionDto> SaveDraftAsync(string key, string schemaJson)
     {
-        await _currentEmployee.EnsureAdminAsync();
         FormSchema.Parse(schemaJson);
         var form = await GetFormAsync(key);
         var latest = (await GetVersionsAsync(form.Id)).First();
@@ -138,9 +138,9 @@ public class FormAppService : ApplicationService
     }
 
     /// <summary>Publishes the draft. The previous version is retired but still renders its old submissions.</summary>
+    [Authorize(WorkmatePermissions.FormsDesign)]
     public virtual async Task<FormVersionDto> PublishAsync(string key)
     {
-        await _currentEmployee.EnsureAdminAsync();
         var form = await GetFormAsync(key);
         var versions = await GetVersionsAsync(form.Id);
         var draft = versions.FirstOrDefault(v => v.Status == FormVersionStatus.Draft)

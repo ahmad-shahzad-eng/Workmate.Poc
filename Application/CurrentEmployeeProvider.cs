@@ -23,20 +23,8 @@ public class CurrentEmployeeProvider : ITransientDependency
     public async Task<Employee> GetAsync()
     {
         if (_currentUser.Id == null)
-            throw new UserFriendlyException("Choose who you are acting as before continuing.");
-        return await _employees.FindAsync(_currentUser.Id.Value)
+            throw new UserFriendlyException("Sign in before continuing.");
+        return await _employees.FindAsync(e => e.UserId == _currentUser.Id.Value)
                ?? throw new UserFriendlyException("This user does not belong to the selected company.");
-    }
-
-    /// <summary>
-    /// PoC stand-in for an ABP permission check: form and routing design is for the vendor admin
-    /// or a company employee flagged as admin.
-    /// </summary>
-    public async Task EnsureAdminAsync()
-    {
-        if (_currentUser.Id == DemoTenants.VendorAdminId) return;
-        var employee = await GetAsync();
-        if (!employee.IsAdmin)
-            throw new UserFriendlyException("Only Admin users can design forms and routing.");
     }
 }
