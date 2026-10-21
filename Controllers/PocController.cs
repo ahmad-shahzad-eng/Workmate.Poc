@@ -5,6 +5,7 @@ using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.TenantManagement;
 using Workmate.Poc.Application;
+using Workmate.Poc.Application.Notifications;
 using Workmate.Poc.Domain;
 
 namespace Workmate.Poc.Controllers;
@@ -27,22 +28,27 @@ public class PocController : AbpControllerBase
     private readonly IPermissionChecker _permissionChecker;
     private readonly EmployeeAppService _employeeService;
     private readonly OrganizationAppService _organization;
+    private readonly AccountAppService _account;
+    private readonly EmailLogAppService _emailLog;
+    private readonly EmailTemplateAppService _emailTemplates;
 
     public PocController(FormAppService forms, SubmissionAppService submissions, TaskAppService tasks,
         RoutingAppService routing, ApprovalWorkflowAppService approvalWorkflows, IRepository<Employee, Guid> employees,
         ITenantRepository tenants, TenantOnboardingAppService onboarding, IPermissionChecker permissionChecker,
-        EmployeeAppService employeeService, OrganizationAppService organization)
+        EmployeeAppService employeeService, OrganizationAppService organization, AccountAppService account,
+        EmailLogAppService emailLog, EmailTemplateAppService emailTemplates)
     {
         _forms = forms; _submissions = submissions; _tasks = tasks; _routing = routing;
         _approvalWorkflows = approvalWorkflows; _employees = employees; _tenants = tenants; _onboarding = onboarding;
         _permissionChecker = permissionChecker; _employeeService = employeeService; _organization = organization;
+        _account = account; _emailLog = emailLog; _emailTemplates = emailTemplates;
     }
 
     [HttpPost("tenants")]
     public Task<CompanyCreatedDto> CreateCompanyAsync([FromBody] CreateCompanyInput input) => _onboarding.CreateCompanyAsync(input);
 
     [HttpPost("tenants/reset-admin-password")]
-    public Task<ResetAdminPasswordDto> ResetAdminPasswordAsync([FromBody] ResetAdminPasswordInput input) =>
+    public Task ResetAdminPasswordAsync([FromBody] ResetAdminPasswordInput input) =>
         _onboarding.ResetClientAdminPasswordAsync(input);
 
     [HttpPost("tenants/assign-admin")]
@@ -70,8 +76,24 @@ public class PocController : AbpControllerBase
         return result;
     }
 
+    /// <summary>Anonymous (spec 005): always 204, whether or not the account exists. Company from <c>__tenant</c>.</summary>
+    [AllowAnonymous]
+    [HttpPost("account/forgot-password")]
+    public Task ForgotPasswordAsync([FromBody] ForgotPasswordInput input) => _account.ForgotPasswordAsync(input);
+
+    /// <summary>Anonymous (spec 005): protected by the one-time token from the emailed link.</summary>
+    [AllowAnonymous]
+    [HttpPost("account/set-password")]
+    public Task SetPasswordAsync([FromBody] SetPasswordInput input) => _account.SetPasswordAsync(input);
+
+    [HttpGet("emails")]
+    public Task<List<EmailLogItemDto>> GetEmailsAsync([FromQuery] string? status = null) => _emailLog.GetListAsync(status);
+
+    [HttpPost("emails/{id:guid}/resend")]
+    public Task<EmailLogItemDto> ResendEmailAsync(Guid id) => _emailLog.ResendAsync(id);
+
     [HttpPost("employees")]
-    public Task<EmployeeCreatedDto> CreateEmployeeAsync([FromBody] SaveEmployeeInput input) => _employeeService.CreateAsync(input);
+    public Task<EmployeeDto> CreateEmployeeAsync([FromBody] SaveEmployeeInput input) => _employeeService.CreateAsync(input);
 
     [HttpPut("employees/{id:guid}")]
     public Task<EmployeeDto> UpdateEmployeeAsync(Guid id, [FromBody] SaveEmployeeInput input) => _employeeService.UpdateAsync(id, input);
@@ -137,6 +159,40 @@ public class PocController : AbpControllerBase
     [HttpPut("company-settings/renderer")]
     public Task SetCompanyRendererAsync([FromBody] SetCompanyRendererInput input) =>
         _forms.SetCompanyRendererAsync(input.DefaultRenderer);
+
+    // --- Email templates (spec 005 US2: per form; US3: company defaults and sender name)
+    [HttpGet("forms/{key}/emails")]
+    public Task<List<EmailTemplateDto>> GetFormEmailsAsync(string key) => _emailTemplates.GetFormTemplatesAsync(key);
+
+    [HttpPut("forms/{key}/emails/{evt}/{audience}")]
+    public Task<EmailTemplateDto> SaveFormEmailAsync(string key, string evt, string audience, [FromBody] SaveEmailTemplateInput input) =>
+        _emailTemplates.SaveFormTemplateAsync(key, evt, audience, input);
+
+    [HttpDelete("forms/{key}/emails/{evt}/{audience}")]
+    public Task ResetFormEmailAsync(string key, string evt, string audience) => _emailTemplates.ResetFormTemplateAsync(key, evt, audience);
+
+    [HttpPost("forms/{key}/emails/preview")]
+    public Task<EmailPreviewDto> PreviewFormEmailAsync(string key, [FromBody] PreviewEmailInput input) =>
+        _emailTemplates.PreviewFormAsync(key, input);
+
+    [HttpGet("company-settings/emails")]
+    public Task<List<EmailTemplateDto>> GetCompanyEmailsAsync() => _emailTemplates.GetCompanyTemplatesAsync();
+
+    [HttpPut("company-settings/emails/{evt}/{audience}")]
+    public Task<EmailTemplateDto> SaveCompanyEmailAsync(string evt, string audience, [FromBody] SaveEmailTemplateInput input) =>
+        _emailTemplates.SaveCompanyTemplateAsync(evt, audience, input);
+
+    [HttpDelete("company-settings/emails/{evt}/{audience}")]
+    public Task ResetCompanyEmailAsync(string evt, string audience) => _emailTemplates.ResetCompanyTemplateAsync(evt, audience);
+
+    [HttpPost("company-settings/emails/preview")]
+    public Task<EmailPreviewDto> PreviewCompanyEmailAsync([FromBody] PreviewEmailInput input) => _emailTemplates.PreviewCompanyAsync(input);
+
+    [HttpGet("company-settings/email-sender")]
+    public Task<EmailSenderDto> GetEmailSenderAsync() => _emailTemplates.GetSenderAsync();
+
+    [HttpPut("company-settings/email-sender")]
+    public Task<EmailSenderDto> SetEmailSenderAsync([FromBody] SetEmailSenderInput input) => _emailTemplates.SetSenderAsync(input);
 
     [HttpGet("workflows")]
     public Task<List<WorkflowDefinitionDto>> GetWorkflowsAsync() => _routing.GetWorkflowsAsync();

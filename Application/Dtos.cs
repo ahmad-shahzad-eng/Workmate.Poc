@@ -90,14 +90,13 @@ public class CreateCompanyInput
     public string AdminEmail { get; set; } = default!;
 }
 
-public record CompanyCreatedDto(Guid TenantId, Guid AdminEmployeeId, string AdminEmail, string GeneratedPassword);
+/// <summary>The admin chooses a password from the emailed invite (spec 005 FR-008); none is returned.</summary>
+public record CompanyCreatedDto(Guid TenantId, Guid AdminEmployeeId, string AdminEmail);
 
 public class ResetAdminPasswordInput
 {
     public Guid EmployeeId { get; set; }
 }
-
-public record ResetAdminPasswordDto(string GeneratedPassword);
 
 /// <summary>Edge case "client admin leaves": make another employee the company admin, optionally
 /// removing the departed one in the same call.</summary>
@@ -118,7 +117,6 @@ public class SaveEmployeeInput
     public Guid? DepartmentId { get; set; }
 }
 
-public record EmployeeCreatedDto(EmployeeDto Employee, string GeneratedPassword);
 public record DeactivationResultDto(EmployeeDto Employee, int ReassignedTaskCount);
 
 // --- Departments (client admin; spec 004 US2)
@@ -142,4 +140,48 @@ public record JobRoleDto(Guid Id, string Name, bool IsBuiltIn, int EmployeeCount
 public class CreateJobRoleInput
 {
     public string Name { get; set; } = default!;
+}
+
+// --- Accounts (anonymous; spec 005 FR-008)
+public class ForgotPasswordInput
+{
+    public string Email { get; set; } = default!;
+}
+
+public class SetPasswordInput
+{
+    public Guid? TenantId { get; set; }
+    public Guid UserId { get; set; }
+    public string Token { get; set; } = default!;
+    public string NewPassword { get; set; } = default!;
+}
+
+// --- Email log (spec 005 FR-005)
+public record EmailLogItemDto(Guid Id, string Event, string Audience, string RecipientEmail, string? RecipientName,
+    Guid? SubmissionId, string Subject, string Status, int Attempts, string? LastError, DateTime CreationTime, DateTime? SentAt);
+
+// --- Email templates (spec 005 US2 form overrides, US3 company defaults)
+public record EmailTemplateDto(string Event, string Audience, string Subject, string Body, string Source);
+
+public class SaveEmailTemplateInput
+{
+    public string Subject { get; set; } = default!;
+    public string Body { get; set; } = default!;
+}
+
+public class PreviewEmailInput
+{
+    public string Event { get; set; } = default!;
+    public string Audience { get; set; } = default!;
+    public string Subject { get; set; } = default!;
+    public string Body { get; set; } = default!;
+}
+
+public record EmailPreviewDto(string Subject, string Text, string Html);
+
+public record EmailSenderDto(string? SenderName, string EffectiveSenderName);
+
+public class SetEmailSenderInput
+{
+    public string? SenderName { get; set; }
 }

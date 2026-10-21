@@ -100,6 +100,14 @@ always generates one); look them up by name (`GET /api/poc/tenants`) or sign in 
 - **Reset required once** (`Poc:ResetDatabaseOnStartup=true`): `Hr_Employees.Role` was dropped and `Hr_*` tables were added.
 - Not checked in a browser this session: the Employees and Organisation tabs (their API is covered by `demo.py` step 12).
 
+### Done and verified (spec 005: `demo.py` 119/119 twice on a fresh reset; restart check 3/3 before, 12/12 after)
+**Phase J — email notifications**
+- Every workflow event (submitted, waiting for approval, sent back, approved, rejected, reassigned) and every account event (invite, password reset) writes an `EmailMessage` row and an ABP background job **in the event's own unit of work**; the persistent job sends it after commit over SMTP (Mailpit locally: `mailpit &`, inbox at http://localhost:8025) as text + HTML. Five attempts with backoff, then Failed; the row is also the company's **Email log** with Resend.
+- Wording: per form (Form designer → Emails), else company default (→ Company email defaults, also the sender name and the account emails), else built-in. Templates are sandboxed Scriban: only allow-listed placeholders and if/else/end, checked on save; field values are escaped in the HTML part.
+- **No passwords anywhere any more:** new employees and new company admins get an invite with a one-time set-password link (72 h); the vendor reset and "Forgot password?" email a reset link. Seeded demo users keep `1q2w3E*`.
+- **Reset required once** (new `Notif_*` tables and `AbpBackgroundJobs`). `demo.py` now needs Mailpit running.
+- Known: Scriban 5.10.0 (via ABP 9.1.0) has NuGet advisories (NU1902/NU1903). Not checked in a browser this session: the Emails / Company email defaults / Email log tabs and the forgot/set-password screens (their API is covered by `demo.py` step 13).
+
 ## 4. The plan to complete the PoC
 
 Each phase ends with something demoable, and `demo.py` gains checks for it.
@@ -112,13 +120,13 @@ Each phase ends with something demoable, and `demo.py` gains checks for it.
 | D | Workflow designer | **Option A:** host Elsa Studio behind ABP OpenIddict + permissions (Phase 2 item 2) and enable Elsa multi-tenancy from ABP's `ICurrentTenant` (Phase 2 item 3). **Option B:** own approval-route designer (ordered steps, assignment rule, reject behaviour) that the gateway turns into an Elsa definition | Admin draws a new workflow, binds it to a form, runs it, isolated per tenant | M | **Done; verified** (option B, 2026-10-20); spec `specs/002-route-designer` |
 | H | Sign-in + client onboarding | ABP Identity/OpenIddict/TenantManagement/PermissionManagement (open source, **not** Account — see spec); no self-registration; vendor admin creates company + client admin; permissions replace `IsAdmin` | Real auth, no sign-up, tenant from the account | L | **Done; verified** (2026-10-20); spec `specs/003-login-onboarding` |
 | I | Employees + org structure | Client admin manages employees, departments (OrganizationUnit), unit heads, roles catalogue; new `department-head` approver | Client runs without vendor help | M | **Done; verified** (2026-10-21, API-level; UI click-through pending); spec `specs/004-employees-org` |
-| J | Email notifications | Assigned / approved / rejected / sent back emails; per-form templates for initiator and approver side; Mailpit locally | Notifications with editable templates | M | Spec `specs/005-email-notifications` |
+| J | Email notifications | Assigned / approved / rejected / sent back emails; per-form templates for initiator and approver side; Mailpit locally | Notifications with editable templates | M | **Done; verified** (2026-10-21, API-level; UI click-through pending); spec `specs/005-email-notifications` |
 | K | Switchable renderer | SurveyJS Form Library (MIT) next to the native renderer; demo toggle, per-form and company setting; canonical schema unchanged | Compare renderers on the same forms | S–M | **Done; verified** (2026-10-20, API-level; visual/RTL check pending a browser tool); spec `specs/006-surveyjs-renderer` |
 | E | Version pinning (Phase 2 item 4) | Publish workflow v2 while v1 requests are in flight | Running requests keep their version | S | Planned |
 | F | Reliable start (Phase 2 item 5) | ABP distributed event bus + outbox replaces `CurrentUnitOfWork.OnCompleted` start hook | Crash between submit and start loses nothing | M | **In-scope decision pending** |
 | G | Wrap-up | Final demo run, README, findings + go/no-go in the design doc | Decision-ready | S | Planned |
 
-Order: A → B (verify) → C (done) → D (done) → H (done) → I (done) → J → K (done) → E → F → G (H–K added 2026-10-20; K was done first since it had no dependencies). Hard dependencies: C before D; H before I; H and I before J.
+Order: A → B (verify) → C (done) → D (done) → H (done) → I (done) → J (done) → K (done) → E → F → G (H–K added 2026-10-20; K was done first since it had no dependencies). Hard dependencies: C before D; H before I; H and I before J.
 **Phase D decision (2026-10-20): option B.** Workmate HRM is multi-tenant SaaS: client HR admins design workflows, so the designer must be simple, run no client code on shared servers, keep routes in our tenant-filtered tables, and survive Elsa upgrades (our route model is the contract; Elsa definitions are generated). Elsa and Elsa Studio are MIT, but ABP's Elsa Pro integration needs an ABP Team licence (ruled out). Studio may be added later for Aramis staff only. Scope added by Ahmad: each step asks the approver type (line manager, manager's manager, role → which role, specific user → which user); routing value inputs adapt to the chosen field's type. For go/no-go, record that Studio hosting/auth was not proven.
 
 **Decisions Ahmad still owes:** whether F is in PoC scope; SQLite pin.
@@ -167,7 +175,8 @@ Order: A → B (verify) → C (done) → D (done) → H (done) → I (done) → 
 | `wwwroot/index.html` | Demo UI incl. form designer, workflow designer and routing |
 | `wwwroot/js/renderers.js`, `wwwroot/lib/surveyjs/` | `createRenderer(kind, schema, values, readOnly)` contract (native + vendored SurveyJS Form Library) |
 | `Application/EmployeeAppService.cs`, `OrganizationAppService.cs`, `TaskReassignmentService.cs`, `JobRoleLookup.cs`, `Domain/Organization.cs` | Phase I (spec 004): employees, departments and heads, role catalogue, deactivation reassignment |
-| `demo.py` | API demo/regression script (steps 1–7, 9–12; two-part restart check 8); real sign-in (`sign_in()`/bearer tokens, Phase H), no more `X-Demo-User` |
+| `Domain/Notifications.cs`, `Application/Notifications/*`, `Application/AccountAppService.cs` | Phase J (spec 005): email templates and sandboxed renderer, queueing + send job, Email log, forgot/set password |
+| `demo.py` | API demo/regression script (steps 1–7, 9–13; two-part restart check 8; needs Mailpit); real sign-in (`sign_in()`/bearer tokens, Phase H), no more `X-Demo-User` |
 
 ## 8. Continuing with spec-kit
 

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
+using Workmate.Poc.Application.Notifications;
 using Workmate.Poc.Domain;
 
 namespace Workmate.Poc.Application;
@@ -22,6 +23,7 @@ public class SubmissionAppService : ApplicationService
     private readonly IRepository<ProcessEvent, Guid> _events;
     private readonly IRepository<CompanyFormSettings, Guid> _companySettings;
     private readonly JobRoleLookup _jobRoles;
+    private readonly NotificationService _notifications;
 
     public SubmissionAppService(CurrentEmployeeProvider currentEmployee, ProcessManager processes,
         IRepository<Employee, Guid> employees, IRepository<FormDefinition, Guid> forms,
@@ -29,12 +31,12 @@ public class SubmissionAppService : ApplicationService
         IRepository<FormSubmissionValue, Guid> values, IRepository<ProcessInstance, Guid> instances,
         IRepository<ProcessTask, Guid> tasks, IRepository<ProcessTaskCandidate, Guid> candidates,
         IRepository<ProcessEvent, Guid> events, IRepository<CompanyFormSettings, Guid> companySettings,
-        JobRoleLookup jobRoles)
+        JobRoleLookup jobRoles, NotificationService notifications)
     {
         _currentEmployee = currentEmployee; _processes = processes; _employees = employees; _forms = forms;
         _versions = versions; _submissions = submissions; _values = values; _instances = instances;
         _tasks = tasks; _candidates = candidates; _events = events; _companySettings = companySettings;
-        _jobRoles = jobRoles;
+        _jobRoles = jobRoles; _notifications = notifications;
     }
 
     public virtual async Task<Guid> SubmitAsync(SubmitFormInput input)
@@ -56,6 +58,10 @@ public class SubmissionAppService : ApplicationService
 
         await _processes.AddEventAsync(submission.Id, null, null, "Submitted", employee.Name,
             $"Submitted {form.Name} on form version {version.VersionNo}.");
+
+        // Same unit of work as the submission: the email row and its job commit together with it (FR-002).
+        await _notifications.QueueAsync(EmailEvents.Submitted, EmailAudiences.Initiator, new[] { employee },
+            new NotificationContext(submission, form, employee));
 
         // Start the workflow only after this transaction commits.
         // Production: publish FormSubmittedEto on ABP's distributed event bus with the outbox enabled.

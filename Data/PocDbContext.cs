@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Volo.Abp.BackgroundJobs;
+using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
 using Volo.Abp.Data;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.EntityFrameworkCore;
@@ -25,9 +27,11 @@ namespace Workmate.Poc.Data;
 [ReplaceDbContext(typeof(IOpenIddictDbContext))]
 [ReplaceDbContext(typeof(ITenantManagementDbContext))]
 [ReplaceDbContext(typeof(IPermissionManagementDbContext))]
+[ReplaceDbContext(typeof(IBackgroundJobsDbContext))]
 [ConnectionStringName("Default")]
 public class PocDbContext : AbpDbContext<PocDbContext>,
-    IIdentityDbContext, IOpenIddictDbContext, ITenantManagementDbContext, IPermissionManagementDbContext
+    IIdentityDbContext, IOpenIddictDbContext, ITenantManagementDbContext, IPermissionManagementDbContext,
+    IBackgroundJobsDbContext
 {
     // --- Identity
     public DbSet<IdentityUser> Users => Set<IdentityUser>();
@@ -50,6 +54,8 @@ public class PocDbContext : AbpDbContext<PocDbContext>,
     public DbSet<PermissionGroupDefinitionRecord> PermissionGroups => Set<PermissionGroupDefinitionRecord>();
     public DbSet<PermissionDefinitionRecord> Permissions => Set<PermissionDefinitionRecord>();
     public DbSet<PermissionGrant> PermissionGrants => Set<PermissionGrant>();
+    // --- BackgroundJobs (spec 005: the persistent email queue)
+    public DbSet<BackgroundJobRecord> BackgroundJobs => Set<BackgroundJobRecord>();
 
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<JobRole> JobRoles => Set<JobRole>();
@@ -67,6 +73,9 @@ public class PocDbContext : AbpDbContext<PocDbContext>,
     public DbSet<ApprovalWorkflow> ApprovalWorkflows => Set<ApprovalWorkflow>();
     public DbSet<ApprovalWorkflowVersion> ApprovalWorkflowVersions => Set<ApprovalWorkflowVersion>();
     public DbSet<CompanyFormSettings> CompanyFormSettings => Set<CompanyFormSettings>();
+    public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
+    public DbSet<CompanyEmailSettings> CompanyEmailSettings => Set<CompanyEmailSettings>();
+    public DbSet<EmailMessage> EmailMessages => Set<EmailMessage>();
 
     public PocDbContext(DbContextOptions<PocDbContext> options) : base(options) { }
 
@@ -78,6 +87,7 @@ public class PocDbContext : AbpDbContext<PocDbContext>,
         b.ConfigureOpenIddict();
         b.ConfigureTenantManagement();
         b.ConfigurePermissionManagement();
+        b.ConfigureBackgroundJobs();
 
         // SQLite has no schemas, so module ownership is shown with table prefixes:
         // Hr_ (stand-in for the HR module), Forms_ (Forms module), Proc_ (Processes module).
@@ -141,6 +151,24 @@ public class PocDbContext : AbpDbContext<PocDbContext>,
         {
             e.ToTable("Forms_CompanySettings"); e.ConfigureByConvention();
             e.HasIndex(x => x.TenantId).IsUnique();
+        });
+
+        // Notif_ (spec 005: email notifications)
+        b.Entity<EmailTemplate>(e =>
+        {
+            e.ToTable("Notif_EmailTemplates"); e.ConfigureByConvention();
+            e.HasIndex(x => new { x.TenantId, x.FormDefinitionId, x.Event, x.Audience }).IsUnique();
+        });
+        b.Entity<CompanyEmailSettings>(e =>
+        {
+            e.ToTable("Notif_CompanyEmailSettings"); e.ConfigureByConvention();
+            e.HasIndex(x => x.TenantId).IsUnique();
+        });
+        b.Entity<EmailMessage>(e =>
+        {
+            e.ToTable("Notif_EmailMessages"); e.ConfigureByConvention();
+            e.Property(x => x.LastError).HasMaxLength(EmailMessage.MaxErrorLength);
+            e.HasIndex(x => new { x.TenantId, x.Status });
         });
     }
 }

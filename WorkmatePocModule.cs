@@ -10,6 +10,9 @@ using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.AspNetCore.Mvc.Libs;
 using Volo.Abp.AspNetCore.MultiTenancy;
 using Volo.Abp.Autofac;
+using Volo.Abp.BackgroundJobs;
+using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
+using Volo.Abp.Emailing;
 using Volo.Abp.Application;
 using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore.Sqlite;
@@ -25,9 +28,11 @@ using Volo.Abp.PermissionManagement.EntityFrameworkCore;
 using Volo.Abp.PermissionManagement.Identity;
 using Volo.Abp.TenantManagement;
 using Volo.Abp.TenantManagement.EntityFrameworkCore;
+using Volo.Abp.TextTemplating.Scriban;
 using Volo.Abp.Uow;
 using Workmate.Poc.Data;
 using Workmate.Poc.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Workmate.Poc;
@@ -49,7 +54,12 @@ namespace Workmate.Poc;
     typeof(AbpTenantManagementEntityFrameworkCoreModule),
     typeof(AbpPermissionManagementDomainModule),
     typeof(AbpPermissionManagementEntityFrameworkCoreModule),
-    typeof(AbpPermissionManagementDomainIdentityModule))]
+    typeof(AbpPermissionManagementDomainIdentityModule),
+    // --- Spec 005: email notifications
+    typeof(AbpEmailingModule),
+    typeof(AbpTextTemplatingScribanModule),
+    typeof(AbpBackgroundJobsDomainModule),
+    typeof(AbpBackgroundJobsEntityFrameworkCoreModule))]
 public class WorkmatePocModule : AbpModule
 {
     public override void PreConfigureServices(ServiceConfigurationContext context)
@@ -108,6 +118,17 @@ public class WorkmatePocModule : AbpModule
         // X-Act-As-Tenant header; an ordinary employee's own token-carried tenant claim always wins
         // instead, via ABP's built-in CurrentUserTenantResolveContributor (plan Design §4).
         Configure<AbpTenantResolveOptions>(o => o.TenantResolvers.Insert(0, new HostActAsTenantResolveContributor()));
+
+        // --- Spec 005: email retries back off from these (research R3); Development shortens them for demo.py.
+        var config = context.Services.GetConfiguration();
+        Configure<AbpBackgroundJobWorkerOptions>(o =>
+        {
+            o.DefaultFirstWaitDuration = config.GetValue("Poc:Email:RetryFirstWaitSeconds", 60);
+            o.DefaultWaitFactor = config.GetValue("Poc:Email:RetryWaitFactor", 2.5);
+        });
+
+        // --- Set-password links (invite, reset) stay valid for 72 hours (research R7).
+        Configure<DataProtectionTokenProviderOptions>(o => o.TokenLifespan = TimeSpan.FromHours(72));
 
         // --- EF Core + SQLite for ABP-side data (forms, submissions, processes, tasks)
         Configure<AbpDbContextOptions>(o => o.UseSqlite());

@@ -28,6 +28,12 @@
     <PackageReference Include="Volo.Abp.PermissionManagement.EntityFrameworkCore" Version="9.1.0" />
     <PackageReference Include="Volo.Abp.PermissionManagement.Domain.Identity" Version="9.1.0" />
 
+    <!-- Spec 005: email notifications (SMTP sender, Scriban templates, persistent background jobs) -->
+    <PackageReference Include="Volo.Abp.Emailing" Version="9.1.0" />
+    <PackageReference Include="Volo.Abp.TextTemplating.Scriban" Version="9.1.0" />
+    <PackageReference Include="Volo.Abp.BackgroundJobs.Domain" Version="9.1.0" />
+    <PackageReference Include="Volo.Abp.BackgroundJobs.EntityFrameworkCore" Version="9.1.0" />
+
     <!-- Elsa Workflows 3 (core + management + runtime, in-memory stores by default) -->
     <PackageReference Include="Elsa" Version="3.7.0" />
     <PackageReference Include="Elsa.Persistence.EFCore.Sqlite" Version="3.7.0" />

@@ -8,6 +8,7 @@
 
 ### Session 2026-10-20
 - Q: How should the demo UI authenticate against the API — cookie sign-in or an OAuth2 token flow? → A: OAuth2 token (password grant), `Authorization: Bearer <token>`.
+- Update 2026-10-21 (spec 005): the on-screen generated password is replaced by an emailed set-password link (spec 005 FR-008). A new company's first admin is created with no password and chooses one from the invite; the vendor admin's "reset password" now lifts any lockout and emails a reset link instead of showing a new password. The original text above is kept as the record of the decision at the time.
 
 ## User Scenarios & Testing *(mandatory)*
 

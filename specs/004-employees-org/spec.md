@@ -12,6 +12,7 @@
 - Q: Who approves a "Head of my department" step when the submitter is their own department's head? → A: Walk up to the parent department's head (and further up); use the fallback approver only if nobody is found at the top.
 - Q: Until spec 005 sends email, how does a new employee get their first password? → A: A random password is generated and shown once to the admin on screen (same as spec 003's company admin); spec 005 replaces this with an emailed set-password link.
 - Q: Which catalogue roles are protected from deletion? → A: Any role, built-in or custom, cannot be deleted while a published workflow uses it; an unused role can be deleted and is removed from any employees holding it.
+- Update 2026-10-21 (spec 005): the on-screen generated password is replaced by an emailed set-password link (spec 005 FR-008). A new employee is created with no password and chooses one from the invite; anyone can also ask for a reset link from the sign-in screen ("Forgot password?"). The original text above is kept as the record of the decision at the time.
 
 ## User Scenarios & Testing *(mandatory)*
 

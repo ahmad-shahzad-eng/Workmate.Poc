@@ -141,6 +141,7 @@
     <button data-view="workflows" id="workflowsNav" hidden>Workflow designer</button>
     <button data-view="employees" id="employeesNav" hidden>Employees</button>
     <button data-view="org" id="orgNav" hidden>Organisation</button>
+    <button data-view="emails" id="emailsNav" hidden>Email log</button>
   </nav>
   <main id="main"></main>
 </div>
@@ -153,7 +154,21 @@
       <option value="">Vendor / host (no company)</option></select></div>
     <div class="field"><label for="siEmail">Email</label><input id="siEmail" type="email" required autocomplete="username"></div>
     <div class="field"><label for="siPassword">Password</label><input id="siPassword" type="password" required autocomplete="current-password"></div>
-    <div class="actions"><button class="btn" type="submit">Sign in</button></div>
+    <div class="actions"><button class="btn" type="submit">Sign in</button>
+      <button class="btn secondary" type="button" id="forgotLink">Forgot password?</button></div>
+  </form>
+  <!-- Spec 005: passwords are only ever chosen from an emailed one-time link -->
+  <form class="panel" id="forgotForm" novalidate hidden>
+    <p class="meta">Pick your company above, then enter your work email. We'll email you a link to choose a new password.</p>
+    <div class="field"><label for="fpEmail">Email</label><input id="fpEmail" type="email" required autocomplete="username"></div>
+    <div class="actions"><button class="btn" type="submit">Email me a link</button>
+      <button class="btn secondary" type="button" id="forgotCancel">Back to sign-in</button></div>
+  </form>
+  <form class="panel" id="setPasswordForm" novalidate hidden>
+    <p class="meta">Choose your password. It needs at least 6 characters, with an upper-case letter, a lower-case letter, a digit and a symbol.</p>
+    <div class="field"><label for="spPassword">New password</label><input id="spPassword" type="password" required autocomplete="new-password"></div>
+    <div class="field"><label for="spConfirm">Repeat it</label><input id="spConfirm" type="password" required autocomplete="new-password"></div>
+    <div class="actions"><button class="btn" type="submit">Set password</button></div>
   </form>
 </main>
 
@@ -377,6 +392,70 @@ async function viewDesigner(main) {
   if (state.designKey) await renderFormEditor(main, state.designKey);
 }
 
+// ---------- Email template editor (spec 005 US2 per form, US3 company defaults) ----------
+const EMAIL_LABELS = {
+  "Submitted/Initiator": "Request submitted (to the requester)", "TaskAssigned/Approver": "Waiting for approval (to the approver)",
+  "SentBack/Approver": "Sent back (to the approver)", "SentBack/Initiator": "Sent back (to the requester)",
+  "Approved/Initiator": "Approved (to the requester)", "Rejected/Initiator": "Rejected (to the requester)",
+  "TaskReassigned/Approver": "Reassigned (to the new approver)", "AccountInvite/Account": "Account invitation",
+  "PasswordReset/Account": "Password reset"
+};
+const SOURCE_LABELS = { form: "This form", company: "Company default", "built-in": "Built-in" };
+
+async function emailEditor(host, { base, fieldKeys }) {
+  const items = await api(base);
+  const pick = state.emailPick && items.some(i => `${i.event}/${i.audience}` === state.emailPick) ? state.emailPick : `${items[0].event}/${items[0].audience}`;
+  const t = items.find(i => `${i.event}/${i.audience}` === pick);
+  const account = t.audience === "Account";
+  const placeholders = account ? ["company.name", "link"]
+    : ["request.title", "request.number", "request.status", "initiator.name", "approver.name", "step.title", "comment", "link", "company.name",
+       ...(fieldKeys || []).map(k => `fields.${k}`)];
+  host.innerHTML = `
+    <div class="split">
+      <ul class="rows">${items.map(i => { const k = `${i.event}/${i.audience}`; return `
+        <li><button data-email="${esc(k)}" aria-pressed="${k === pick}"><span>${esc(EMAIL_LABELS[k] || k)}</span>
+          <small>${esc(SOURCE_LABELS[i.source] || i.source)}</small></button></li>`; }).join("")}</ul>
+      <div>
+        <div id="emailMsg"></div>
+        <div class="field"><label for="emSubject">Subject</label><input id="emSubject" value="${esc(t.subject)}"></div>
+        <div class="field"><label for="emBody">Body (plain text)</label><textarea id="emBody" rows="10">${esc(t.body)}</textarea></div>
+        <p class="meta">Placeholders: ${placeholders.map(p => `<code>{{ ${esc(p)} }}</code>`).join(" ")}<br>
+          Show text only when there's a value: <code>{{ if comment }}Comment: {{ comment }}{{ end }}</code>${fieldKeys === null ? "<br>Form fields aren't available in company defaults." : ""}</p>
+        <div class="actions">
+          <button class="btn" id="emSave">Save</button>
+          <button class="btn secondary" id="emPreview">Preview</button>
+          <button class="btn secondary" id="emReset" ${t.source === (fieldKeys === null ? "company" : "form") ? "" : "disabled"}>Reset to default</button>
+          <small class="meta" style="margin:0">Currently: ${esc(SOURCE_LABELS[t.source] || t.source)}</small>
+        </div>
+        <div id="emPreviewOut"></div>
+      </div>
+    </div>`;
+  const [evt, audience] = pick.split("/");
+  const url = `${base}/${encodeURIComponent(evt)}/${encodeURIComponent(audience)}`;
+  const body = () => ({ subject: $("#emSubject").value, body: $("#emBody").value });
+  const reload = async text => { await emailEditor(host, { base, fieldKeys }); $("#emailMsg").innerHTML = message("ok", text); };
+  host.querySelectorAll("[data-email]").forEach(b => b.addEventListener("click", () => { state.emailPick = b.dataset.email; emailEditor(host, { base, fieldKeys }); }));
+  $("#emSave").addEventListener("click", async () => {
+    try { await api(url, { method: "PUT", body: JSON.stringify(body()) }); await reload("Saved. New emails use this wording."); }
+    catch (err) { $("#emailMsg").innerHTML = message("error", err.message); }
+  });
+  $("#emReset").addEventListener("click", async () => {
+    try { await api(url, { method: "DELETE" }); await reload("Back to the default wording."); }
+    catch (err) { $("#emailMsg").innerHTML = message("error", err.message); }
+  });
+  $("#emPreview").addEventListener("click", async () => {
+    try {
+      const p = await api(`${base}/preview`, { method: "POST", body: JSON.stringify({ event: evt, audience, ...body() }) });
+      $("#emailMsg").innerHTML = "";
+      $("#emPreviewOut").innerHTML = `<h3>Preview with sample data</h3>
+        <p><strong>Subject:</strong> ${esc(p.subject)}</p>
+        <p class="meta">Text part</p><pre class="panel" style="white-space:pre-wrap;margin:0 0 12px">${esc(p.text)}</pre>
+        <p class="meta">HTML part</p><iframe sandbox="" title="HTML preview" style="width:100%;height:420px;border:1px solid var(--line);border-radius:6px;background:#fff"></iframe>`;
+      $("#emPreviewOut iframe").srcdoc = p.html;
+    } catch (err) { $("#emailMsg").innerHTML = message("error", err.message); }
+  });
+}
+
 // The routing condition value input adapts to the chosen field's type (US3): a free-text value for a
 // select field causes silent mismatches ("sick" vs "Sick"), so offer only what the field actually allows.
 // Reused as-is for the form designer's "visible only when" editor (spec 006 FR-008 — same rule as routing).
@@ -391,12 +470,47 @@ function conditionValueInput(schema, fieldKey, value = "", attrs = 'id="rValue"'
 }
 
 async function renderFormEditor(main, key) {
+  const host = $("#designer");
+  const tab = state.designTab || "form";
+  const tabs = `<div class="tabs" role="group" aria-label="Designer section" style="margin-bottom:16px">
+      <button data-design-tab="form" aria-pressed="${tab === "form"}">Form &amp; routing</button>
+      <button data-design-tab="emails" aria-pressed="${tab === "emails"}">Emails</button>
+      <button data-design-tab="company-emails" aria-pressed="${tab === "company-emails"}">Company email defaults</button></div>`;
+  const bindTabs = () => host.querySelectorAll("[data-design-tab]").forEach(b => b.addEventListener("click", () => {
+    state.designTab = b.dataset.designTab; renderFormEditor(main, key);
+  }));
+  if (tab === "emails") {
+    const d = await api(`/api/poc/forms/${key}/design`);
+    const fieldKeys = [...new Set(d.versions.flatMap(v => { try { return JSON.parse(v.schemaJson).fields.map(f => f.key); } catch { return []; } }))];
+    host.innerHTML = tabs + `<p class="meta">What this form's emails say. A form's own wording beats the company default, which beats the built-in text.
+      Values are filled in when the email is sent; anything typed into a form field is shown as plain text, never as HTML.</p><div id="emailEditor"></div>`;
+    bindTabs();
+    return emailEditor($("#emailEditor"), { base: `/api/poc/forms/${encodeURIComponent(key)}/emails`, fieldKeys });
+  }
+  if (tab === "company-emails") {
+    const sender = await api("/api/poc/company-settings/email-sender");
+    host.innerHTML = tabs + `<p class="meta">Company-wide wording, used by every form without its own, plus the invitation and password-reset emails.
+      Form fields can't be used here because these apply to every form.</p>
+      <div class="inline panel" style="margin-bottom:16px">
+        <div class="field"><label for="senderName">Sender name (the "From" line)</label><input id="senderName" value="${esc(sender.senderName || "")}" placeholder="${esc(sender.effectiveSenderName)}"></div>
+        <div class="actions" style="margin:0"><button class="btn secondary" id="saveSender">Save sender name</button></div>
+        <small class="meta" style="margin:0">Emails currently come from "${esc(sender.effectiveSenderName)}".</small>
+      </div><div id="senderMsg"></div><div id="emailEditor"></div>`;
+    bindTabs();
+    $("#saveSender").addEventListener("click", async () => {
+      try {
+        const r = await api("/api/poc/company-settings/email-sender", { method: "PUT", body: JSON.stringify({ senderName: $("#senderName").value }) });
+        $("#senderMsg").innerHTML = message("ok", `Emails now come from "${r.effectiveSenderName}".`);
+      } catch (err) { $("#senderMsg").innerHTML = message("error", err.message); }
+    });
+    return emailEditor($("#emailEditor"), { base: "/api/poc/company-settings/emails", fieldKeys: null });
+  }
+
   const [d, bindings, workflows] = await Promise.all([
     api(`/api/poc/forms/${key}/design`), api(`/api/poc/forms/${key}/bindings`), api("/api/poc/workflows")]);
   const latest = d.versions[0];
   let schema = JSON.parse(latest.schemaJson);
-  const host = $("#designer");
-  host.innerHTML = `
+  host.innerHTML = tabs + `
     <div class="versions">${d.versions.map(v => `<span>v${v.versionNo} <span class="status ${v.status}">${v.status}</span></span>`).join("")}</div>
     <div class="split">
       <div>
@@ -444,6 +558,7 @@ async function renderFormEditor(main, key) {
       <div class="field"><label for="rPriority">Priority</label><input id="rPriority" type="number" value="${bindings.some(b => !b.conditionField) ? 1 : 10}"></div>
       <div class="actions" style="margin:0"><button class="btn secondary" id="addRoute">Add route</button></div>
     </div>`;
+  bindTabs();
   $("#rField").addEventListener("change", e => { $("#rValueWrap").innerHTML = `<label for="rValue">equals</label>${conditionValueInput(schema, e.target.value)}`; });
 
   let previewKind = d.renderer === "surveyjs" ? "surveyjs" : "native";
@@ -736,9 +851,9 @@ async function viewEmployees(main) {
         await loadUsers(); await viewEmployees(main); show("ok", "Saved. Manager or department changes apply to new approval steps only.");
       } else {
         const created = await api("/api/poc/employees", { method: "POST", body: JSON.stringify(body) });
-        state.employeeId = created.employee.id; await loadUsers(); await viewEmployees(main);
-        // Shown once (spec 004 clarification Q4) until spec 005 emails a set-password link.
-        show("ok", `Created ${created.employee.name}. First password (shown once, pass it on securely): ${created.generatedPassword}`);
+        state.employeeId = created.id; await loadUsers(); await viewEmployees(main);
+        // Spec 005 FR-008: no password exists yet; the person chooses one from the emailed link.
+        show("ok", `Created ${created.name}. Invitation sent to ${created.email}.`);
       }
     } catch (err) { show("error", err.message); }
   });
@@ -806,7 +921,36 @@ async function viewOrg(main) {
   }));
 }
 
-const views = { new: viewNew, mine: viewMine, inbox: viewInbox, designer: viewDesigner, workflows: viewWorkflows, employees: viewEmployees, org: viewOrg };
+// ---------- Email log (spec 005 FR-005): what was sent, what failed and why, and Resend ----------
+async function viewEmails(main) {
+  const filter = state.emailFilter || "";
+  const items = await api(`/api/poc/emails${filter ? `?status=${filter}` : ""}`);
+  main.innerHTML = `
+    <h2>Email log</h2>
+    <p class="lead">Every email this company sent, newest first. A failed email was retried 5 times; Resend puts it back in the queue.
+      Invitation and password-reset emails aren't stored, because their link is private to the recipient.</p>
+    <div id="msg"></div>
+    <div class="field" style="max-width:240px"><label for="emailFilter">Show</label><select id="emailFilter">
+      <option value="" ${filter === "" ? "selected" : ""}>All emails</option>
+      <option value="Failed" ${filter === "Failed" ? "selected" : ""}>Failed only</option></select></div>
+    <ul class="rows">${items.length ? items.map(m => `
+      <li style="padding:12px 16px"><div class="actions" style="margin:0;justify-content:space-between;align-items:baseline">
+        <span><strong>${esc(m.subject)}</strong></span>
+        <span class="status ${m.status === "Sent" ? "Approved" : m.status === "Failed" ? "Rejected" : "Pending"}">${esc(m.status)}</span></div>
+        <small>To ${esc(m.recipientName ? `${m.recipientName} <${m.recipientEmail}>` : m.recipientEmail)} · ${esc(m.event)} (${esc(m.audience)})
+          · queued ${when(m.creationTime)}${m.sentAt ? ` · sent ${when(m.sentAt)}` : ""} · ${m.attempts} attempt(s)</small>
+        ${m.lastError ? `<p class="meta" style="margin:6px 0 0">Last error: ${esc(m.lastError)}</p>` : ""}
+        ${m.status === "Failed" ? `<div class="actions" style="margin:8px 0 0"><button class="btn secondary" data-resend="${m.id}">Resend</button></div>` : ""}
+      </li>`).join("") : `<li class="empty">No emails${filter ? " with this status" : ""} yet.</li>`}</ul>`;
+  $("#emailFilter").addEventListener("change", e => { state.emailFilter = e.target.value; viewEmails(main); });
+  main.querySelectorAll("[data-resend]").forEach(b => b.addEventListener("click", async () => {
+    try { await api(`/api/poc/emails/${b.dataset.resend}/resend`, { method: "POST" }); await viewEmails(main);
+      $("#msg").innerHTML = message("ok", "Queued again."); }
+    catch (err) { $("#msg").innerHTML = message("error", err.message); }
+  }));
+}
+
+const views = { new: viewNew, mine: viewMine, inbox: viewInbox, designer: viewDesigner, workflows: viewWorkflows, employees: viewEmployees, org: viewOrg, emails: viewEmails };
 
 async function refreshInboxCount() {
   try { const n = (await api("/api/poc/tasks/inbox")).length; const el = $("#inboxCount"); el.textContent = n; el.hidden = n === 0; }
@@ -822,6 +966,8 @@ async function render() {
   if (state.view === "employees" && !hasPermission("Workmate.Employees.Manage")) state.view = "new";
   $("#orgNav").hidden = !hasPermission("Workmate.Org.Manage");
   if (state.view === "org" && !hasPermission("Workmate.Org.Manage")) state.view = "new";
+  $("#emailsNav").hidden = !hasPermission("Workmate.Employees.Manage");
+  if (state.view === "emails" && !hasPermission("Workmate.Employees.Manage")) state.view = "new";
   document.querySelectorAll("nav button").forEach(b => b.toggleAttribute("aria-current", b.dataset.view === state.view));
   document.querySelectorAll("nav button[aria-current]").forEach(b => b.setAttribute("aria-current", "page"));
   const main = $("#main");
@@ -863,6 +1009,50 @@ $("#signInForm").addEventListener("submit", async e => {
   } catch (err) { $("#signInMsg").innerHTML = message("error", err.message); btn.disabled = false; }
 });
 
+// ---------- Forgot / set password (spec 005 FR-008) ----------
+const showSignInPanel = id => ["signInForm", "forgotForm", "setPasswordForm"].forEach(f => { $("#" + f).hidden = f !== id; });
+$("#forgotLink").addEventListener("click", () => { $("#signInMsg").innerHTML = ""; $("#fpEmail").value = $("#siEmail").value; showSignInPanel("forgotForm"); });
+$("#forgotCancel").addEventListener("click", () => showSignInPanel("signInForm"));
+$("#forgotForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const headers = { "Content-Type": "application/json", "Accept": "application/json" };
+  if ($("#siCompany").value) headers["__tenant"] = $("#siCompany").value;
+  try { await fetch("/api/poc/account/forgot-password", { method: "POST", headers, body: JSON.stringify({ email: $("#fpEmail").value.trim() }) }); }
+  catch { /* the answer is the same either way */ }
+  showSignInPanel("signInForm");
+  $("#signInMsg").innerHTML = message("ok", "If that account exists, we've emailed a link to choose a new password.");
+});
+$("#setPasswordForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  if ($("#spPassword").value !== $("#spConfirm").value) { $("#signInMsg").innerHTML = message("error", "The two passwords don't match."); return; }
+  const q = new URLSearchParams(location.search);
+  const res = await fetch("/api/poc/account/set-password", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify({ tenantId: q.get("tenant") || null, userId: q.get("user"), token: q.get("token"), newPassword: $("#spPassword").value }) });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    $("#signInMsg").innerHTML = message("error", body?.error?.message || `Request failed (${res.status})`); return;
+  }
+  history.replaceState(null, "", location.pathname); // the link works once; don't leave it in the address bar
+  showSignInPanel("signInForm");
+  $("#signInMsg").innerHTML = message("ok", "Your password is set. Pick your company and sign in.");
+});
+
+// Links in emails open a view after sign-in: ?view=inbox, or ?view=mine&submission={id} (spec 005 R9).
+function takeDeepLink() {
+  const q = new URLSearchParams(location.search);
+  if (["inbox", "mine"].includes(q.get("view"))) {
+    sessionStorage.setItem("deepLink", JSON.stringify({ view: q.get("view"), submission: q.get("submission") }));
+    history.replaceState(null, "", location.pathname);
+  }
+}
+function applyDeepLink() {
+  const raw = sessionStorage.getItem("deepLink");
+  if (!raw) return;
+  sessionStorage.removeItem("deepLink");
+  const link = JSON.parse(raw);
+  state.view = link.view; state.selected = link.submission || null;
+}
+
 async function afterSignIn() {
   const s = session();
   $("#signInShell").hidden = true;
@@ -885,12 +1075,16 @@ async function afterSignIn() {
     state.permissions = await api("/api/poc/my-permissions");
   }
   await loadUsers();
+  applyDeepLink();
   render();
 }
 
 (async () => {
+  takeDeepLink();
+  const setPassword = new URLSearchParams(location.search).get("setPassword") === "1";
   const s = session();
-  if (s) { await afterSignIn(); return; }
+  if (s && !setPassword) { await afterSignIn(); return; }
+  if (setPassword) { sessionStorage.removeItem("accessToken"); showSignInPanel("setPasswordForm"); }
   try {
     const tenants = await api("/api/poc/tenants");
     $("#siCompany").innerHTML += tenants.map(t => `<option value="${esc(t.name)}">${esc(t.name)}</option>`).join("");

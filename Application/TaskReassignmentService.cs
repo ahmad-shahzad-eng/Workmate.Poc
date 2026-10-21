@@ -1,6 +1,7 @@
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Guids;
+using Workmate.Poc.Application.Notifications;
 using Workmate.Poc.Domain;
 
 namespace Workmate.Poc.Application;
@@ -22,13 +23,14 @@ public class TaskReassignmentService : ITransientDependency
     private readonly IRepository<ProcessTask, Guid> _tasks;
     private readonly IRepository<ProcessTaskCandidate, Guid> _candidates;
     private readonly IRepository<FormSubmission, Guid> _submissions;
+    private readonly NotificationService _notifications;
 
     public TaskReassignmentService(IGuidGenerator guids, AssignmentResolver assignment, ProcessManager processes,
         IRepository<ProcessTask, Guid> tasks, IRepository<ProcessTaskCandidate, Guid> candidates,
-        IRepository<FormSubmission, Guid> submissions)
+        IRepository<FormSubmission, Guid> submissions, NotificationService notifications)
     {
         _guids = guids; _assignment = assignment; _processes = processes; _tasks = tasks;
-        _candidates = candidates; _submissions = submissions;
+        _candidates = candidates; _submissions = submissions; _notifications = notifications;
     }
 
     /// <summary>Returns how many open tasks were moved. Call after <paramref name="deactivated"/> is marked inactive.</summary>
@@ -50,6 +52,9 @@ public class TaskReassignmentService : ITransientDependency
                 ? $"{task.Title}: {deactivated.Name} was deactivated and the fallback matched nobody. The request is stuck until the rule or HR data is fixed."
                 : $"{task.Title}: {deactivated.Name} was deactivated; reassigned to {string.Join(", ", people.Select(p => p.Name))} via the fallback.";
             await _processes.AddEventAsync(task.SubmissionId, task.ProcessInstanceId, task.Id, "TaskReassigned", null, detail);
+
+            await _notifications.QueueAsync(EmailEvents.TaskReassigned, EmailAudiences.Approver, people,
+                await _notifications.GetContextAsync(task.SubmissionId, task.Title));
         }
 
         return openTasks.Count;

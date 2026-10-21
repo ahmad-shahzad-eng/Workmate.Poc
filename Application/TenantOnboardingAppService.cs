@@ -6,6 +6,7 @@ using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Identity;
 using Volo.Abp.MultiTenancy;
 using Volo.Abp.TenantManagement;
+using Workmate.Poc.Application.Notifications;
 using Workmate.Poc.Domain;
 
 namespace Workmate.Poc.Application;
@@ -27,14 +28,16 @@ public class TenantOnboardingAppService : ApplicationService
     private readonly IDataFilter _dataFilter;
     private readonly IRepository<JobRole, Guid> _jobRoles;
     private readonly IRepository<EmployeeJobRole, Guid> _jobRoleLinks;
+    private readonly NotificationService _notifications;
 
     public TenantOnboardingAppService(ICurrentTenant currentTenant, ITenantRepository tenants, TenantManager tenantManager,
         IdentityUserManager userManager, IRepository<Employee, Guid> employees, TenantAdminRoleSeeder adminRoleSeeder,
-        IDataFilter dataFilter, IRepository<JobRole, Guid> jobRoles, IRepository<EmployeeJobRole, Guid> jobRoleLinks)
+        IDataFilter dataFilter, IRepository<JobRole, Guid> jobRoles, IRepository<EmployeeJobRole, Guid> jobRoleLinks,
+        NotificationService notifications)
     {
         _currentTenant = currentTenant; _tenants = tenants; _tenantManager = tenantManager;
         _userManager = userManager; _employees = employees; _adminRoleSeeder = adminRoleSeeder; _dataFilter = dataFilter;
-        _jobRoles = jobRoles; _jobRoleLinks = jobRoleLinks;
+        _jobRoles = jobRoles; _jobRoleLinks = jobRoleLinks; _notifications = notifications;
     }
 
     /// <summary>Creates the tenant, its first admin user (in the Workmate.CompanyAdmin role) and matching Employee row.</summary>
@@ -48,15 +51,15 @@ public class TenantOnboardingAppService : ApplicationService
         if (string.IsNullOrEmpty(adminName)) throw new UserFriendlyException("Admin name is required.");
 
         var tenant = await _tenantManager.CreateAsync(name);
-        await _tenants.InsertAsync(tenant);
+        // Saved now so the invite below can read the new company's name from the tenant store.
+        await _tenants.InsertAsync(tenant, autoSave: true);
 
-        var password = PasswordGenerator.New();
         Guid employeeId;
 
         using (_currentTenant.Change(tenant.Id))
         {
             var user = new IdentityUser(GuidGenerator.Create(), email, email, tenant.Id);
-            var createResult = await _userManager.CreateAsync(user, password);
+            var createResult = await _userManager.CreateAsync(user); // no password: chosen from the emailed invite (spec 005)
             if (!createResult.Succeeded)
                 throw new UserFriendlyException(string.Join(" ", createResult.Errors.Select(e => e.Description)));
 
@@ -79,33 +82,29 @@ public class TenantOnboardingAppService : ApplicationService
                     await _jobRoleLinks.InsertAsync(new EmployeeJobRole(GuidGenerator.Create(), tenant.Id, employee.Id, jobRole.Id));
             }
             employeeId = employee.Id;
+
+            await _notifications.QueueAccountAsync(EmailEvents.AccountInvite, user.Id, email);
         }
 
-        return new CompanyCreatedDto(tenant.Id, employeeId, email, password);
+        return new CompanyCreatedDto(tenant.Id, employeeId, email);
     }
 
-    /// <summary>Edge case: the client admin is locked out / forgot their password (spec 005 will add email; shown on screen until then).
-    /// Only a company admin's password can be reset this way, and the reset also lifts any lockout.</summary>
-    public virtual async Task<ResetAdminPasswordDto> ResetClientAdminPasswordAsync(ResetAdminPasswordInput input)
+    /// <summary>Edge case: the client admin is locked out / forgot their password. Only a company admin can be
+    /// reset this way: the lockout is lifted now and a set-password link is emailed to them (spec 005).</summary>
+    public virtual async Task ResetClientAdminPasswordAsync(ResetAdminPasswordInput input)
     {
         var employee = await FindEmployeeAnyTenantAsync(input.EmployeeId);
 
-        var password = PasswordGenerator.New();
         using (_currentTenant.Change(employee.TenantId))
         {
             var user = await _userManager.GetByIdAsync(employee.UserId);
             if (!await _userManager.IsInRoleAsync(user, TenantAdminRoleSeeder.RoleName))
                 throw new UserFriendlyException("Only a company admin's password can be reset here.");
 
-            await _userManager.RemovePasswordAsync(user);
-            var result = await _userManager.AddPasswordAsync(user, password);
-            if (!result.Succeeded)
-                throw new UserFriendlyException(string.Join(" ", result.Errors.Select(e => e.Description)));
             await _userManager.SetLockoutEndDateAsync(user, null);
             await _userManager.ResetAccessFailedCountAsync(user);
+            await _notifications.QueueAccountAsync(EmailEvents.PasswordReset, user.Id, user.Email);
         }
-
-        return new ResetAdminPasswordDto(password);
     }
 
     /// <summary>Edge case: the client admin leaves — make another employee of the same company admin,

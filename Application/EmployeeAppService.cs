@@ -3,6 +3,7 @@ using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Identity;
+using Workmate.Poc.Application.Notifications;
 using Workmate.Poc.Domain;
 
 namespace Workmate.Poc.Application;
@@ -17,13 +18,15 @@ public class EmployeeAppService : ApplicationService
     private readonly JobRoleLookup _jobRoles;
     private readonly IdentityUserManager _userManager;
     private readonly TaskReassignmentService _reassignment;
+    private readonly NotificationService _notifications;
 
     public EmployeeAppService(IRepository<Employee, Guid> employees, IRepository<OrganizationUnit, Guid> units,
         IRepository<JobRole, Guid> roles, IRepository<EmployeeJobRole, Guid> roleLinks, JobRoleLookup jobRoles,
-        IdentityUserManager userManager, TaskReassignmentService reassignment)
+        IdentityUserManager userManager, TaskReassignmentService reassignment, NotificationService notifications)
     {
         _employees = employees; _units = units; _roles = roles; _roleLinks = roleLinks; _jobRoles = jobRoles;
         _userManager = userManager; _reassignment = reassignment;
+        _notifications = notifications;
     }
 
     /// <summary>Active employees by name; inactive ones too only for an employee manager (contracts/api.md).</summary>
@@ -38,15 +41,15 @@ public class EmployeeAppService : ApplicationService
             .Select(e => Map(e, all, roles, units)).ToList();
     }
 
-    /// <summary>Creates the sign-in account and the HR record together (FR-002); the password is shown once (clarification Q4).</summary>
+    /// <summary>Creates the sign-in account and the HR record together (FR-002). The account has no password:
+    /// the person chooses one from the emailed invite (spec 005 FR-008).</summary>
     [Authorize(WorkmatePermissions.EmployeesManage)]
-    public virtual async Task<EmployeeCreatedDto> CreateAsync(SaveEmployeeInput input)
+    public virtual async Task<EmployeeDto> CreateAsync(SaveEmployeeInput input)
     {
         var (name, email, roles) = await ValidateAsync(input, employeeId: null);
 
         var user = new IdentityUser(GuidGenerator.Create(), email, email, CurrentTenant.Id);
-        var password = PasswordGenerator.New();
-        ThrowIfFailed(await _userManager.CreateAsync(user, password)); // duplicate email in this company is refused here (US1 AC3)
+        ThrowIfFailed(await _userManager.CreateAsync(user)); // duplicate email in this company is refused here (US1 AC3)
 
         var employee = new Employee(GuidGenerator.Create(), CurrentTenant.Id, user.Id, name, email, input.ManagerId)
         {
@@ -55,8 +58,9 @@ public class EmployeeAppService : ApplicationService
         await _employees.InsertAsync(employee);
         await SetRolesAsync(employee, roles);
         await SyncDepartmentAsync(user, employee.DepartmentId);
+        await _notifications.QueueAccountAsync(EmailEvents.AccountInvite, user.Id, email);
 
-        return new EmployeeCreatedDto(await GetDtoAsync(employee), password);
+        return await GetDtoAsync(employee);
     }
 
     /// <summary>Manager and department changes apply to new steps only; existing tasks keep their candidates (FR-005).</summary>

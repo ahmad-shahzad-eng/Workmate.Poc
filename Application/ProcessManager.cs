@@ -4,6 +4,7 @@ using Volo.Abp.Guids;
 using Volo.Abp.MultiTenancy;
 using Volo.Abp.Timing;
 using Volo.Abp.Uow;
+using Workmate.Poc.Application.Notifications;
 using Workmate.Poc.Domain;
 using Workmate.Poc.WorkflowEngine;
 
@@ -29,17 +30,20 @@ public class ProcessManager : ITransientDependency
     private readonly IRepository<ProcessTask, Guid> _tasks;
     private readonly IRepository<ProcessTaskCandidate, Guid> _candidates;
     private readonly IRepository<ProcessEvent, Guid> _events;
+    private readonly IRepository<Employee, Guid> _employees;
+    private readonly NotificationService _notifications;
 
     public ProcessManager(IUnitOfWorkManager uow, ICurrentTenant currentTenant, IGuidGenerator guids, IClock clock,
         IWorkflowGateway gateway, AssignmentResolver assignment,
         IRepository<FormSubmission, Guid> submissions, IRepository<FormDefinitionVersion, Guid> versions,
         IRepository<ProcessBinding, Guid> bindings, IRepository<ProcessInstance, Guid> instances,
         IRepository<ProcessTask, Guid> tasks, IRepository<ProcessTaskCandidate, Guid> candidates,
-        IRepository<ProcessEvent, Guid> events)
+        IRepository<ProcessEvent, Guid> events, IRepository<Employee, Guid> employees, NotificationService notifications)
     {
         _uow = uow; _currentTenant = currentTenant; _guids = guids; _clock = clock; _gateway = gateway;
         _assignment = assignment; _submissions = submissions; _versions = versions; _bindings = bindings;
         _instances = instances; _tasks = tasks; _candidates = candidates; _events = events;
+        _employees = employees; _notifications = notifications;
     }
 
     /// <summary>Called after the submission is committed. Production: distributed event + outbox.</summary>
@@ -126,6 +130,23 @@ public class ProcessManager : ITransientDependency
                     : $"{title} assigned to {string.Join(", ", people.Select(p => p.Name))}.";
             await AddEventAsync(submission.Id, instance.Id, task.Id, "TaskCreated", null, detail);
 
+            // A reject that ends the workflow creates no task, so a new task right after a rejected one is a
+            // send-back (research R8): the approver gets "sent back", and the initiator is told too.
+            var previous = (await _tasks.GetListAsync(t => t.ProcessInstanceId == instance.Id && t.Status == TaskStatusValues.Completed))
+                .OrderByDescending(t => t.CompletedAt).FirstOrDefault();
+            if (previous?.Outcome == TaskOutcomes.Rejected)
+            {
+                var ctx = await _notifications.GetContextAsync(submission.Id, title,
+                    await EmployeeNameAsync(previous.CompletedByUserId), previous.Comment);
+                await _notifications.QueueAsync(EmailEvents.SentBack, EmailAudiences.Approver, people, ctx);
+                await _notifications.QueueAsync(EmailEvents.SentBack, EmailAudiences.Initiator, new[] { ctx.Initiator }, ctx);
+            }
+            else
+            {
+                var ctx = await _notifications.GetContextAsync(submission.Id, title);
+                await _notifications.QueueAsync(EmailEvents.TaskAssigned, EmailAudiences.Approver, people, ctx);
+            }
+
             await uow.CompleteAsync();
         }
     }
@@ -149,6 +170,21 @@ public class ProcessManager : ITransientDependency
             await AddEventAsync(submission.Id, instance.Id, null, "ProcessCompleted", null,
                 $"Request {finalStatus.ToLowerInvariant()}.");
 
+            if (finalStatus == SubmissionStatus.Rejected)
+            {
+                // The rejecting decision supplies {{ approver.name }} and {{ comment }}.
+                var rejecting = (await _tasks.GetListAsync(t => t.ProcessInstanceId == instance.Id && t.Outcome == TaskOutcomes.Rejected))
+                    .OrderByDescending(t => t.CompletedAt).FirstOrDefault();
+                var ctx = await _notifications.GetContextAsync(submission.Id, rejecting?.Title,
+                    await EmployeeNameAsync(rejecting?.CompletedByUserId), rejecting?.Comment);
+                await _notifications.QueueAsync(EmailEvents.Rejected, EmailAudiences.Initiator, new[] { ctx.Initiator }, ctx);
+            }
+            else if (finalStatus == SubmissionStatus.Approved)
+            {
+                var ctx = await _notifications.GetContextAsync(submission.Id);
+                await _notifications.QueueAsync(EmailEvents.Approved, EmailAudiences.Initiator, new[] { ctx.Initiator }, ctx);
+            }
+
             await uow.CompleteAsync();
         }
     }
@@ -167,6 +203,10 @@ public class ProcessManager : ITransientDependency
             return task?.Outcome;
         }
     }
+
+    /// <summary>Task.CompletedByUserId holds an Employee.Id (spec 004).</summary>
+    private async Task<string?> EmployeeNameAsync(Guid? employeeId) =>
+        employeeId is { } id ? (await _employees.FindAsync(id))?.Name : null;
 
     /// <summary>Adds a timeline entry in the ambient unit of work.</summary>
     public async Task AddEventAsync(Guid submissionId, Guid? processInstanceId, Guid? taskId,

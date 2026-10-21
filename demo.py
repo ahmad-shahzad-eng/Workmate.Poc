@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Runs README demo steps 1-7, 9, 10 and 11 (no args), or the two-part restart check (step 8:
+"""Runs README demo steps 1-7 and 9-13 (no args), or the two-part restart check (step 8:
 `restart-before` / `restart-after`, run with a manual app restart in between), against the running
 PoC. Everyone signs in for real (spec 003) via OpenIddict's password grant at /connect/token — no more
-X-Demo-User header. Stdlib only."""
+X-Demo-User header. Needs Mailpit running (spec 005): new accounts get their password only through an
+emailed link, and step 13 reads every email back from Mailpit's API. Stdlib only."""
 import json, sqlite3, sys, time, urllib.request, urllib.error, urllib.parse, os
 
 BASE = "http://localhost:5080/api/poc"
 TOKEN_URL = "http://localhost:5080/connect/token"
+MAILPIT = "http://localhost:8025/api/v1"  # spec 005: every email the app sends lands here (SMTP localhost:1025)
 CLIENT_ID = "Workmate_Demo"
 ACME, GLOBEX = "Acme Trading", "Globex Logistics"
 DEMO_PASSWORD = "1q2w3E*"
@@ -103,6 +105,98 @@ def detail(token, sid, wait_status=None, wait=8):
         _, d = call("GET", f"/submissions/{sid}", token)
         if not wait_status or (isinstance(d, dict) and d.get("status") == wait_status) or time.time() > end: return d
         time.sleep(1)
+
+# --- Mailpit (spec 005). New accounts only ever get a password through an emailed link.
+def mailpit(path):
+    with urllib.request.urlopen(MAILPIT + path, timeout=10) as r:
+        return json.loads(r.read().decode())
+
+def mail_ready():
+    """Fails fast instead of a cascade of failures when Mailpit isn't running (plan Design §8)."""
+    try: mailpit("/info")
+    except Exception as e:
+        log(f"Mailpit is not reachable at {MAILPIT} ({e!r}). Start Mailpit (mailpit &) first.")
+        sys.exit(1)
+
+def mail_list(address, subject_contains=None):
+    """Every message to `address` (newest first), optionally only those whose subject contains the text."""
+    q = urllib.parse.quote(f'to:"{address}"')
+    msgs = mailpit(f"/search?query={q}&limit=200").get("messages") or []
+    return [m for m in msgs if not subject_contains or subject_contains.lower() in (m.get("Subject") or "").lower()]
+
+def mail_for(address, subject_contains=None, wait=15, after=None):
+    """Polls for the newest message to `address` (and subject text); `after` skips message ids already seen."""
+    end = time.time() + wait
+    while True:
+        msgs = [m for m in mail_list(address, subject_contains) if not after or m["ID"] not in after]
+        if msgs:
+            log(f"  mail to {address}: {msgs[0].get('Subject')!r}")
+            return msgs[0]
+        if time.time() > end:
+            log(f"  no mail to {address} (subject contains {subject_contains!r}) within {wait}s")
+            return None
+        time.sleep(1)
+
+def mail_ids(address):
+    return {m["ID"] for m in mail_list(address)}
+
+def mail_body(msg):
+    """Returns (text, html) of a message summary from mail_for."""
+    full = mailpit(f"/message/{msg['ID']}")
+    return full.get("Text") or "", full.get("HTML") or ""
+
+def mail_from_name(msg):
+    return ((mailpit(f"/message/{msg['ID']}").get("From") or {}).get("Name")) or ""
+
+def mail_link(msg, marker):
+    """The first URL in the text part containing `marker`."""
+    text, _ = mail_body(msg)
+    for word in text.split():
+        if word.startswith("http") and marker in word: return word
+    return None
+
+def set_password_link_parts(link):
+    q = urllib.parse.parse_qs(urllib.parse.urlparse(link).query)
+    return {"tenantId": (q.get("tenant") or [None])[0] or None, "userId": q["user"][0], "token": q["token"][0]}
+
+def set_password_from_mail(address, password, subject_contains=None, after=None):
+    """Finds the newest invite/reset mail to `address`, follows its link through POST account/set-password.
+    Returns the HTTP code (204 on success), or 0 if no mail/link arrived."""
+    msg = mail_for(address, subject_contains, after=after)
+    link = mail_link(msg, "setPassword=1") if msg else None
+    if not link: return 0
+    code, _ = call("POST", "/account/set-password", None, {**set_password_link_parts(link), "newPassword": password})
+    return code
+
+def request_number(sid):
+    """Spec 005 R9: the first 8 hex characters of the submission id, upper case."""
+    return sid.replace("-", "")[:8].upper()
+
+def mail_about(address, number, subject_contains=None, wait=20):
+    """The newest message to `address` (subject containing the text) that mentions request `number` in its
+    subject or text. Robust against earlier steps' mail to the same person."""
+    end = time.time() + wait
+    while True:
+        for m in mail_list(address, subject_contains)[:15]:
+            text, _ = mail_body(m)
+            if number in (m.get("Subject") or "") or number in text:
+                log(f"  mail to {address} about {number}: {m.get('Subject')!r}")
+                return m
+        if time.time() > end:
+            log(f"  no mail to {address} about {number} (subject contains {subject_contains!r}) within {wait}s")
+            return None
+        time.sleep(1)
+
+def emails_for_submission(admin_tok, sid, expected=None, wait=10):
+    """Email log rows for one request (polls until `expected` rows exist or the wait ends)."""
+    end = time.time() + wait
+    while True:
+        _, rows = call("GET", "/emails", admin_tok)
+        mine = [r for r in rows or [] if r.get("submissionId") == sid]
+        if expected is None or len(mine) >= expected or time.time() > end: return mine
+        time.sleep(1)
+
+NEW_PASSWORD = "Demo-Pass1!"  # what demo.py chooses on every emailed set-password link
 
 # handoverTo satisfies leave-request once a prior run's step 4 has published a version that requires it;
 # medicalNoteReference satisfies Acme's seeded v2 when leaveType=Sick (spec 006 US4). Both are silently
@@ -395,8 +489,11 @@ def s11():
     state["vendor_tok"] = vendor_tok
 
     code, created = call("POST", "/tenants", vendor_tok, {"name": company, "adminName": "Bill Lumbergh", "adminEmail": admin_email})
-    check("11b vendor admin creates a company with an admin email", code == 200 and created.get("generatedPassword"), f"http {code}")
-    password = created.get("generatedPassword")
+    # Spec 005 FR-008: no password comes back; the admin chooses one from the emailed invite.
+    sp_code = set_password_from_mail(admin_email, NEW_PASSWORD) if code == 200 else 0
+    check("11b vendor admin creates a company with an admin email; the admin sets a password from the invite",
+          code == 200 and "generatedPassword" not in (created or {}) and sp_code == 204, f"http {code} set-password {sp_code}")
+    password = NEW_PASSWORD
 
     code, bill_tok, _ = sign_in(admin_email, password, tenant_name=company)
     check("11c new admin signs in to their own company", code == 200 and bill_tok is not None, f"http {code}")
@@ -428,11 +525,13 @@ def s11():
           all(c == 401 for c in codes.values()), str(codes))
 
     # Edge case "forgot password": the reset also lifts the lockout 11g just triggered.
-    code, reset = call("POST", "/tenants/reset-admin-password", vendor_tok, {"employeeId": created.get("adminEmployeeId")})
-    new_password = (reset or {}).get("generatedPassword") if code == 200 else None
-    code, bill_tok2, _ = sign_in(admin_email, new_password or "x", tenant_name=company)
-    check("11i vendor admin resets a locked-out admin's password and the admin signs in again",
-          bill_tok2 is not None, f"http {code}")
+    # Spec 005: the reset lifts the lockout and emails a set-password link instead of showing a password.
+    seen = mail_ids(admin_email)
+    code, _ = call("POST", "/tenants/reset-admin-password", vendor_tok, {"employeeId": created.get("adminEmployeeId")})
+    sp_code = set_password_from_mail(admin_email, "Demo-Pass2!", subject_contains="Reset", after=seen) if code == 204 else 0
+    code, bill_tok2, _ = sign_in(admin_email, "Demo-Pass2!", tenant_name=company)
+    check("11i vendor admin resets a locked-out admin's password; the admin sets a new one from the emailed link and signs in again",
+          bill_tok2 is not None and sp_code == 204, f"http {code} set-password {sp_code}")
 
     acme_ids = roster(sara_tok)
     code, _ = call("POST", "/tenants/reset-admin-password", vendor_tok, {"employeeId": acme_ids["Sara"]})
@@ -466,7 +565,8 @@ def s12_company(vendor_tok, name, admin_first):
     admin_email = f"{admin_first.lower()}-{RUN_SUFFIX}@{slug(name)}.demo"
     code, created = call("POST", "/tenants", vendor_tok, {"name": name, "adminName": f"{admin_first} Admin", "adminEmail": admin_email})
     if code != 200: raise RuntimeError(f"could not create company {name}: http {code}")
-    _, tok, _ = sign_in(admin_email, created["generatedPassword"], tenant_name=name)
+    set_password_from_mail(admin_email, NEW_PASSWORD)
+    _, tok, _ = sign_in(admin_email, NEW_PASSWORD, tenant_name=name)
     return tok
 
 def s12_setup():
@@ -485,10 +585,11 @@ def s12_setup():
         code, created = call("POST", "/employees", admin, {"name": f"{first} Umbrella", "email": email, "jobTitle": role,
                                                           "roles": [role], "managerId": ctx["ids"].get(mgr)})
         if code != 200: ok = False; continue
-        ctx["ids"][first] = created["employee"]["id"]; ctx["email"][first] = email; ctx["pw"][first] = created["generatedPassword"]
-        _, ctx["tok"][first], _ = sign_in(email, created["generatedPassword"], tenant_name=company)
-        ok = ok and ctx["tok"][first] is not None and created["employee"]["roles"] == [role]
-    check("12a admin adds 6 employees with roles and managers; each signs in with the password shown once", ok and len(ctx["ids"]) == 6,
+        ctx["ids"][first] = created["id"]; ctx["email"][first] = email; ctx["pw"][first] = NEW_PASSWORD
+        set_password_from_mail(email, NEW_PASSWORD)
+        _, ctx["tok"][first], _ = sign_in(email, NEW_PASSWORD, tenant_name=company)
+        ok = ok and ctx["tok"][first] is not None and created["roles"] == [role] and "generatedPassword" not in created
+    check("12a admin adds 6 employees with roles and managers; each sets a password from the emailed invite and signs in", ok and len(ctx["ids"]) == 6,
           str(sorted(ctx["ids"])))
     return ctx
 
@@ -648,6 +749,212 @@ def s12_deactivation(ctx):
     check("12i a deactivated employee cannot sign in, and their existing token is refused",
           new_tok is None and code_old == 403, f"sign-in={code_sign} old-token={code_old}")
 
+def s13():
+    """Spec 005: emails for every workflow and account event, read back from Mailpit (quickstart.md)."""
+    t = tokens_for(ACME, ACME_NAMES)
+    s13_approve_path(t)
+    s13_reject_path(t)
+    s13_sent_back(t)
+    s13_accounts_and_failures()
+    s13_form_templates(t)
+    s13_company_defaults(t)
+    code, _ = call("GET", "/emails", t["Sara"])
+    check("13j a non-admin cannot read the Email log", code == 403, f"http {code}")
+    code, _ = call("PUT", "/forms/leave-request/emails/TaskAssigned/Approver", t["Sara"], {"subject": "x", "body": "x"})
+    code2, _ = call("PUT", "/company-settings/emails/Submitted/Initiator", t["Sara"], {"subject": "x", "body": "x"})
+    check("13j a non-admin cannot edit form or company email templates", code == 403 and code2 == 403, f"form {code} company {code2}")
+
+wfh = {"startDate": "2026-11-10", "endDate": "2026-11-10", "days": "1", "reachable": "true", "reason": "Plumber visit"}
+
+def s13_form_templates(t):
+    """US2: a form override applies to that form only (13d), bad templates are refused (13e), values are escaped (13f)."""
+    gt = tokens_for(GLOBEX, ["Ali", "Fatima"])
+    path = "/forms/expense-claim/emails/TaskAssigned/Approver"
+    code, saved = call("PUT", path, t["Khalid"], {"subject": "EXPENSE {{ request.number }} for {{ approver.name }}",
+                                                   "body": "{{ initiator.name }} claimed {{ fields.amount }} ({{ fields.expenseType }}).\n\n{{ link }}"})
+    check("13d admin saves a form-level override", code == 200 and (saved or {}).get("source") == "form", f"http {code}")
+
+    sid = submit(t["Sara"], {"expenseDate": "2026-11-03", "expenseType": "Meals", "amount": "18", "description": "Lunch"}, "expense-claim")
+    num = request_number(sid)
+    omar = mail_about(email_for("Omar", ACME), num, f"EXPENSE {num} for Omar")
+    text, _ = mail_body(omar) if omar else ("", "")
+    check("13d the override is used for that form (subject and fields.* in the body)", omar is not None and "18 (Meals)" in text, text[:120])
+
+    sid2 = submit(t["Sara"], annual); num2 = request_number(sid2)
+    check("13d another form in the same company keeps the default wording",
+          mail_about(email_for("Omar", ACME), num2, "waiting for your approval") is not None)
+    gsid = submit(gt["Ali"], annual); gnum = request_number(gsid)
+    check("13d another company keeps the default wording (SC-002)",
+          mail_about(email_for("Fatima", GLOBEX), gnum, "waiting for your approval") is not None)
+    code, _ = call("DELETE", path, t["Khalid"])
+    _, items = call("GET", "/forms/expense-claim/emails", t["Khalid"])
+    row = next((i for i in items or [] if i["event"] == "TaskAssigned"), {})
+    check("13d reset to default removes the override", code == 204 and row.get("source") == "built-in", f"http {code} {row.get('source')}")
+
+    code, body = call("PUT", path, t["Khalid"], {"subject": "Hi {{ request.secret }}", "body": "x"})
+    msg = ((body or {}).get("error") or {}).get("message", "") if isinstance(body, dict) else ""
+    check("13e an unknown placeholder is refused, naming it", code == 403 and "request.secret" in msg, f"http {code} {msg}")
+    code, body = call("PUT", path, t["Khalid"], {"subject": "Hi", "body": "{{ include 'secrets' }}"})
+    msg = ((body or {}).get("error") or {}).get("message", "") if isinstance(body, dict) else ""
+    check("13e include is refused", code == 403 and "include" in msg, f"http {code} {msg}")
+    code, _ = call("PUT", "/forms/leave-request/emails/Submitted/Initiator", t["Khalid"], {"subject": "x", "body": "{{ fields.nope }}"})
+    check("13e a field the form doesn't have is refused", code == 403, f"http {code}")
+
+    # 13f: HTML typed into a field is shown, never interpreted.
+    wpath = "/forms/work-from-home/emails/Submitted/Initiator"
+    call("PUT", wpath, t["Khalid"], {"subject": "Got your {{ request.title }} {{ request.number }}", "body": "Reason: {{ fields.reason }}"})
+    sid3 = submit(t["Sara"], {**wfh, "reason": "<b>x</b>"}, "work-from-home"); num3 = request_number(sid3)
+    sara = mail_about(email_for("Sara", ACME), num3, "Got your")
+    text, html = mail_body(sara) if sara else ("", "")
+    check("13f a field value <b>x</b> is escaped in the HTML part and literal in the text part",
+          "&lt;b&gt;x&lt;/b&gt;" in html and "<b>x</b>" not in html and "<b>x</b>" in text, f"text={text[:60]!r}")
+    call("DELETE", wpath, t["Khalid"])
+
+    code, p = call("POST", "/forms/work-from-home/emails/preview", t["Khalid"],
+                   {"event": "Submitted", "audience": "Initiator", "subject": "S {{ initiator.name }}", "body": "{{ fields.reason }}"})
+    check("13f preview renders sample data with field values escaped in HTML",
+          code == 200 and p.get("subject") == "S Sample Person" and "&lt;b&gt;sample&lt;/b&gt;" in p.get("html", ""), f"http {code}")
+
+def s13_company_defaults(t):
+    """13k US3: a company default applies to every form without its own override; a form override still wins;
+    another company is unaffected; the From line shows the sender name."""
+    gt = tokens_for(GLOBEX, ["Ali"])
+    cpath = "/company-settings/emails/Submitted/Initiator"
+    c1, _ = call("PUT", cpath, t["Khalid"], {"subject": "Acme got your {{ request.title }} ({{ request.number }})", "body": "Thanks, {{ initiator.name }}.\n{{ link }}"})
+    c2, sender = call("PUT", "/company-settings/email-sender", t["Khalid"], {"senderName": "Acme HR"})
+    check("13k admin sets a company default and a sender name", c1 == 200 and c2 == 200 and (sender or {}).get("effectiveSenderName") == "Acme HR",
+          f"template {c1} sender {c2}")
+
+    sid = submit(t["Sara"], wfh, "work-from-home"); num = request_number(sid)
+    m = mail_about(email_for("Sara", ACME), num, "Acme got your Work from home")
+    check("13k the company default is used, from 'Acme HR'", m is not None and mail_from_name(m) == "Acme HR",
+          mail_from_name(m) if m else "no mail")
+
+    fpath = "/forms/work-from-home/emails/Submitted/Initiator"
+    call("PUT", fpath, t["Khalid"], {"subject": "WFH form override {{ request.number }}", "body": "{{ link }}"})
+    sid2 = submit(t["Sara"], wfh, "work-from-home"); num2 = request_number(sid2)
+    check("13k a form override beats the company default", mail_about(email_for("Sara", ACME), num2, "WFH form override") is not None)
+
+    gsid = submit(gt["Ali"], annual); gnum = request_number(gsid)
+    check("13k another company keeps the built-in wording", mail_about(email_for("Ali", GLOBEX), gnum, "We received your") is not None)
+
+    r1, _ = call("DELETE", fpath, t["Khalid"])
+    r2, _ = call("DELETE", cpath, t["Khalid"])
+    r3, sender = call("PUT", "/company-settings/email-sender", t["Khalid"], {"senderName": None})
+    check("13k overrides reset and sender name cleared", r1 == 204 and r2 == 204 and (sender or {}).get("senderName") is None,
+          f"{r1} {r2} {r3} {(sender or {}).get('effectiveSenderName')}")
+
+def s13_approve_path(t):
+    """13a SC-001: submit -> Omar -> Huda -> approved, and exactly those four emails."""
+    sid = submit(t["Sara"], annual); num = request_number(sid)
+    check("13a Sara gets 'submitted'", mail_about(email_for("Sara", ACME), num, "received") is not None, num)
+    omar = mail_about(email_for("Omar", ACME), num, "waiting for your approval")
+    link = mail_link(omar, "?view=inbox") if omar else None
+    check("13a Omar gets 'waiting for your approval' with an inbox link", link is not None, str(link))
+    tk = inbox_task(t["Omar"], sid)
+    if tk: call("POST", f"/tasks/{tk}/complete", t["Omar"], {"outcome": "Approved"})
+    check("13a Huda gets 'waiting for your approval' after Omar approves",
+          mail_about(email_for("Huda", ACME), num, "waiting for your approval") is not None)
+    tk2 = inbox_task(t["Huda"], sid)
+    if tk2: call("POST", f"/tasks/{tk2}/complete", t["Huda"], {"outcome": "Approved"})
+    sara = mail_about(email_for("Sara", ACME), num, "approved")
+    _, html = mail_body(sara) if sara else ("", "")
+    check("13a Sara gets 'approved' (multipart: the HTML part has the company layout)", sara is not None and ACME in html)
+    rows = emails_for_submission(t["Khalid"], sid, expected=4)
+    check("13a this request produced exactly 4 emails, all sent",
+          len(rows) == 4 and all(r["status"] == "Sent" for r in rows),
+          str(sorted((r["event"], r["recipientEmail"], r["status"]) for r in rows)))
+
+def s13_reject_path(t):
+    """13b: a reject at step 1 tells Sara with Omar's comment; HR (Huda) is never involved."""
+    sid = submit(t["Sara"], annual); num = request_number(sid)
+    tk = inbox_task(t["Omar"], sid)
+    if tk: call("POST", f"/tasks/{tk}/complete", t["Omar"], {"outcome": "Rejected", "comment": "Not this week"})
+    sara = mail_about(email_for("Sara", ACME), num, "rejected")
+    text, _ = mail_body(sara) if sara else ("", "")
+    check("13b Sara gets 'rejected' with Omar's name and comment", "Not this week" in text and "Omar" in text, text[:200])
+    rows = emails_for_submission(t["Khalid"], sid, expected=3)
+    check("13b no email to HR for a request rejected at step 1",
+          len(rows) == 3 and all(r["recipientEmail"] != email_for("Huda", ACME) for r in rows),
+          str(sorted((r["event"], r["recipientEmail"]) for r in rows)))
+
+def s13_sent_back(t):
+    """13c: step 9 bound Expense claim to manager -> Finance (back-to-previous on reject) -> Huda."""
+    sid = submit(t["Sara"], {"expenseDate": "2026-11-02", "expenseType": "Travel", "amount": "45", "description": "Train"}, "expense-claim")
+    num = request_number(sid)
+    tk = inbox_task(t["Omar"], sid)
+    if tk: call("POST", f"/tasks/{tk}/complete", t["Omar"], {"outcome": "Approved"})
+    tk2 = inbox_task(t["Layla"], sid)
+    if tk2: call("POST", f"/tasks/{tk2}/complete", t["Layla"], {"outcome": "Rejected", "comment": "Receipt missing"})
+    omar = mail_about(email_for("Omar", ACME), num, "sent back to you")
+    text, _ = mail_body(omar) if omar else ("", "")
+    check("13c a reject at step 2 emails step 1's approver 'sent back' with the comment", "Receipt missing" in text, text[:200])
+    check("13c the initiator is told the request went back a step",
+          mail_about(email_for("Sara", ACME), num, "sent back") is not None)
+
+def s13_accounts_and_failures():
+    """13g-13i run in a fresh company so Acme/Globex data stays untouched."""
+    company = f"Hooli {RUN_SUFFIX}"
+    _, vendor_tok, _ = sign_in(VENDOR_EMAIL)
+    admin = s12_company(vendor_tok, company, "Gavin")
+    _, people = call("GET", "/users", admin)
+    admin_id = (people or [{}])[0].get("id")
+
+    # 13g: an invite carries a one-time set-password link; the body isn't kept in the Email log.
+    dinesh = f"dinesh-{RUN_SUFFIX}@hooli.demo"
+    code, created = call("POST", "/employees", admin, {"name": "Dinesh Hooli", "email": dinesh, "roles": ["Employee"], "managerId": admin_id})
+    invite = mail_for(dinesh, "account") if code == 200 else None
+    link = mail_link(invite, "setPassword=1") if invite else None
+    parts = set_password_link_parts(link) if link else {}
+    sp1, _ = call("POST", "/account/set-password", None, {**parts, "newPassword": NEW_PASSWORD}) if link else (0, None)
+    _, dinesh_tok, _ = sign_in(dinesh, NEW_PASSWORD, tenant_name=company)
+    check("13g invite link sets a password and the new employee signs in", sp1 == 204 and dinesh_tok is not None, f"set-password {sp1}")
+    sp2, _ = call("POST", "/account/set-password", None, {**parts, "newPassword": "Another-Pass1!"}) if link else (0, None)
+    check("13g the same link can't be used twice", sp2 == 403, f"http {sp2}")
+    _, log_rows = call("GET", "/emails", admin)
+    row = next((r for r in log_rows or [] if r["recipientEmail"] == dinesh and r["event"] == "AccountInvite"), None)
+    db = sqlite3.connect(os.path.join(os.path.dirname(os.path.abspath(__file__)), "workmate-poc.db"))
+    stored = db.execute("SELECT TextBody, HtmlBody FROM Notif_EmailMessages WHERE upper(Id) = upper(?)",
+                        ((row or {}).get("id", ""),)).fetchone()
+    check("13g the Email log lists the invite but never stores its body (the link)",
+          row is not None and row["status"] == "Sent" and stored == (None, None), f"{row and row['status']} stored={stored}")
+
+    # 13h: forgot-password answers the same for a real and an unknown address; only the real one gets mail.
+    seen = mail_ids(dinesh)
+    unknown = f"nobody-{RUN_SUFFIX}@hooli.demo"
+    c_real, _ = call("POST", "/account/forgot-password", None, {"email": dinesh}, tenant_header=company)
+    c_unknown, _ = call("POST", "/account/forgot-password", None, {"email": unknown}, tenant_header=company)
+    check("13h forgot-password returns 204 for a real and an unknown address alike", c_real == 204 and c_unknown == 204,
+          f"real {c_real} unknown {c_unknown}")
+    got_real = mail_for(dinesh, "Reset", after=seen) is not None
+    got_unknown = mail_for(unknown, wait=3) is not None
+    check("13h only the real account gets a reset email", got_real and not got_unknown, f"real={got_real} unknown={got_unknown}")
+
+    # 13i: a send that keeps failing doesn't affect the request; after 5 attempts it shows Failed and can be resent.
+    def_id = s12_publish_workflow({"admin": admin}, f"admin-approves-{RUN_SUFFIX}", "Admin approves",
+                                  [{"title": "Admin approval", "approverType": "user", "userId": admin_id, "onReject": "end"}],
+                                  fallback=f"user:{admin_id}")  # a brand-new company has nobody in HR yet
+    form = f"ask-hooli-{RUN_SUFFIX}"
+    bound = def_id is not None and s12_form({"admin": admin}, form, def_id)
+    erlich = f"erlich-{RUN_SUFFIX}@hooli.demo"; failing = f"fail-erlich-{RUN_SUFFIX}@hooli.demo"
+    code, e = call("POST", "/employees", admin, {"name": "Erlich Hooli", "email": erlich, "roles": ["Employee"], "managerId": admin_id})
+    set_password_from_mail(erlich, NEW_PASSWORD)
+    # Only now switch to a failing address (the invite itself must arrive); the sign-in name follows the email.
+    call("PUT", f"/employees/{(e or {}).get('id')}", admin, {"name": "Erlich Hooli", "email": failing, "roles": ["Employee"], "managerId": admin_id})
+    _, erlich_tok, _ = sign_in(failing, NEW_PASSWORD, tenant_name=company)
+    sid = submit(erlich_tok, {"details": "standing desk"}, form) if bound and erlich_tok else None
+    d = detail(erlich_tok, sid, "InProcess") if sid else {}
+    check("13i the request goes ahead normally while its email fails", d.get("status") == "InProcess", str(d.get("status")))
+    failed = None; end = time.time() + 75
+    while sid and failed is None and time.time() < end:
+        _, rows = call("GET", "/emails?status=Failed", admin)
+        failed = next((r for r in rows or [] if r.get("submissionId") == sid and r["event"] == "Submitted"), None)
+        if failed is None: time.sleep(3)
+    check("13i after 5 attempts the email shows Failed with the last error",
+          failed is not None and failed["attempts"] == 5 and bool(failed.get("lastError")), str(failed)[:200])
+    code, resent = call("POST", f"/emails/{failed['id']}/resend", admin) if failed else (0, None)
+    check("13i Resend puts the failed email back in the queue", code == 200 and (resent or {}).get("status") == "Queued", f"http {code}")
+
 def restart_before():
     """Puts one request per tenant at a pending human step, then records their ids for restart_after."""
     at = tokens_for(ACME, ACME_NAMES); state["acme_tok"] = at
@@ -718,8 +1025,21 @@ def restart_after():
     check("8e per-tenant employee/form counts unchanged across restart",
           counts_after == data["counts_before"], f"before={data['counts_before']} after={counts_after}")
 
+    # 8f (spec 005): the email queue is persistent; every email for these requests, queued before or after the
+    # restart, ends up Sent, with none left stuck in Queued.
+    end = time.time() + 30
+    while True:
+        rows = (emails_for_submission(at["Khalid"], a1, expected=4) + emails_for_submission(at["Khalid"], a2, expected=3)
+                + emails_for_submission(gt["Noor"], g1, expected=4))
+        if all(r["status"] == "Sent" for r in rows) or time.time() > end: break
+        time.sleep(2)
+    check("8f every email for the restart-check requests was sent (persistent queue across the restart)",
+          len(rows) == 11 and all(r["status"] == "Sent" for r in rows),
+          str(sorted((r["event"], r["status"]) for r in rows)))
+
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else None
+    mail_ready()
     if mode == "restart-before":
         step("Step 8 (before restart)", restart_before)
     elif mode == "restart-after":
@@ -730,7 +1050,8 @@ if __name__ == "__main__":
                      ("Step 4 form versioning", s4), ("Step 5 tenant isolation", s5), ("Step 6 reporting values", s6),
                      ("Step 7 form creation, routing, admin-only", s7), ("Step 9 workflow designer", step9),
                      ("Step 10 server gatekeeper + conditional field (US3/US4)", s10),
-                     ("Step 12 employees and organisation structure (spec 004)", s12)]:
+                     ("Step 12 employees and organisation structure (spec 004)", s12),
+                     ("Step 13 email notifications (spec 005)", s13)]:
             step(n, f)
     else:
         log(f"Unknown mode {mode!r}. Use no argument, 'restart-before' or 'restart-after'.")
