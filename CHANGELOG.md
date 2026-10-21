@@ -151,3 +151,15 @@ Needs `Poc:ResetDatabaseOnStartup=true` once: `Hr_Employees.Role` is gone and ne
 - T017 `wwwroot/index.html`: Employees tab (company admins only): list, add/edit form with roles and line manager, deactivate/re-activate, one-time password notice.
 - T018 `demo.py` step 12 (US1 part): 12a six employees each sign in; 12d manager loop refused; 12e duplicate email refused in one company, allowed in another; 12j non-admin refused; 12h deactivating an approver moves the open task to HR with a timeline entry; 12i deactivated person can't sign in and their old token is refused.
 - US1 gate: `demo.py` 80/80; restart check 3/3 before, 11/11 after.
+
+### Spec 004 US2: organisation structure
+
+- T019 `Domain/ApprovalWorkflows.cs`: new approver type `department-head` ("Head of my department"); not allowed as a fallback (still role/user only).
+- T020 `Application/Dtos.cs`: `DepartmentDto`, `CreateDepartmentInput`, `UpdateDepartmentInput`.
+- T021 `Application/OrganizationAppService.cs` (new): departments are ABP OrganizationUnits; create (under a parent of this company), rename, set or clear the head (any employee of this company), delete (refused while it has employees or sub-departments, checked before ABP's recursive delete).
+- T022 `Controllers/PocController.cs`: `GET|POST departments`, `PUT|DELETE departments/{id}`.
+- T023 No further code: T015 already validates and mirrors `Employee.DepartmentId` into ABP's user–unit link (at most one unit) and returns `departmentName`.
+- T024 `Application/AssignmentResolver.cs`: `department-head` resolves to the head of the requester's department, walking up while the department has no head, the head is inactive, or the head is the requester; nobody at the top means the workflow's fallback applies.
+- T025 `wwwroot/index.html`: Organisation tab (Org.Manage only): indented tree, rename, set head, add sub-department, delete; route designer offers "Head of my department"; the Employees form gets its department picker.
+- T026 `demo.py` step 12 (US2 part): 12a three-level tree with heads; 12b SC-001 a request routes line manager → department head → HR with no code; 12c a head's own request goes to the next head up; 12f non-empty departments can't be deleted, an empty one can.
+- US2 gate: `demo.py` 84/84; restart check 3/3 before, 11/11 after.

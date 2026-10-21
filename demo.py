@@ -457,6 +457,7 @@ def s12():
     Deactivation runs last: it removes an approver the routing checks need."""
     ctx = s12_setup()
     s12_employees(ctx)
+    s12_org(ctx)
     s12_deactivation(ctx)
 
 def s12_company(vendor_tok, name, admin_first):
@@ -510,6 +511,68 @@ def s12_employees(ctx):
     # 12j: an ordinary employee cannot manage employees.
     code, _ = call("POST", "/employees", ctx["tok"]["Carl"], {"name": "Nope", "email": f"nope-{RUN_SUFFIX}@umbrella.demo", "roles": []})
     check("12j a non-admin cannot add employees", code == 403, f"http {code}")
+
+def s12_org(ctx):
+    """US2: a 3-level tree with heads, and routing by "Head of my department"."""
+    admin, ids, tok = ctx["admin"], ctx["ids"], ctx["tok"]
+
+    def dept(name, parent=None):
+        code, d = call("POST", "/departments", admin, {"name": name, "parentId": parent})
+        return d["id"] if code == 200 else None
+    hq = dept("Head office"); fin = dept("Finance", hq); pay = dept("Payables", fin)
+    for unit, head in [(hq, "Rita"), (fin, "Frank"), (pay, "Ivan")]:
+        call("PUT", f"/departments/{unit}", admin, {"name": {hq: "Head office", fin: "Finance", pay: "Payables"}[unit], "headEmployeeId": ids[head]})
+    _, people = call("GET", "/users", admin)
+    placement = {"Rita": hq, "Hana": hq, "Frank": fin, "Ivan": pay, "Paula": pay, "Carl": pay}
+    for p in people or []:
+        first = p["name"].split()[0]
+        if first in placement:
+            call("PUT", f"/employees/{p['id']}", admin, {"name": p["name"], "email": p["email"], "roles": p["roles"],
+                                                        "managerId": p["managerId"], "departmentId": placement[first]})
+    _, depts = call("GET", "/departments", admin)
+    by_name = {d["name"]: d for d in depts or []}
+    check("12a three-level department tree with heads, employees placed",
+          by_name.get("Payables", {}).get("parentId") == fin and by_name.get("Finance", {}).get("parentId") == hq
+          and by_name.get("Payables", {}).get("headName", "").startswith("Ivan") and by_name.get("Payables", {}).get("employeeCount") == 3,
+          str({n: (d["headName"], d["employeeCount"]) for n, d in by_name.items()}))
+
+    # 12b (SC-001): line manager -> head of department -> HR, configured with no code.
+    def_id = s12_publish_workflow(ctx, f"mgr-head-hr-{RUN_SUFFIX}", "Manager, department head, HR", [
+        {"title": "Manager approval", "approverType": "line-manager", "onReject": "end"},
+        {"title": "Department head approval", "approverType": "department-head", "onReject": "end"},
+        {"title": "HR sign-off", "approverType": "role", "role": "HR", "onReject": "end"}])
+    form = f"purchase-{RUN_SUFFIX}"
+    bound = def_id is not None and s12_form(ctx, form, def_id)
+    sid = submit(tok["Carl"], {"details": "office chairs"}, form) if bound else None
+    route = []
+    for approver in ["Paula", "Ivan", "Hana"]:
+        tk = inbox_task(tok[approver], sid) if sid else None
+        route.append(approver if tk else f"!{approver}")
+        if tk: call("POST", f"/tasks/{tk}/complete", tok[approver], {"outcome": "Approved"})
+    d = detail(tok["Carl"], sid, wait_status="Approved") if sid else {}
+    check("12b SC-001 request routes line manager -> department head -> HR with no code",
+          route == ["Paula", "Ivan", "Hana"] and (d or {}).get("status") == "Approved", f"route={route} status={(d or {}).get('status')}")
+
+    # 12c: Ivan heads Payables, so his own department-head step walks up to Finance's head, Frank.
+    sid2 = submit(tok["Ivan"], {"details": "team offsite"}, form) if bound else None
+    first = inbox_task(tok["Frank"], sid2) if sid2 else None  # Ivan's line manager is Frank too
+    if first: call("POST", f"/tasks/{first}/complete", tok["Frank"], {"outcome": "Approved"})
+    second = None
+    end = time.time() + 8
+    while sid2 and time.time() < end and second is None:
+        _, items = call("GET", "/tasks/inbox", tok["Frank"])
+        second = next((i["taskId"] for i in items or [] if i["submissionId"] == sid2 and i["taskId"] != first), None)
+        if second is None: time.sleep(1)
+    check("12c a head's own request goes to the next head up (clarification Q3)", first is not None and second is not None,
+          f"manager-step={first is not None} head-step-to-Frank={second is not None}")
+
+    # 12f: departments with sub-departments or employees can't be deleted; an empty one can.
+    code_fin, _ = call("DELETE", f"/departments/{fin}", admin)
+    code_pay, _ = call("DELETE", f"/departments/{pay}", admin)
+    temp = dept("Temporary", hq)
+    code_tmp, _ = call("DELETE", f"/departments/{temp}", admin)
+    check("12f a department with sub-departments or employees can't be deleted; an empty one can (US2 AC2)",
+          code_fin == 403 and code_pay == 403 and code_tmp in (200, 204), f"finance={code_fin} payables={code_pay} empty={code_tmp}")
 
 def s12_publish_workflow(ctx, key, name, steps, fallback="role:HR"):
     """Creates, drafts and publishes a designed workflow; returns its Elsa definition id."""

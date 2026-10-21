@@ -60,7 +60,8 @@ public static class ApproverTypes
     public const string ManagerOfManager = "manager-of-manager";
     public const string Role = "role";
     public const string User = "user";
-    public static readonly string[] All = { LineManager, ManagerOfManager, Role, User };
+    public const string DepartmentHead = "department-head"; // spec 004 US2: head of the submitter's department, walking up the tree
+    public static readonly string[] All = { LineManager, ManagerOfManager, Role, User, DepartmentHead };
 }
 
 public static class OnRejectActions
@@ -84,7 +85,7 @@ public class ApprovalStep
     {
         ApproverTypes.Role => $"role:{Role}",
         ApproverTypes.User => $"user:{UserId}",
-        _ => ApproverType // line-manager / manager-of-manager pass through as-is
+        _ => ApproverType // line-manager / manager-of-manager / department-head pass through as-is
     };
 }
 

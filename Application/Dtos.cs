@@ -120,3 +120,18 @@ public class SaveEmployeeInput
 
 public record EmployeeCreatedDto(EmployeeDto Employee, string GeneratedPassword);
 public record DeactivationResultDto(EmployeeDto Employee, int ReassignedTaskCount);
+
+// --- Departments (client admin; spec 004 US2)
+public record DepartmentDto(Guid Id, string Name, Guid? ParentId, Guid? HeadEmployeeId, string? HeadName, int EmployeeCount);
+
+public class CreateDepartmentInput
+{
+    public string Name { get; set; } = default!;
+    public Guid? ParentId { get; set; }
+}
+
+public class UpdateDepartmentInput
+{
+    public string Name { get; set; } = default!;
+    public Guid? HeadEmployeeId { get; set; }
+}

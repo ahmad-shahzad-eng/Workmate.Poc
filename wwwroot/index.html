@@ -140,6 +140,7 @@
     <button data-view="designer" id="designerNav" hidden>Form designer</button>
     <button data-view="workflows" id="workflowsNav" hidden>Workflow designer</button>
     <button data-view="employees" id="employeesNav" hidden>Employees</button>
+    <button data-view="org" id="orgNav" hidden>Organisation</button>
   </nav>
   <main id="main"></main>
 </div>
@@ -549,7 +550,7 @@ async function renderFormEditor(main, key) {
 // ---------- Workflow designer (Admin only): build approval workflows step by step, no code ----------
 const APPROVER_TYPES = [
   ["line-manager", "Line manager"], ["manager-of-manager", "Manager's manager"],
-  ["role", "Role"], ["user", "Specific user"]];
+  ["role", "Role"], ["user", "Specific user"], ["department-head", "Head of my department"]];
 const rolesOf = () => [...new Set(state.users.flatMap(u => u.roles))].sort();
 const employeesOf = () => state.users;
 
@@ -737,7 +738,57 @@ async function viewEmployees(main) {
   });
 }
 
-const views = { new: viewNew, mine: viewMine, inbox: viewInbox, designer: viewDesigner, workflows: viewWorkflows, employees: viewEmployees };
+// ---------- Organisation (spec 004 US2): the department tree and each department's head ----------
+async function viewOrg(main) {
+  const departments = await api("/api/poc/departments");
+  const children = parentId => departments.filter(d => (d.parentId || null) === parentId);
+  const branch = (parentId, depth) => children(parentId).map(d => `
+    <li style="padding-left:${16 + depth * 22}px" class="panel" data-id="${d.id}">
+      <div class="inline">
+        <div class="field"><label for="n-${d.id}">Department</label><input id="n-${d.id}" value="${esc(d.name)}"></div>
+        <div class="field"><label for="h-${d.id}">Head</label><select id="h-${d.id}"><option value="">None</option>${state.users.map(u =>
+          `<option value="${u.id}" ${u.id === d.headEmployeeId ? "selected" : ""}>${esc(u.name)}</option>`).join("")}</select></div>
+        <small class="meta" style="margin:0">${d.employeeCount} employee(s)</small>
+        <div class="actions" style="margin:0">
+          <button class="btn secondary" data-act="save">Save</button>
+          <button class="btn secondary" data-act="child">Add sub-department</button>
+          <button class="btn secondary" data-act="delete">Delete</button>
+        </div>
+      </div>
+    </li>${branch(d.id, depth + 1)}`).join("");
+  main.innerHTML = `
+    <h2>Organisation</h2>
+    <p class="lead">Departments form a tree. A "Head of my department" approval step goes to the head of the requester's
+      department, or the next head up if that one is empty or is the requester. Put people in departments from the Employees tab.</p>
+    <div id="msg"></div>
+    <div class="inline panel" style="margin-bottom:20px">
+      <div class="field"><label for="newDept">New top-level department</label><input id="newDept" placeholder="Finance"></div>
+      <div class="actions" style="margin:0"><button class="btn secondary" id="addDept">Add</button></div>
+    </div>
+    <ul class="rows">${branch(null, 0) || `<li class="panel">No departments yet.</li>`}</ul>`;
+  const show = (kind, text) => $("#msg").innerHTML = message(kind, text);
+  const create = async (name, parentId) => {
+    try { await api("/api/poc/departments", { method: "POST", body: JSON.stringify({ name, parentId }) }); await viewOrg(main); show("ok", `Added ${name}.`); }
+    catch (err) { show("error", err.message); }
+  };
+  $("#addDept").addEventListener("click", () => create($("#newDept").value, null));
+  main.querySelectorAll("li[data-id] button").forEach(b => b.addEventListener("click", async () => {
+    const id = b.closest("li").dataset.id;
+    try {
+      if (b.dataset.act === "save") {
+        await api(`/api/poc/departments/${id}`, { method: "PUT", body: JSON.stringify({ name: $(`#n-${id}`).value, headEmployeeId: $(`#h-${id}`).value || null }) });
+        await viewOrg(main); show("ok", "Saved.");
+      } else if (b.dataset.act === "child") {
+        const name = `${$(`#n-${id}`).value} sub-department`;
+        await create(name, id); // created with a placeholder name; rename it in place
+      } else {
+        await api(`/api/poc/departments/${id}`, { method: "DELETE" }); await viewOrg(main); show("ok", "Deleted.");
+      }
+    } catch (err) { show("error", err.message); }
+  }));
+}
+
+const views = { new: viewNew, mine: viewMine, inbox: viewInbox, designer: viewDesigner, workflows: viewWorkflows, employees: viewEmployees, org: viewOrg };
 
 async function refreshInboxCount() {
   try { const n = (await api("/api/poc/tasks/inbox")).length; const el = $("#inboxCount"); el.textContent = n; el.hidden = n === 0; }
@@ -751,6 +802,8 @@ async function render() {
   if (state.view === "workflows" && !hasPermission("Workmate.Workflows.Design")) state.view = "new";
   $("#employeesNav").hidden = !hasPermission("Workmate.Employees.Manage");
   if (state.view === "employees" && !hasPermission("Workmate.Employees.Manage")) state.view = "new";
+  $("#orgNav").hidden = !hasPermission("Workmate.Org.Manage");
+  if (state.view === "org" && !hasPermission("Workmate.Org.Manage")) state.view = "new";
   document.querySelectorAll("nav button").forEach(b => b.toggleAttribute("aria-current", b.dataset.view === state.view));
   document.querySelectorAll("nav button[aria-current]").forEach(b => b.setAttribute("aria-current", "page"));
   const main = $("#main");

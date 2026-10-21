@@ -26,15 +26,16 @@ public class PocController : AbpControllerBase
     private readonly TenantOnboardingAppService _onboarding;
     private readonly IPermissionChecker _permissionChecker;
     private readonly EmployeeAppService _employeeService;
+    private readonly OrganizationAppService _organization;
 
     public PocController(FormAppService forms, SubmissionAppService submissions, TaskAppService tasks,
         RoutingAppService routing, ApprovalWorkflowAppService approvalWorkflows, IRepository<Employee, Guid> employees,
         ITenantRepository tenants, TenantOnboardingAppService onboarding, IPermissionChecker permissionChecker,
-        EmployeeAppService employeeService)
+        EmployeeAppService employeeService, OrganizationAppService organization)
     {
         _forms = forms; _submissions = submissions; _tasks = tasks; _routing = routing;
         _approvalWorkflows = approvalWorkflows; _employees = employees; _tenants = tenants; _onboarding = onboarding;
-        _permissionChecker = permissionChecker; _employeeService = employeeService;
+        _permissionChecker = permissionChecker; _employeeService = employeeService; _organization = organization;
     }
 
     [HttpPost("tenants")]
@@ -80,6 +81,19 @@ public class PocController : AbpControllerBase
 
     [HttpPost("employees/{id:guid}/activate")]
     public Task<EmployeeDto> ActivateEmployeeAsync(Guid id) => _employeeService.ActivateAsync(id);
+
+    [HttpGet("departments")]
+    public Task<List<DepartmentDto>> GetDepartmentsAsync() => _organization.GetDepartmentsAsync();
+
+    [HttpPost("departments")]
+    public Task<DepartmentDto> CreateDepartmentAsync([FromBody] CreateDepartmentInput input) => _organization.CreateDepartmentAsync(input);
+
+    [HttpPut("departments/{id:guid}")]
+    public Task<DepartmentDto> UpdateDepartmentAsync(Guid id, [FromBody] UpdateDepartmentInput input) =>
+        _organization.UpdateDepartmentAsync(id, input);
+
+    [HttpDelete("departments/{id:guid}")]
+    public Task DeleteDepartmentAsync(Guid id) => _organization.DeleteDepartmentAsync(id);
 
     [HttpGet("users")]
     public Task<List<EmployeeDto>> GetUsersAsync([FromQuery] bool includeInactive = false) =>
