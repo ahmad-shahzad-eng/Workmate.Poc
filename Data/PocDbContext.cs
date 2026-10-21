@@ -76,6 +76,7 @@ public class PocDbContext : AbpDbContext<PocDbContext>,
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
     public DbSet<CompanyEmailSettings> CompanyEmailSettings => Set<CompanyEmailSettings>();
     public DbSet<EmailMessage> EmailMessages => Set<EmailMessage>();
+    public DbSet<CompanyBranding> CompanyBrandings => Set<CompanyBranding>();
 
     public PocDbContext(DbContextOptions<PocDbContext> options) : base(options) { }
 
@@ -169,6 +170,15 @@ public class PocDbContext : AbpDbContext<PocDbContext>,
             e.ToTable("Notif_EmailMessages"); e.ConfigureByConvention();
             e.Property(x => x.LastError).HasMaxLength(EmailMessage.MaxErrorLength);
             e.HasIndex(x => new { x.TenantId, x.Status });
+        });
+
+        // Ui_ (spec 007: per-company branding)
+        b.Entity<CompanyBranding>(e =>
+        {
+            e.ToTable("Ui_CompanyBranding"); e.ConfigureByConvention();
+            e.Property(x => x.DisplayName).HasMaxLength(CompanyBranding.MaxDisplayNameLength);
+            e.Property(x => x.BrandColor).HasMaxLength(7);
+            e.HasIndex(x => x.TenantId).IsUnique();
         });
     }
 }

@@ -32,7 +32,8 @@ public class TenantAdminRoleSeeder : ITransientDependency
     private static readonly string[] TenantSidePermissions =
     {
         WorkmatePermissions.FormsDesign, WorkmatePermissions.RoutingManage,
-        WorkmatePermissions.WorkflowsDesign, WorkmatePermissions.EmployeesManage, WorkmatePermissions.OrgManage
+        WorkmatePermissions.WorkflowsDesign, WorkmatePermissions.EmployeesManage, WorkmatePermissions.OrgManage,
+        WorkmatePermissions.BrandingManage
     };
 
     /// <summary>

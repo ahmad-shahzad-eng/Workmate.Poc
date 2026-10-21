@@ -213,3 +213,30 @@ Needs `Poc:ResetDatabaseOnStartup=true` once: `Hr_Employees.Role` is gone and ne
 - Spec 007 (Phase L, ABP theming and per-company branding): spec, research notes and quality checklist; clarified (theme look in the existing page, own sign-in screens restyled, single colour style). HANDOVER plan row L.
 - Spec 007 plan: research (R1–R14, theme assets, layout markup and colour variables checked in a throwaway spike), data model, API/UI contract, quickstart. Approach: LeptonX Lite 4.1.0 look in the existing page, per-company branding via new `Workmate.Branding.Manage`.
 - Spec 007 tasks: 25 tasks (Setup 2, Foundational 8, US1 6, US2 5, US3 2, Polish 2).
+
+## Spec 007: ABP theming and per-company branding
+
+- T001 `Workmate.Poc.csproj`, `WorkmatePocModule.cs`: `Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite` 4.1.0 (LGPL-3.0, the release built against ABP 9.1.0) and its module. Its files are served from the package by the existing static-file middleware; no npm, no ABP bundling.
+- T002 New permission `Workmate.Branding.Manage` (side Both), granted with the company-admin role (and to the vendor admin per company) and listed in `/my-permissions`.
+- T003 `Domain/Branding.cs` (new): `CompanyBranding` (display name ≤ 64, `#rrggbb` colour, logo ≤ 200 KB with its type and version).
+- T004 `Data/PocDbContext.cs`: `Ui_CompanyBranding`, unique per company. **Reset required once.**
+- T005 `Application/Branding/BrandColors.cs` (new): WCAG contrast; text on the brand colour is black or white (always ≥ 4.58:1), brand text on white darkened to ≥ 4.5:1, a light tint.
+- T006 `Application/Branding/LogoValidator.cs` (new): PNG/JPEG by their bytes, or SVG parsed with DTDs off and refused if it has scripts, `on*` handlers, `foreignObject`, `javascript:`, external `href`s or CSS `url()`/`@import`.
+- T007 `Application/Branding/BrandingReader.cs`, `BrandingAppService.cs` (new): effective branding for the signed-in company (or the acted-as one; product defaults for a host user), an anonymous public view by company name or id, and the logo bytes.
+- T008 `Controllers/PocController.cs`: `GET branding`, anonymous `GET branding/public` and `GET branding/logo/{tenantId}` (served with `Content-Security-Policy: … sandbox` and `nosniff`).
+- T009 `Data/DemoDataSeeder.cs`: Acme `#0f6e6e` and Globex `#4a4fb0` with their names and a monogram SVG logo (validated like an upload); `wwwroot/branding/workmate.svg` product logo.
+- T010 `demo.py`: branding helpers (`branding`, `public_branding`, an independent WCAG `contrast`, `raw_get`).
+- T011 `wwwroot/css/workmate-theme.css` (new): brand variables wired into the theme (`--lpx-brand`, `--lpx-logo`) and into Bootstrap's primary colour, which the theme compiles in; the page's own ~20 component classes restyled on the theme.
+- T012 `wwwroot/index.html` head: the old inline styles (dark mode, hard-coded company colours) removed; the theme's CSS and JS linked; the RTL toggle swaps the theme's `.rtl.css` twins. Two findings: `font-bundle.css` imports a Google font, so it's not linked (no CDN at run time); Bootstrap Icons has no RTL twin.
+- T013 `wwwroot/index.html` shell: LeptonX Lite's Application-layout markup (side menu, top bar with the user menu and demo toggles, mobile menu); the menu is built from permissions with icons and the Inbox count. Fix found with a headless Chrome check: the theme's script registers a jQuery toast demo first in its init list, and the init loop stops at the first exception, so without jQuery the sidebar and mobile-menu init never ran. The page drops that one step and runs LeptonX's init itself.
+- T014 `applyBranding()`: the company's colour, logo, name and page title from `GET branding`, on sign-in and on every "Acting as" change; a broken logo falls back to the name.
+- T015 Sign-in, forgot and set-password screens in the theme's account-page look with the picked company's branding; the company picker now sits above all three forms (before, it vanished with the sign-in form when "Forgot password?" was opened).
+- T016 `demo.py` step 14: 14a seeded branding per company, 14h the page loads only same-origin files and all of them exist.
+- US1 gate: `demo.py` 122/122; restart check 3/3 before, 12/12 after; headless screenshots (sign-in, employee, admin, Globex, 360 px, RTL) with no JS errors.
+- T017 `BrandingAppService`: save name/colour, upload/remove logo, reset, for `Workmate.Branding.Manage` only, and only while acting as a company.
+- T018 `PocController`: `PUT branding`, `PUT branding/logo` (multipart, size-capped), `DELETE branding/logo`, `DELETE branding`.
+- T019 Emails (spec 005 layout): header and button in the company's brand colour, with readable text, and its display name; `{{ company.name }}` unchanged. Template previews use it too.
+- T020 `wwwroot/index.html`: Branding page (name, colour picker + hex, logo upload/remove, reset, live preview of the top bar, a button and the email header).
+- T021 `demo.py` 14b (save, isolation), 14c (vendor admin per company, defaults otherwise), 14d (bad colour, 201 KB, text as `.png`, SVG `<script>`, SVG `onload` all refused with a reason), 14e (contrast), 14f (non-admin refused, anonymous view has only public fields, logo sandboxed), 14g (email uses the brand), 14i (reset, then restore the seed).
+- T022 HANDOVER: Phase L state, findings and the production path (ABP's server-rendered layout with contributors, branding provider, `abp install-libs`, cookie sign-in; about L). T023 README: theming, Branding demo step 14, code map, troubleshooting, shortcuts. T024 spec 006: clarification note.
+- T025 Final loop: fresh reset → `demo.py` 131/131 on two consecutive runs; restart check 3/3 before, 12/12 after. Checked visually in a headless Chrome (screenshots); a person's click-through is still pending.

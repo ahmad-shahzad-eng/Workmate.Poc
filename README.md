@@ -16,7 +16,8 @@ with a required fallback approver and a reject action (end, or back to the previ
 manage their own **Employees** (with sign-in accounts and a per-company role list) and **Organisation** (a department
 tree with a head per department) — spec 004. Every request event and every new account sends an **email** (spec 005):
 plain-text + HTML, worded per form, per company or built-in, with an Email log for admins. New accounts never see a
-password; they choose one from an emailed one-time link.
+password; they choose one from an emailed one-time link. The UI uses ABP's free **LeptonX Lite** theme (spec 007), and each
+company carries its own **branding** (name, colour, logo) set by its company admin, in the app and in its emails.
 
 | Company | People | Routes |
 | --- | --- | --- |
@@ -196,6 +197,7 @@ Mailpit. "Forgot password?" on the sign-in screen emails a reset link.
 | "Invalid username or password" for a demo user | Pick the right **Company** first (the vendor admin uses "Vendor / host (no company)"). After 5 wrong tries the account is locked for a few minutes; use "Forgot password?" or wait. |
 | Windows: `python3` opens the Microsoft Store | Use `py demo.py`, or turn off the "App execution aliases" for Python in Settings. |
 | macOS: "database is locked" | Close DB Browser for SQLite (it locks the file) and run again. |
+| Page unstyled, or plain HTML with no side menu | Hard-refresh. The theme's files come from the app itself under `/Themes/LeptonXLite/…` (inside the LeptonX Lite package), so check that URL returns CSS. |
 | SurveyJS form does not show | Hard-refresh the browser (`Cmd+Shift+R` / `Ctrl+F5`); the page falls back to the native renderer if SurveyJS fails to load. |
 
 ## Demo script (maps to the PoC success criteria)
@@ -259,7 +261,15 @@ Mailpit. "Forgot password?" on the sign-in screen emails a reset link.
     placeholders and anything beyond if/else are refused. **Email log** (company admins) shows every email, failures
     with their last error after 5 attempts, and Resend.
 
-`demo.py` runs steps 1-7 and 9-13 against the API and writes `demo.log` (`python3 demo.py` with the app freshly started).
+14. **Theming and company branding (spec 007).** The whole UI uses ABP's free LeptonX Lite theme: dark side menu with
+    only the sections you may use, a top bar with your account, themed sign-in screens; it works at phone width and in
+    RTL. Acme shows teal with an "A" logo, Globex indigo with a "G". As Khalid, open **Branding**: change the display
+    name, colour (text on it switches to black or white so it stays readable) or logo (PNG/JPEG/SVG up to 200 KB; SVGs
+    with scripts are refused), save, then sign in as Sara to see it, and as Ali to see Globex unchanged. Sara's next
+    email uses the new colour and name. On the sign-in screen, picking a company shows its logo and colour. **Reset to
+    default** puts back the company name, the Workmate colour and no logo.
+
+`demo.py` runs steps 1-7 and 9-14 against the API and writes `demo.log` (`python3 demo.py` with the app freshly started).
 Step 8 is two-part, around a manual restart:
 
 ```bash
@@ -302,6 +312,8 @@ python3 demo.py restart-after    # resumes and completes them, checks tenant iso
 | `Application/Notifications/EmailTemplateRenderer.cs` | Sandboxed Scriban: validates the syntax tree against the placeholder allow-list; renders text + a fixed, escaped HTML layout |
 | `Application/Notifications/SendEmailJob.cs` | ABP background job (persistent, after commit): sends over SMTP, retries 5 times, then Failed; renders account emails with a fresh one-time link |
 | `Application/Notifications/EmailTemplateAppService.cs`, `EmailLogAppService.cs`, `Application/AccountAppService.cs` | Template editing and preview, the Email log with Resend, forgot/set password |
+| `Domain/Branding.cs`, `Application/Branding/*` | Spec 007: per-company branding, WCAG-readable colour variants (`BrandColors`), safe-logo rules (`LogoValidator`), branding API |
+| `wwwroot/css/workmate-theme.css` | Spec 007: the page's own components restyled on LeptonX Lite, and the brand colour wired into the theme and Bootstrap |
 
 ## Upgrading packages
 
@@ -328,6 +340,8 @@ The project builds and passes `demo.py` on the pinned versions. If you move to n
 | Binding condition is `field == value` | Elsa expressions or a decision table |
 | JSON textarea designer | SurveyJS Creator, Form.io builder, or our own builder emitting the same schema |
 | Single project | ABP modular monolith: Forms, Processes, WorkflowEngine modules |
+| LeptonX Lite's look in our own page; menu and top bar built in the browser from permissions | ABP's server-rendered theme layout (`IMenuContributor`, `IToolbarContributor`, per-tenant `IBrandingProvider`), which needs cookie sign-in and `abp install-libs`; see HANDOVER Phase L |
+| Logos stored in the database | ABP BlobStoring behind the same logo URL |
 | One SMTP server for every company, Mailpit locally; request number = first 8 characters of the id | Per-company SMTP/sender domain; a real per-company request number sequence |
 
 ## Phase 2 (after this PoC passes)

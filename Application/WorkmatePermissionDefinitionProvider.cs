@@ -21,6 +21,7 @@ public class WorkmatePermissionDefinitionProvider : PermissionDefinitionProvider
         group.AddPermission(WorkmatePermissions.WorkflowsDesign, multiTenancySide: MultiTenancySides.Both);
         group.AddPermission(WorkmatePermissions.EmployeesManage, multiTenancySide: MultiTenancySides.Tenant);
         group.AddPermission(WorkmatePermissions.OrgManage, multiTenancySide: MultiTenancySides.Tenant);
+        group.AddPermission(WorkmatePermissions.BrandingManage, multiTenancySide: MultiTenancySides.Both); // vendor admin acting as a company (spec 007)
         group.AddPermission(WorkmatePermissions.TenantsManage, multiTenancySide: MultiTenancySides.Host);
     }
 }

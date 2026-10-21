@@ -146,11 +146,12 @@ public class EmailTemplateAppService : ApplicationService
             : input.Audience == EmailAudiences.Approver
                 ? $"{_notifications.PublicBaseUrl}/?view=inbox"
                 : $"{_notifications.PublicBaseUrl}/?view=mine&submission=sample";
+        var brand = await _notifications.GetEmailBrandAsync();
         var model = account
-            ? new EmailModel(null, null, null, null, null, null, null, link, await _notifications.GetCompanyNameAsync(), null)
+            ? new EmailModel(null, null, null, null, null, null, null, link, await _notifications.GetCompanyNameAsync(), null, brand)
             : new EmailModel(formName, "1A2B3C4D", SubmissionStatus.InProcess, "Sample Person", "Sample Approver",
                 "Manager approval", "Looks fine", link, await _notifications.GetCompanyNameAsync(),
-                fieldKeys.ToDictionary(k => k, _ => (string?)SampleFieldValue));
+                fieldKeys.ToDictionary(k => k, _ => (string?)SampleFieldValue), brand);
         var rendered = _renderer.Render(input.Subject, input.Body, model);
         return new EmailPreviewDto(rendered.Subject, rendered.Text, rendered.Html);
     }

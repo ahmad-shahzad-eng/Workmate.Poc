@@ -4,174 +4,112 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Workmate HRM (PoC)</title>
+<!-- Spec 007: ABP's free LeptonX Lite theme, served from its NuGet package through ABP's virtual file system
+     (no npm, no CDN). font-bundle.css is left out on purpose: it imports a Google font (FR-013). The data-theme-css
+     links are swapped to their .rtl.css twins by the RTL toggle. -->
+<link rel="stylesheet" href="/Themes/LeptonXLite/Global/side-menu/libs/bootstrap-icons/font/bootstrap-icons.css"><!-- icons have no .rtl twin -->
+<link rel="stylesheet" data-theme-css href="/Themes/LeptonXLite/Global/side-menu/css/bootstrap-dim.css">
+<link rel="stylesheet" data-theme-css href="/Themes/LeptonXLite/Global/side-menu/css/layout-bundle.css">
+<link rel="stylesheet" data-theme-css href="/Themes/LeptonXLite/Global/side-menu/css/abp-bundle.css">
+<link rel="stylesheet" data-theme-css href="/Themes/LeptonXLite/Global/side-menu/css/js-bundle.css">
 <link rel="stylesheet" href="/lib/surveyjs/survey-core.min.css">
-<style>
-  :root {
-    --paper: #f3f5f7; --surface: #ffffff; --ink: #1d2b3a; --muted: #5b6b7b; --line: #d5dce3;
-    --tenant: #0f6e6e; --tenant-soft: #e3f1f0;
-    --pending: #9a6416; --pending-soft: #fbf0dc;
-    --approved: #2f7a4b; --approved-soft: #e2f2e7;
-    --rejected: #b23b2e; --rejected-soft: #f8e4e1;
-    color-scheme: light;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --paper: #141b22; --surface: #1c252e; --ink: #e4e9ee; --muted: #9aa8b5; --line: #2f3b47;
-      --tenant: #5cc2bd; --tenant-soft: #17302f;
-      --pending: #e3b25e; --pending-soft: #33291a;
-      --approved: #74c693; --approved-soft: #1b3024;
-      --rejected: #ec8a7e; --rejected-soft: #3a2220;
-      color-scheme: dark;
-    }
-  }
-  body[data-tenant="globex"] { --tenant: #4a4fb0; --tenant-soft: #e7e8f7; }
-  @media (prefers-color-scheme: dark) { body[data-tenant="globex"] { --tenant: #9ea2ee; --tenant-soft: #24264a; } }
-
-  * { box-sizing: border-box; }
-  [hidden] { display: none !important; }
-  body { margin: 0; background: var(--paper); color: var(--ink);
-    font: 15px/1.5 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
-  button, input, select, textarea { font: inherit; color: inherit; }
-  :focus-visible { outline: 2px solid var(--tenant); outline-offset: 2px; }
-
-  .identity { background: var(--tenant); color: #fff; padding: 14px 24px; display: flex; flex-wrap: wrap;
-    gap: 12px 28px; align-items: center; }
-  @media (prefers-color-scheme: dark) { .identity { color: #0e1418; } }
-  .identity h1 { margin: 0 auto 0 0; font-size: 17px; font-weight: 600; }
-  .identity label { display: flex; gap: 8px; align-items: center; font-size: 14px; }
-  .identity select { background: rgba(255,255,255,.95); color: #1d2b3a; border: 0; border-radius: 4px; padding: 5px 8px; min-width: 190px; }
-
-  .shell { display: grid; grid-template-columns: 200px 1fr; min-height: calc(100vh - 60px); }
-  nav { border-right: 1px solid var(--line); padding: 20px 12px; display: flex; flex-direction: column; gap: 2px; }
-  nav button { text-align: left; background: none; border: 0; padding: 9px 12px; border-radius: 4px; cursor: pointer;
-    display: flex; justify-content: space-between; }
-  nav button[aria-current="page"] { background: var(--tenant-soft); color: var(--tenant); font-weight: 600; }
-  .count { background: var(--tenant); color: var(--surface); border-radius: 10px; padding: 0 7px; font-size: 12px; }
-  main { padding: 28px 32px; max-width: 1100px; }
-  h2 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
-  .lead { color: var(--muted); margin: 0 0 22px; max-width: 70ch; }
-
-  .split { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.3fr); gap: 28px; align-items: start; }
-  .split > * { min-width: 0; } /* grid items default to min-width:auto (content size); without this, a wide table in the left column overflows into the preview column instead of scrolling */
-  @media (max-width: 860px) { .shell { grid-template-columns: 1fr; } nav { flex-direction: row; flex-wrap: wrap; border: 0; }
-    .split { grid-template-columns: 1fr; } main { padding: 20px; } }
-
-  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 20px; }
-  .rows { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
-  .rows li + li { border-top: 1px solid var(--line); }
-  .rows button { width: 100%; background: none; border: 0; padding: 12px 16px; text-align: left; cursor: pointer;
-    display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; }
-  .rows button[aria-pressed="true"] { background: var(--tenant-soft); }
-  .rows small { color: var(--muted); }
-  .empty { color: var(--muted); padding: 18px 16px; }
-
-  .status { font-size: 13px; font-weight: 600; padding: 1px 8px; border-radius: 3px; align-self: start; white-space: nowrap; }
-  .status.Pending, .status.InProcess, .status.Submitted, .status.Draft { background: var(--pending-soft); color: var(--pending); }
-  .status.Approved, .status.Completed, .status.Published { background: var(--approved-soft); color: var(--approved); }
-  .status.Rejected { background: var(--rejected-soft); color: var(--rejected); }
-  .status.Retired { background: var(--paper); color: var(--muted); }
-
-  .field { margin-bottom: 14px; }
-  .field label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 4px; }
-  .field .req { color: var(--rejected); }
-  .field input, .field select, .field textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line);
-    border-radius: 4px; background: var(--surface); }
-  .field input[type=checkbox] { width: auto; }
-  .field textarea { min-height: 70px; resize: vertical; }
-  .field .value { padding: 6px 0; border-bottom: 1px dashed var(--line); min-height: 34px; }
-  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; align-items: center; }
-  .btn { border: 1px solid var(--tenant); background: var(--tenant); color: var(--surface); padding: 8px 16px;
-    border-radius: 4px; cursor: pointer; font-weight: 600; }
-  .btn.secondary { background: transparent; color: var(--tenant); }
-  .btn.approve { background: var(--approved); border-color: var(--approved); }
-  .btn.reject { background: var(--rejected); border-color: var(--rejected); }
-  .btn:disabled { opacity: .5; cursor: default; }
-  .message { margin: 0 0 16px; padding: 10px 14px; border-radius: 4px; }
-  .message.error { background: var(--rejected-soft); color: var(--rejected); }
-  .message.ok { background: var(--approved-soft); color: var(--approved); }
-
-  .meta { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
-  h3 { font-size: 16px; margin: 22px 0 10px; }
-  .timeline { list-style: none; margin: 0; padding: 0 0 0 16px; border-left: 2px solid var(--line); }
-  .timeline li { position: relative; padding: 0 0 12px 8px; }
-  .timeline li::before { content: ""; position: absolute; left: -22px; top: 7px; width: 10px; height: 10px;
-    border-radius: 50%; background: var(--tenant); }
-  .timeline time { color: var(--muted); font-size: 13px; display: block; }
-  .steps { width: 100%; border-collapse: collapse; font-size: 14px; }
-  .steps th, .steps td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  .steps th { color: var(--muted); font-weight: 600; }
-  textarea.schema { width: 100%; min-height: 420px; font: 13px/1.45 Consolas, "Cascadia Mono", monospace;
-    padding: 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
-  .versions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-  .versions span { border: 1px solid var(--line); border-radius: 4px; padding: 3px 10px; font-size: 14px; }
-  #editor { overflow-x: auto; }
-  .fieldrows { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 14px; }
-  .fieldrows td, .fieldrows th { padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
-  .fieldrows th { color: var(--muted); font-weight: 600; }
-  .fieldrows input[type=text], .fieldrows select { width: 100%; padding: 5px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
-  .fieldrows .flags label { display: block; font-size: 13px; white-space: nowrap; }
-  .icon { background: none; border: 1px solid var(--line); border-radius: 4px; padding: 2px 7px; cursor: pointer; }
-  .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
-  .tabs button { border: 1px solid var(--line); background: var(--surface); padding: 5px 12px; border-radius: 4px; cursor: pointer; }
-  .tabs button[aria-pressed="true"] { border-color: var(--tenant); color: var(--tenant); font-weight: 600; }
-  .inline { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end; }
-  .inline .field { margin: 0; }
-  @media (prefers-reduced-motion: no-preference) { .flash { animation: flash .6s ease-out; } }
-  @keyframes flash { from { background: var(--tenant-soft); } }
-</style>
+<link rel="stylesheet" href="/css/workmate-theme.css">
+<link rel="icon" href="/branding/workmate.svg">
 </head>
-<body data-tenant="acme">
-<header class="identity" id="identityBar" hidden>
-  <h1>Workmate HRM</h1>
-  <span id="whoAmI" class="meta" style="color:inherit;margin:0"></span>
-  <label id="actAsWrap" hidden>Acting as <select id="actAsTenant"></select></label>
-  <label>Renderer <select id="rendererOverride">
-    <option value="">Per form/company</option>
-    <option value="native">Native</option>
-    <option value="surveyjs">SurveyJS</option></select></label>
-  <label><input type="checkbox" id="rtlToggle"> RTL</label>
-  <button class="btn secondary" id="signOut" type="button">Sign out</button>
-</header>
-<div class="shell" id="shell" hidden>
-  <nav aria-label="Sections">
-    <button data-view="new" aria-current="page">New request</button>
-    <button data-view="mine">My requests</button>
-    <button data-view="inbox">Inbox <span class="count" id="inboxCount" hidden></span></button>
-    <button data-view="designer" id="designerNav" hidden>Form designer</button>
-    <button data-view="workflows" id="workflowsNav" hidden>Workflow designer</button>
-    <button data-view="employees" id="employeesNav" hidden>Employees</button>
-    <button data-view="org" id="orgNav" hidden>Organisation</button>
-    <button data-view="emails" id="emailsNav" hidden>Email log</button>
-  </nav>
-  <main id="main"></main>
+<body class="abp-application-layout">
+<!-- Signed-in shell: LeptonX Lite's Application layout markup (research R3); the menu is built from permissions. -->
+<div class="lpx-scroll-container" id="shell" hidden>
+  <div id="lpx-wrapper">
+    <div class="lpx-mobile-navbar-container">
+      <header class="lpx-mobile-navbar">
+        <div class="lpx-logo-container"><a class="wm-brand" href="#" data-home><img alt="" data-brand-logo><span data-brand-name>Workmate HRM</span></a></div>
+        <div class="user-menu">
+          <i class="lpx-icon bi bi-person lpx-toggle" data-lpx-toggle="mobile-user-menu-group" aria-hidden="true"></i>
+          <i class="lpx-icon bi bi-list lpx-toggle" data-lpx-toggle="mobile-navbar" aria-hidden="true"></i>
+        </div>
+      </header>
+      <div class="user-menu-groups d-none" id="mobile-user-menu-group">
+        <span class="nav-link" data-user-label></span>
+        <a class="nav-link" role="button" href="#" data-sign-out>Sign out</a>
+      </div>
+      <nav class="lpx-mobile-nav-items d-none" id="mobile-navbar" aria-label="Sections">
+        <ul class="lpx-nav-menu" id="mobile-sidebar"></ul>
+      </nav>
+    </div>
+    <div class="lpx-sidebar-container">
+      <div class="lpx-sidebar lpx-scroll-container" id="lpx-sidebar">
+        <nav class="lpx-nav" aria-label="Sections">
+          <div class="lpx-logo-container">
+            <a class="wm-brand" href="#" data-home><img alt="" data-brand-logo><span data-brand-name class="hidden-in-hover-trigger">Workmate HRM</span></a>
+            <i class="lpx-icon bi bi-filter-left menu-collapse-icon hidden-in-hover-trigger" aria-hidden="true" data-lpx-toggle="sidebar"></i>
+          </div>
+          <ul class="lpx-nav-menu" id="desktop-sidebar"></ul>
+        </nav>
+      </div>
+    </div>
+    <div class="lpx-content-container">
+      <div class="lpx-topbar-container">
+        <div class="lpx-topbar">
+          <h1 id="pageTitle">Workmate HRM</h1>
+          <div class="lpx-topbar-content">
+            <label id="actAsWrap" hidden>Acting as <select id="actAsTenant"></select></label>
+            <label>Renderer <select id="rendererOverride">
+              <option value="">Per form/company</option>
+              <option value="native">Native</option>
+              <option value="surveyjs">SurveyJS</option></select></label>
+            <label><input type="checkbox" id="rtlToggle"> RTL</label>
+            <div class="dropdown">
+              <button class="wm-user dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="wm-avatar" id="userInitial">?</span><span id="whoAmI"></span></button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><span class="dropdown-item-text small" data-user-label></span></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#" data-sign-out><i class="bi bi-box-arrow-right me-2" aria-hidden="true"></i>Sign out</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="lpx-content"><main id="main"></main></div>
+    </div>
+  </div>
 </div>
-<main id="signInShell" style="max-width:420px;margin:60px auto;padding:0 20px">
-  <h2>Sign in</h2>
-  <p class="lead">Use your work email and password. There is no sign-up — the vendor admin or your company admin creates your account.</p>
-  <div id="signInMsg"></div>
-  <form class="panel" id="signInForm" novalidate>
-    <div class="field"><label for="siCompany">Company</label><select id="siCompany">
-      <option value="">Vendor / host (no company)</option></select></div>
-    <div class="field"><label for="siEmail">Email</label><input id="siEmail" type="email" required autocomplete="username"></div>
-    <div class="field"><label for="siPassword">Password</label><input id="siPassword" type="password" required autocomplete="current-password"></div>
-    <div class="actions"><button class="btn" type="submit">Sign in</button>
-      <button class="btn secondary" type="button" id="forgotLink">Forgot password?</button></div>
-  </form>
-  <!-- Spec 005: passwords are only ever chosen from an emailed one-time link -->
-  <form class="panel" id="forgotForm" novalidate hidden>
-    <p class="meta">Pick your company above, then enter your work email. We'll email you a link to choose a new password.</p>
-    <div class="field"><label for="fpEmail">Email</label><input id="fpEmail" type="email" required autocomplete="username"></div>
-    <div class="actions"><button class="btn" type="submit">Email me a link</button>
-      <button class="btn secondary" type="button" id="forgotCancel">Back to sign-in</button></div>
-  </form>
-  <form class="panel" id="setPasswordForm" novalidate hidden>
-    <p class="meta">Choose your password. It needs at least 6 characters, with an upper-case letter, a lower-case letter, a digit and a symbol.</p>
-    <div class="field"><label for="spPassword">New password</label><input id="spPassword" type="password" required autocomplete="new-password"></div>
-    <div class="field"><label for="spConfirm">Repeat it</label><input id="spConfirm" type="password" required autocomplete="new-password"></div>
-    <div class="actions"><button class="btn" type="submit">Set password</button></div>
-  </form>
+
+<!-- Sign-in, forgot and set password (specs 003/005), in the theme's account-page look (clarification Q2). -->
+<main id="signInShell" class="wm-account">
+  <div class="wm-account-card">
+    <div class="wm-account-brand"><img alt="" data-brand-logo><strong data-brand-name>Workmate HRM</strong></div>
+    <div class="panel">
+      <h2>Sign in</h2>
+      <p class="lead">Use your work email and password. There is no sign-up: the vendor admin or your company admin creates your account.</p>
+      <div id="signInMsg"></div>
+      <div class="field" id="companyField"><label for="siCompany">Company</label><select id="siCompany">
+        <option value="">Vendor / host (no company)</option></select></div>
+      <form id="signInForm" novalidate>
+        <div class="field"><label for="siEmail">Email</label><input id="siEmail" type="email" required autocomplete="username"></div>
+        <div class="field"><label for="siPassword">Password</label><input id="siPassword" type="password" required autocomplete="current-password"></div>
+        <div class="actions"><button class="btn" type="submit">Sign in</button>
+          <button class="btn btn-link" type="button" id="forgotLink">Forgot password?</button></div>
+      </form>
+      <!-- Spec 005: passwords are only ever chosen from an emailed one-time link -->
+      <form id="forgotForm" novalidate hidden>
+        <p class="meta">Pick your company above, then enter your work email. We'll email you a link to choose a new password.</p>
+        <div class="field"><label for="fpEmail">Email</label><input id="fpEmail" type="email" required autocomplete="username"></div>
+        <div class="actions"><button class="btn" type="submit">Email me a link</button>
+          <button class="btn secondary" type="button" id="forgotCancel">Back to sign-in</button></div>
+      </form>
+      <form id="setPasswordForm" novalidate hidden>
+        <p class="meta">Choose your password. It needs at least 6 characters, with an upper-case letter, a lower-case letter, a digit and a symbol.</p>
+        <div class="field"><label for="spPassword">New password</label><input id="spPassword" type="password" required autocomplete="new-password"></div>
+        <div class="field"><label for="spConfirm">Repeat it</label><input id="spConfirm" type="password" required autocomplete="new-password"></div>
+        <div class="actions"><button class="btn" type="submit">Set password</button></div>
+      </form>
+    </div>
+  </div>
 </main>
 
+<script src="/Themes/LeptonXLite/Global/side-menu/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/Themes/LeptonXLite/Global/side-menu/js/lepton-x.bundle.min.js"></script>
 <!-- Vendored (no CDN at run time); if either fails to load, renderers.js falls back to the native renderer. -->
 <script src="/lib/surveyjs/survey.core.min.js"></script>
 <script src="/lib/surveyjs/survey-js-ui.min.js"></script>
@@ -183,7 +121,6 @@ const $ = (s, el = document) => el.querySelector(s);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const when = d => new Date(d).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 const statusLabel = s => ({ InProcess: "In approval" }[s] || s);
-const slug = name => (name || "").split(" ")[0].toLowerCase();
 
 // ---------- Sign-in: real OpenIddict password grant (spec 003), no X-Demo-User/__tenant per call ----------
 function decodeJwt(token) {
@@ -450,7 +387,7 @@ async function emailEditor(host, { base, fieldKeys }) {
       $("#emPreviewOut").innerHTML = `<h3>Preview with sample data</h3>
         <p><strong>Subject:</strong> ${esc(p.subject)}</p>
         <p class="meta">Text part</p><pre class="panel" style="white-space:pre-wrap;margin:0 0 12px">${esc(p.text)}</pre>
-        <p class="meta">HTML part</p><iframe sandbox="" title="HTML preview" style="width:100%;height:420px;border:1px solid var(--line);border-radius:6px;background:#fff"></iframe>`;
+        <p class="meta">HTML part</p><iframe sandbox="" title="HTML preview" style="width:100%;height:420px;border:1px solid var(--wm-line);border-radius:6px;background:#fff"></iframe>`;
       $("#emPreviewOut iframe").srcdoc = p.html;
     } catch (err) { $("#emailMsg").innerHTML = message("error", err.message); }
   });
@@ -950,29 +887,175 @@ async function viewEmails(main) {
   }));
 }
 
-const views = { new: viewNew, mine: viewMine, inbox: viewInbox, designer: viewDesigner, workflows: viewWorkflows, employees: viewEmployees, org: viewOrg, emails: viewEmails };
+// ---------- Branding (spec 007 US2): the company's name, colour and logo, used by the app and its emails ----------
+// The server validates and computes the readable colours; the preview here only mirrors them.
+function contrastText(hex) {
+  const lum = h => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255)
+    .map(x => x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const l = lum(hex);
+  return (l + 0.05) / 0.05 >= 1.05 / (l + 0.05) ? "#000000" : "#ffffff";
+}
+
+async function viewBranding(main) {
+  const b = await api("/api/poc/branding");
+  const colour = b.brandColor || b.effectiveBrandColor;
+  main.innerHTML = `
+    <h2>Branding</h2>
+    <p class="lead">Your company's name, colour and logo, shown to everyone in the company after their next page load, on the
+      sign-in screen once your company is picked, and in the emails Workmate sends. Text on your colour is switched to black
+      or white automatically so it stays readable.</p>
+    <div id="msg"></div>
+    <div class="split">
+      <div class="panel">
+        <div class="field"><label for="bName">Display name</label>
+          <input id="bName" maxlength="64" value="${esc(b.displayName || "")}" placeholder="${esc(b.effectiveDisplayName)}"></div>
+        <div class="field"><label for="bColourHex">Brand colour</label>
+          <div class="actions" style="margin:0"><input type="color" id="bColour" value="${esc(colour)}" aria-label="Pick a colour">
+            <input id="bColourHex" value="${esc(b.brandColor || "")}" placeholder="${esc(b.effectiveBrandColor)}" style="max-width:140px"></div>
+          <small class="meta" id="bTextNote"></small></div>
+        <div class="actions"><button class="btn" id="bSave">Save name and colour</button></div>
+        <h3>Logo</h3>
+        <p class="meta">PNG, JPEG or SVG, at most 200 KB. Shown 32 px high in the menu and larger on the sign-in screen.</p>
+        <div class="field"><input type="file" id="bLogo" accept="image/png,image/jpeg,image/svg+xml" aria-label="Logo file"></div>
+        <div class="actions"><button class="btn secondary" id="bUpload">Upload logo</button>
+          <button class="btn secondary" id="bRemoveLogo" ${b.logoUrl ? "" : "disabled"}>Remove logo</button></div>
+        <h3>Reset</h3>
+        <div class="actions"><button class="btn secondary" id="bReset">Reset to default</button>
+          <small class="meta" style="margin:0">Company name, the Workmate colour, no logo.</small></div>
+      </div>
+      <div>
+        <h3 style="margin-top:0">Preview</h3>
+        <div class="wm-preview-bar"><img id="pvLogo" alt=""><strong id="pvName"></strong></div>
+        <div class="wm-preview-body">
+          <div class="actions" style="margin:0"><button class="btn" id="pvButton" type="button" tabindex="-1">Primary button</button>
+            <span class="status Approved">Approved</span></div>
+          <div class="wm-preview-mail" id="pvMail">Email header</div>
+        </div>
+      </div>
+    </div>`;
+  const preview = () => {
+    const hex = /^#[0-9a-fA-F]{6}$/.test($("#bColourHex").value.trim()) ? $("#bColourHex").value.trim() : b.effectiveBrandColor;
+    const on = contrastText(hex);
+    const name = $("#bName").value.trim() || b.effectiveDisplayName;
+    $("#pvName").textContent = name;
+    $("#pvLogo").src = b.logoUrl || "/branding/workmate.svg";
+    for (const el of [$("#pvButton"), $("#pvMail")]) { el.style.background = hex; el.style.borderColor = hex; el.style.color = on; }
+    $("#pvMail").textContent = name;
+    $("#bTextNote").textContent = `Text on this colour will be ${on === "#000000" ? "black" : "white"}.`;
+  };
+  const done = async (dto, text) => { applyBranding(dto); setUserLabel(); await viewBranding(main); $("#msg").innerHTML = message("ok", text); };
+  const fail = err => { $("#msg").innerHTML = message("error", err.message); };
+  $("#bColour").addEventListener("input", e => { $("#bColourHex").value = e.target.value; preview(); });
+  $("#bColourHex").addEventListener("input", e => { if (/^#[0-9a-fA-F]{6}$/.test(e.target.value.trim())) $("#bColour").value = e.target.value.trim(); preview(); });
+  $("#bName").addEventListener("input", preview);
+  $("#bSave").addEventListener("click", async () => {
+    try { await done(await api("/api/poc/branding", { method: "PUT", body: JSON.stringify({ displayName: $("#bName").value, brandColor: $("#bColourHex").value }) }), "Saved. Everyone in the company sees it on their next page load."); }
+    catch (err) { fail(err); }
+  });
+  $("#bUpload").addEventListener("click", async () => {
+    const file = $("#bLogo").files[0];
+    if (!file) { fail(new Error("Choose a logo file.")); return; }
+    const form = new FormData(); form.append("logo", file);
+    const s = session(); const headers = { Accept: "application/json", Authorization: `Bearer ${s.token}` };
+    if (isHost(s) && $("#actAsTenant").value) headers["X-Act-As-Tenant"] = $("#actAsTenant").value;
+    try {
+      const res = await fetch("/api/poc/branding/logo", { method: "PUT", headers, body: form });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error?.message || `Upload failed (${res.status})`);
+      await done(body, "Logo uploaded.");
+    } catch (err) { fail(err); }
+  });
+  $("#bRemoveLogo").addEventListener("click", async () => {
+    try { await api("/api/poc/branding/logo", { method: "DELETE" }); await done(await api("/api/poc/branding"), "Logo removed."); } catch (err) { fail(err); }
+  });
+  $("#bReset").addEventListener("click", async () => {
+    if (!confirm("Reset the name, colour and logo to the defaults?")) return;
+    try { await api("/api/poc/branding", { method: "DELETE" }); await done(await api("/api/poc/branding"), "Back to the defaults."); } catch (err) { fail(err); }
+  });
+  preview();
+}
+
+const views = { new: viewNew, mine: viewMine, inbox: viewInbox, designer: viewDesigner, workflows: viewWorkflows, employees: viewEmployees, org: viewOrg, emails: viewEmails, branding: viewBranding };
+
+// ---------- Side menu (spec 007): LeptonX Lite menu markup, items filtered by the signed-in person's permissions.
+// Hiding an item is cosmetic only; the server refuses every admin call regardless (FR-003, Principle VII).
+const MENU = [
+  { view: "new", text: "New request", icon: "bi-plus-square" },
+  { view: "mine", text: "My requests", icon: "bi-send" },
+  { view: "inbox", text: "Inbox", icon: "bi-inbox" },
+  { view: "designer", text: "Form designer", icon: "bi-ui-checks", permission: "Workmate.Forms.Design" },
+  { view: "workflows", text: "Workflow designer", icon: "bi-diagram-3", permission: "Workmate.Workflows.Design" },
+  { view: "employees", text: "Employees", icon: "bi-people", permission: "Workmate.Employees.Manage" },
+  { view: "org", text: "Organisation", icon: "bi-building", permission: "Workmate.Org.Manage" },
+  { view: "emails", text: "Email log", icon: "bi-envelope", permission: "Workmate.Employees.Manage" },
+  { view: "branding", text: "Branding", icon: "bi-palette", permission: "Workmate.Branding.Manage" }
+];
+const menuItems = () => MENU.filter(m => !m.permission || hasPermission(m.permission));
+
+function drawMenu() {
+  const html = menuItems().map(m => `
+    <li class="outer-menu-item"><a href="#" class="lpx-menu-item-link lpx-menu-item ${m.view === state.view ? "selected" : ""}" data-view="${m.view}"
+        ${m.view === state.view ? 'aria-current="page"' : ""}>
+      <span class="lpx-menu-item-icon"><i class="lpx-icon bi ${m.icon}" aria-hidden="true"></i></span>
+      <span class="lpx-menu-item-text hidden-in-hover-trigger">${esc(m.text)}</span>
+      ${m.view === "inbox" ? `<span class="count hidden-in-hover-trigger" data-inbox-count hidden></span>` : ""}</a></li>`).join("");
+  for (const id of ["#desktop-sidebar", "#mobile-sidebar"]) $(id).innerHTML = html;
+  document.querySelectorAll(".lpx-nav-menu [data-view]").forEach(a => a.addEventListener("click", e => {
+    e.preventDefault();
+    state.view = a.dataset.view; state.selected = null;
+    $("#mobile-navbar").classList.add("d-none"); // close the mobile menu after picking
+    render();
+  }));
+  $("#pageTitle").textContent = MENU.find(m => m.view === state.view)?.text || "";
+}
 
 async function refreshInboxCount() {
-  try { const n = (await api("/api/poc/tasks/inbox")).length; const el = $("#inboxCount"); el.textContent = n; el.hidden = n === 0; }
-  catch { $("#inboxCount").hidden = true; }
+  let n = 0;
+  try { n = (await api("/api/poc/tasks/inbox")).length; } catch { /* count stays hidden */ }
+  document.querySelectorAll("[data-inbox-count]").forEach(el => { el.textContent = n; el.hidden = n === 0; });
 }
 
 async function render() {
-  $("#designerNav").hidden = !hasPermission("Workmate.Forms.Design");
-  $("#workflowsNav").hidden = !hasPermission("Workmate.Workflows.Design");
-  if (state.view === "designer" && !hasPermission("Workmate.Forms.Design")) state.view = "new";
-  if (state.view === "workflows" && !hasPermission("Workmate.Workflows.Design")) state.view = "new";
-  $("#employeesNav").hidden = !hasPermission("Workmate.Employees.Manage");
-  if (state.view === "employees" && !hasPermission("Workmate.Employees.Manage")) state.view = "new";
-  $("#orgNav").hidden = !hasPermission("Workmate.Org.Manage");
-  if (state.view === "org" && !hasPermission("Workmate.Org.Manage")) state.view = "new";
-  $("#emailsNav").hidden = !hasPermission("Workmate.Employees.Manage");
-  if (state.view === "emails" && !hasPermission("Workmate.Employees.Manage")) state.view = "new";
-  document.querySelectorAll("nav button").forEach(b => b.toggleAttribute("aria-current", b.dataset.view === state.view));
-  document.querySelectorAll("nav button[aria-current]").forEach(b => b.setAttribute("aria-current", "page"));
+  if (!menuItems().some(m => m.view === state.view)) state.view = "new";
+  drawMenu();
   const main = $("#main");
   try { await views[state.view](main); } catch (err) { main.innerHTML = message("error", err.message); }
   refreshInboxCount();
+}
+
+// ---------- Company branding (spec 007 US2): the server computes readable colours; this only applies them.
+function applyBranding(b) {
+  state.branding = b;
+  const root = document.documentElement.style;
+  const hex = b.effectiveBrandColor;
+  const rgb = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(", ");
+  root.setProperty("--wm-brand", hex);
+  root.setProperty("--wm-brand-rgb", rgb);
+  root.setProperty("--wm-on-brand", b.onBrandColor);
+  root.setProperty("--wm-brand-text", b.brandTextColor);
+  root.setProperty("--wm-brand-soft", b.brandSoftColor);
+  const logo = b.logoUrl || "/branding/workmate.svg";
+  root.setProperty("--lpx-logo", `url("${logo}")`);
+  root.setProperty("--lpx-logo-icon", `url("${logo}")`);
+  document.querySelectorAll("[data-brand-logo]").forEach(img => {
+    img.hidden = false;
+    img.onerror = () => { img.hidden = true; }; // a broken logo falls back to the name alone (edge case)
+    img.src = logo;
+  });
+  document.querySelectorAll("[data-brand-name]").forEach(el => { el.textContent = b.effectiveDisplayName; el.title = b.effectiveDisplayName; });
+  document.title = b.effectiveDisplayName === "Workmate HRM" ? "Workmate HRM" : `${b.effectiveDisplayName} · Workmate HRM`;
+  document.querySelector("link[rel=icon]").href = logo;
+}
+
+async function loadBranding() {
+  try { applyBranding(await api("/api/poc/branding")); } catch { /* the product defaults from workmate-theme.css stay */ }
+}
+
+async function loadPublicBranding(query) {
+  try {
+    const res = await fetch(`/api/poc/branding/public?${new URLSearchParams(query)}`, { headers: { Accept: "application/json" } });
+    if (res.ok) applyBranding(await res.json());
+  } catch { /* defaults stay */ }
 }
 
 async function loadUsers() {
@@ -980,12 +1063,12 @@ async function loadUsers() {
   try { state.roles = await api("/api/poc/roles"); } catch { state.roles = []; }
 }
 
-document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => { state.view = b.dataset.view; state.selected = null; render(); }));
-$("#signOut").addEventListener("click", signOut);
+document.querySelectorAll("[data-sign-out]").forEach(a => a.addEventListener("click", e => { e.preventDefault(); signOut(); }));
+document.querySelectorAll("[data-home]").forEach(a => a.addEventListener("click", e => { e.preventDefault(); state.view = "new"; state.selected = null; render(); }));
 $("#actAsTenant").addEventListener("change", async () => {
   state.selected = null;
-  const t = state.tenants.find(x => x.id === $("#actAsTenant").value);
-  document.body.dataset.tenant = t ? slug(t.name) : "";
+  await loadBranding(); // the acted-as company's look (US2 AC2)
+  setUserLabel();
   // The vendor admin's permissions depend on which company they're now acting as (X-Act-As-Tenant
   // changes what /my-permissions reports) — must be re-fetched on every change, not just at sign-in.
   state.permissions = await api("/api/poc/my-permissions");
@@ -998,7 +1081,14 @@ $("#rendererOverride").addEventListener("change", e => {
   if (e.target.value) localStorage.setItem("rendererOverride", e.target.value); else localStorage.removeItem("rendererOverride");
   render();
 });
-$("#rtlToggle").addEventListener("change", e => { document.documentElement.dir = e.target.checked ? "rtl" : "ltr"; });
+// RTL also swaps each theme stylesheet to the right-to-left twin the theme ships (research R6).
+$("#rtlToggle").addEventListener("change", e => {
+  const rtl = e.target.checked;
+  document.documentElement.dir = rtl ? "rtl" : "ltr";
+  document.querySelectorAll("link[data-theme-css]").forEach(l => {
+    l.href = rtl ? l.href.replace(/(?<!\.rtl)\.css$/, ".rtl.css") : l.href.replace(/\.rtl\.css$/, ".css");
+  });
+});
 
 $("#signInForm").addEventListener("submit", async e => {
   e.preventDefault();
@@ -1034,6 +1124,7 @@ $("#setPasswordForm").addEventListener("submit", async e => {
   }
   history.replaceState(null, "", location.pathname); // the link works once; don't leave it in the address bar
   showSignInPanel("signInForm");
+  $("#companyField").hidden = false;
   $("#signInMsg").innerHTML = message("ok", "Your password is set. Pick your company and sign in.");
 });
 
@@ -1053,42 +1144,61 @@ function applyDeepLink() {
   state.view = link.view; state.selected = link.submission || null;
 }
 
+function setUserLabel() {
+  const s = session();
+  const who = s?.claims.preferred_username || s?.claims.email || "Signed in";
+  $("#whoAmI").textContent = who;
+  $("#userInitial").textContent = who.charAt(0).toUpperCase();
+  const company = isHost(s) ? `vendor admin, acting as ${state.branding?.effectiveDisplayName || "no company"}` : state.branding?.effectiveDisplayName;
+  document.querySelectorAll("[data-user-label]").forEach(el => { el.textContent = company ? `${who} · ${company}` : who; });
+}
+
 async function afterSignIn() {
   const s = session();
   $("#signInShell").hidden = true;
-  $("#identityBar").hidden = false;
   $("#shell").hidden = false;
-  $("#whoAmI").textContent = s.claims.preferred_username || s.claims.email || "Signed in";
 
   if (isHost(s)) {
     state.tenants = await api("/api/poc/tenants");
     $("#actAsWrap").hidden = false;
     $("#actAsTenant").innerHTML = state.tenants.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
-    document.body.dataset.tenant = slug(state.tenants[0]?.name);
     // Populating innerHTML auto-selects the first <option>, but that's a DOM default, not a user
     // "change" event — my-permissions must be fetched AFTER this, with that selection already in
     // place, or a host user's permissions come back host-only (no company acted-as yet).
     state.permissions = await api("/api/poc/my-permissions");
   } else {
     $("#actAsWrap").hidden = true;
-    document.body.removeAttribute("data-tenant");
     state.permissions = await api("/api/poc/my-permissions");
   }
+  await loadBranding();
+  setUserLabel();
   await loadUsers();
   applyDeepLink();
   render();
 }
+
+// LeptonX Lite's own start-up (what its MVC initializer script does), minus its toast demo: that demo expects
+// jQuery, which this page doesn't load, and run() stops at the first exception, so the sidebar, toggle and
+// mobile-menu steps after it would never run (found by a headless-browser check, spec 007).
+if (window.leptonx) { leptonx.init.initializers.delete("initToasterDemo"); leptonx.init.run(); }
 
 (async () => {
   takeDeepLink();
   const setPassword = new URLSearchParams(location.search).get("setPassword") === "1";
   const s = session();
   if (s && !setPassword) { await afterSignIn(); return; }
-  if (setPassword) { sessionStorage.removeItem("accessToken"); showSignInPanel("setPasswordForm"); }
+  const q = new URLSearchParams(location.search);
+  if (setPassword) {
+    sessionStorage.removeItem("accessToken"); showSignInPanel("setPasswordForm");
+    $("#companyField").hidden = true; // the link already names the company
+    loadPublicBranding(q.get("tenant") ? { tenantId: q.get("tenant") } : {});
+  } else loadPublicBranding({});
   try {
     const tenants = await api("/api/poc/tenants");
     $("#siCompany").innerHTML += tenants.map(t => `<option value="${esc(t.name)}">${esc(t.name)}</option>`).join("");
   } catch { /* sign-in screen still works without the picker pre-filled */ }
+  // The picked company's logo, name and colour on the sign-in screen (R11); none picked = product defaults.
+  $("#siCompany").addEventListener("change", e => loadPublicBranding(e.target.value ? { company: e.target.value } : {}));
 })();
 </script>
 </body>

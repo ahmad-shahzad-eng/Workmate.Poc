@@ -1,0 +1,174 @@
+/*
+  Workmate HRM on ABP's LeptonX Lite theme (spec 007, research R4/R5).
+  1. Brand variables: set per company by applyBranding() in index.html; defaults are the product's.
+  2. They drive the theme (--lpx-brand, --lpx-logo) and Bootstrap's primary colour, which bootstrap-dim.css
+     compiles in as #355dff, so it is overridden here.
+  3. The page's own components keep their class names and are restyled on top of the theme.
+  The theme's font-bundle.css is not used: it imports Inter from Google Fonts (FR-013), so the system font is used.
+*/
+:root {
+  --wm-brand: #355dff;
+  --wm-brand-rgb: 53, 93, 255;
+  --wm-on-brand: #ffffff;
+  --wm-brand-text: #355dff;
+  --wm-brand-soft: #e7ecff;
+  --wm-surface: #ffffff;
+  --wm-paper: #f5f5f7;
+  --wm-line: #e7e9ec;
+  --wm-ink: #262a33;
+  --wm-muted: #5f6368;
+  --wm-ok: #1f7a3d;      --wm-ok-soft: #e3f4e8;
+  --wm-wait: #8a5300;    --wm-wait-soft: #fdf0dc;
+  --wm-bad: #b0123f;     --wm-bad-soft: #fbe4ea;
+
+  --lpx-brand: var(--wm-brand);
+  --lpx-primary: var(--wm-brand);
+  --lpx-logo: url("/branding/workmate.svg");
+  --lpx-logo-icon: url("/branding/workmate.svg");
+  --bs-primary: var(--wm-brand);
+  --bs-primary-rgb: var(--wm-brand-rgb);
+  --bs-link-color: var(--wm-brand-text);
+  --bs-link-color-rgb: var(--wm-brand-rgb);
+  --bs-link-hover-color: var(--wm-brand-text);
+  --bs-focus-ring-color: rgba(var(--wm-brand-rgb), .35);
+  --bs-body-font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --sjs-primary-backcolor: var(--wm-brand);
+  --sjs-primary-backcolor-dark: var(--wm-brand-text);
+  --sjs-primary-forecolor: var(--wm-on-brand);
+}
+
+body { font-family: var(--bs-body-font-family); }
+[hidden] { display: none !important; }
+.lpx-content { color: var(--wm-ink); font-size: 15px; line-height: 1.5; padding: 24px 28px 40px; }
+:focus-visible { outline: 2px solid var(--wm-brand-text); outline-offset: 2px; }
+
+/* ---------- Shell: brand logo + name, top bar, menu ---------- */
+.lpx-brand-logo { background-size: auto 32px; min-width: 32px; }
+.wm-brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; min-width: 0; }
+.wm-brand img { height: 32px; width: auto; max-width: 140px; object-fit: contain; flex: none; }
+.wm-brand span { font-weight: 600; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+.lpx-sidebar-container:not(:hover) .hover-trigger .wm-brand span { display: none; }
+.lpx-mobile-navbar .wm-brand span { color: inherit; }
+#lpx-wrapper .lpx-topbar { align-items: center; padding: 10px 28px; gap: 12px; flex-wrap: wrap; border-radius: 0; }
+@media (max-width: 860px) {
+  #lpx-wrapper .lpx-topbar { padding: 8px 16px; }
+  #lpx-wrapper .lpx-topbar h1 { width: 100%; }
+  .lpx-topbar-content { gap: 8px 12px; }
+  .lpx-topbar-content select { min-width: 0; }
+}
+.lpx-topbar h1 { font-size: 15px; font-weight: 600; margin: 0; color: var(--wm-ink); }
+.lpx-topbar-content { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.lpx-topbar-content label { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0; color: var(--wm-muted); }
+.lpx-topbar-content select { font-size: 13px; padding: 4px 8px; width: auto; min-width: 150px; }
+.wm-user { border: 0; background: none; display: flex; align-items: center; gap: 8px; color: var(--wm-ink); font-size: 14px; }
+.wm-avatar { width: 30px; height: 30px; border-radius: 50%; display: inline-grid; place-items: center; font-weight: 600;
+  background: var(--wm-brand); color: var(--wm-on-brand); }
+.lpx-menu-item .count { margin-left: auto; background: var(--wm-brand); color: var(--wm-on-brand); border-radius: 10px;
+  padding: 0 7px; font-size: 12px; line-height: 18px; height: 18px; align-self: center; flex: none; }
+.lpx-menu-item-link.selected { box-shadow: inset 3px 0 0 var(--wm-brand); }
+[dir="rtl"] .lpx-menu-item-link.selected { box-shadow: inset -3px 0 0 var(--wm-brand); }
+
+/* ---------- Bootstrap primary follows the brand ---------- */
+.btn-primary, .btn:not(.secondary):not(.approve):not(.reject):not(.btn-outline-primary):not(.btn-link):not(.btn-light) {
+  --bs-btn-bg: var(--wm-brand); --bs-btn-border-color: var(--wm-brand); --bs-btn-color: var(--wm-on-brand);
+  --bs-btn-hover-bg: var(--wm-brand-text); --bs-btn-hover-border-color: var(--wm-brand-text); --bs-btn-hover-color: #fff;
+  --bs-btn-active-bg: var(--wm-brand-text); --bs-btn-active-border-color: var(--wm-brand-text); --bs-btn-active-color: #fff;
+  --bs-btn-disabled-bg: var(--wm-brand); --bs-btn-disabled-border-color: var(--wm-brand); --bs-btn-disabled-color: var(--wm-on-brand);
+}
+.btn.secondary, .btn-outline-primary {
+  --bs-btn-bg: transparent; --bs-btn-border-color: var(--wm-brand-text); --bs-btn-color: var(--wm-brand-text);
+  --bs-btn-hover-bg: var(--wm-brand-soft); --bs-btn-hover-border-color: var(--wm-brand-text); --bs-btn-hover-color: var(--wm-brand-text);
+  --bs-btn-active-bg: var(--wm-brand-soft); --bs-btn-active-border-color: var(--wm-brand-text); --bs-btn-active-color: var(--wm-brand-text);
+  --bs-btn-disabled-color: var(--wm-brand-text); --bs-btn-disabled-border-color: var(--wm-brand-text);
+}
+.btn.approve { --bs-btn-bg: var(--wm-ok); --bs-btn-border-color: var(--wm-ok); --bs-btn-color: #fff;
+  --bs-btn-hover-bg: #17602f; --bs-btn-hover-border-color: #17602f; --bs-btn-hover-color: #fff; }
+.btn.reject { --bs-btn-bg: var(--wm-bad); --bs-btn-border-color: var(--wm-bad); --bs-btn-color: #fff;
+  --bs-btn-hover-bg: #8c0e32; --bs-btn-hover-border-color: #8c0e32; --bs-btn-hover-color: #fff; }
+.btn { font-weight: 600; font-size: 14px; padding: 7px 16px; }
+.form-control:focus, .form-select:focus, .lpx-content input:focus, .lpx-content select:focus, .lpx-content textarea:focus {
+  border-color: var(--wm-brand-text); box-shadow: 0 0 0 .2rem rgba(var(--wm-brand-rgb), .2); }
+a { color: var(--wm-brand-text); }
+
+/* ---------- Page components (class names unchanged from before spec 007) ---------- */
+h2 { font-size: 22px; font-weight: 600; margin: 0 0 4px; color: var(--wm-ink); }
+h3 { font-size: 16px; font-weight: 600; margin: 22px 0 10px; color: var(--wm-ink); }
+.lead { color: var(--wm-muted); margin: 0 0 22px; max-width: 70ch; font-size: 15px; }
+.meta { color: var(--wm-muted); font-size: 14px; margin: 0 0 16px; }
+.panel { background: var(--wm-surface); border: 1px solid var(--wm-line); border-radius: 8px; padding: 20px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }
+.split { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.3fr); gap: 28px; align-items: start; }
+.split > * { min-width: 0; }
+@media (max-width: 860px) { .split { grid-template-columns: 1fr; } .lpx-content { padding: 16px; } }
+
+.rows { list-style: none; margin: 0; padding: 0; background: var(--wm-surface); border: 1px solid var(--wm-line); border-radius: 8px; overflow: hidden; }
+.rows li + li { border-top: 1px solid var(--wm-line); }
+.rows button { width: 100%; background: none; border: 0; padding: 12px 16px; text-align: start; cursor: pointer; color: inherit;
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; }
+.rows button:hover { background: var(--wm-paper); }
+.rows button[aria-pressed="true"] { background: var(--wm-brand-soft); box-shadow: inset 3px 0 0 var(--wm-brand); }
+.rows small { color: var(--wm-muted); }
+.empty { color: var(--wm-muted); padding: 18px 16px; }
+
+.status { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px; align-self: start; white-space: nowrap; }
+.status.Pending, .status.InProcess, .status.Submitted, .status.Draft { background: var(--wm-wait-soft); color: var(--wm-wait); }
+.status.Approved, .status.Completed, .status.Published { background: var(--wm-ok-soft); color: var(--wm-ok); }
+.status.Rejected { background: var(--wm-bad-soft); color: var(--wm-bad); }
+.status.Retired { background: var(--wm-paper); color: var(--wm-muted); }
+
+.field { margin-bottom: 14px; }
+.field label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 4px; color: var(--wm-ink); }
+.req { color: var(--wm-bad); }
+.field input:not([type=checkbox]):not([type=radio]):not([type=color]), .field select, .field textarea,
+.fieldrows input[type=text], .fieldrows select, .lpx-topbar-content select {
+  display: block; width: 100%; padding: 7px 10px; font-size: 14px; color: var(--wm-ink); background: var(--wm-surface);
+  border: 1px solid #d4d7dd; border-radius: 6px; }
+.field input[type=checkbox] { width: auto; }
+.field input[type=color] { width: 56px; height: 38px; padding: 2px; border: 1px solid #d4d7dd; border-radius: 6px; background: var(--wm-surface); }
+.field textarea { min-height: 70px; resize: vertical; }
+.field .value { padding: 6px 0; border-bottom: 1px dashed var(--wm-line); min-height: 34px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; align-items: center; }
+.inline { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end; }
+.inline .field { margin: 0; }
+
+.message { margin: 0 0 16px; padding: 10px 14px; border-radius: 6px; border: 1px solid transparent; }
+.message.error { background: var(--wm-bad-soft); color: var(--wm-bad); border-color: #f3c3d0; }
+.message.ok { background: var(--wm-ok-soft); color: var(--wm-ok); border-color: #bfe3ca; }
+
+.timeline { list-style: none; margin: 0; padding: 0 0 0 16px; border-left: 2px solid var(--wm-line); }
+.timeline li { position: relative; padding: 0 0 12px 8px; }
+.timeline li::before { content: ""; position: absolute; left: -22px; top: 7px; width: 10px; height: 10px; border-radius: 50%; background: var(--wm-brand); }
+.timeline time { color: var(--wm-muted); font-size: 13px; display: block; }
+.steps, .fieldrows { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--wm-surface); }
+.steps th, .steps td, .fieldrows td, .fieldrows th { text-align: start; padding: 7px 8px; border-bottom: 1px solid var(--wm-line); vertical-align: top; }
+.steps th, .fieldrows th { color: var(--wm-muted); font-weight: 600; }
+.fieldrows { min-width: 760px; }
+.fieldrows .flags label { display: block; font-size: 13px; white-space: nowrap; }
+#editor { overflow-x: auto; }
+textarea.schema { width: 100%; min-height: 420px; font: 13px/1.45 Consolas, "Cascadia Mono", Menlo, monospace;
+  padding: 12px; border: 1px solid #d4d7dd; border-radius: 6px; background: var(--wm-surface); color: var(--wm-ink); }
+.versions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.versions span { border: 1px solid var(--wm-line); border-radius: 6px; padding: 3px 10px; font-size: 14px; background: var(--wm-surface); }
+.icon { background: var(--wm-surface); border: 1px solid var(--wm-line); border-radius: 6px; padding: 2px 8px; cursor: pointer; color: var(--wm-ink); }
+.tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--wm-line); flex-wrap: wrap; }
+.tabs button { border: 0; border-bottom: 2px solid transparent; background: none; padding: 7px 12px; cursor: pointer; color: var(--wm-muted); font-weight: 600; }
+.tabs button[aria-pressed="true"] { border-bottom-color: var(--wm-brand); color: var(--wm-brand-text); }
+code { color: var(--wm-bad); }
+@media (prefers-reduced-motion: no-preference) { .flash { animation: wm-flash .6s ease-out; } }
+@keyframes wm-flash { from { background: var(--wm-brand-soft); } }
+
+/* ---------- Sign-in screens: the theme's account-page look ---------- */
+.wm-account { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: var(--wm-paper); }
+.wm-account-card { width: 100%; max-width: 420px; }
+.wm-account-brand { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 18px; text-align: center; }
+.wm-account-brand img { height: 56px; width: auto; max-width: 220px; object-fit: contain; }
+.wm-account-brand strong { font-size: 20px; color: var(--wm-ink); }
+.wm-account .panel { padding: 24px; }
+.wm-account h2 { text-align: center; }
+.wm-account .lead { text-align: center; margin-inline: auto; }
+
+/* ---------- Branding page preview ---------- */
+.wm-preview-bar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #161616; color: #fff; border-radius: 8px 8px 0 0; }
+.wm-preview-bar img { height: 28px; width: auto; max-width: 120px; object-fit: contain; }
+.wm-preview-body { padding: 16px; border: 1px solid var(--wm-line); border-top: 0; border-radius: 0 0 8px 8px; background: var(--wm-surface); }
+.wm-preview-mail { margin-top: 12px; padding: 12px 16px; border-radius: 6px; font-weight: 600; }

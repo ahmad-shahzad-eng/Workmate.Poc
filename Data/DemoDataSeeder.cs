@@ -9,6 +9,7 @@ using Volo.Abp.PermissionManagement;
 using Volo.Abp.TenantManagement;
 using Volo.Abp.Uow;
 using Workmate.Poc.Application;
+using Workmate.Poc.Application.Branding;
 using Workmate.Poc.Domain;
 using Workmate.Poc.WorkflowEngine.Workflows;
 
@@ -35,6 +36,8 @@ public class DemoDataSeeder : ITransientDependency
     private readonly TenantAdminRoleSeeder _adminRoleSeeder;
     private readonly IPermissionManager _permissionManager;
     private readonly OpenIddictDataSeeder _openIddictSeeder;
+    private readonly IRepository<CompanyBranding, Guid> _brandings;
+    private readonly LogoValidator _logoValidator;
 
     public DemoDataSeeder(IUnitOfWorkManager uow, IDbContextProvider<PocDbContext> db, ICurrentTenant currentTenant,
         IGuidGenerator guids, IRepository<Employee, Guid> employees,
@@ -42,12 +45,14 @@ public class DemoDataSeeder : ITransientDependency
         IRepository<FormDefinition, Guid> forms, IRepository<FormDefinitionVersion, Guid> versions,
         IRepository<ProcessBinding, Guid> bindings, IRepository<CompanyFormSettings, Guid> companySettings,
         ITenantRepository tenants, TenantManager tenantManager, IdentityUserManager userManager,
-        TenantAdminRoleSeeder adminRoleSeeder, IPermissionManager permissionManager, OpenIddictDataSeeder openIddictSeeder)
+        TenantAdminRoleSeeder adminRoleSeeder, IPermissionManager permissionManager, OpenIddictDataSeeder openIddictSeeder,
+        IRepository<CompanyBranding, Guid> brandings, LogoValidator logoValidator)
     {
         _uow = uow; _db = db; _currentTenant = currentTenant; _guids = guids;
         _employees = employees; _jobRoles = jobRoles; _jobRoleLinks = jobRoleLinks; _forms = forms; _versions = versions; _bindings = bindings; _companySettings = companySettings;
         _tenants = tenants; _tenantManager = tenantManager; _userManager = userManager;
         _adminRoleSeeder = adminRoleSeeder; _permissionManager = permissionManager; _openIddictSeeder = openIddictSeeder;
+        _brandings = brandings; _logoValidator = logoValidator;
     }
 
     /// <summary>
@@ -128,6 +133,15 @@ public class DemoDataSeeder : ITransientDependency
             await _companySettings.InsertAsync(new CompanyFormSettings(_guids.Create(), abpTenant.Id)
             {
                 DefaultRenderer = withSickLeaveRoute ? FormRenderer.SurveyJs : FormRenderer.Native
+            });
+
+            // Spec 007 FR-012: each company keeps today's colour, now as data, with a monogram logo. The logo goes
+            // through the same validator as an admin upload.
+            var brandColor = withSickLeaveRoute ? "#0f6e6e" : "#4a4fb0";
+            var (logoType, logo) = _logoValidator.Validate(MonogramSvg(tenant.Name[0], brandColor));
+            await _brandings.InsertAsync(new CompanyBranding(_guids.Create(), abpTenant.Id)
+            {
+                DisplayName = tenant.Name, BrandColor = brandColor, Logo = logo, LogoContentType = logoType, LogoVersion = 1
             });
 
             // Creates the role + its permissions, and (spec 003 US1) also grants the vendor admin the
@@ -294,4 +308,10 @@ public class DemoDataSeeder : ITransientDependency
       ]
     }
     """;
+
+    /// <summary>A rounded square in the brand colour with the company's initial (demo logo).</summary>
+    private static byte[] MonogramSvg(char initial, string colour) => System.Text.Encoding.UTF8.GetBytes(
+        $"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" width=\"64\" height=\"64\">" +
+        $"<rect width=\"64\" height=\"64\" rx=\"14\" fill=\"{colour}\"/>" +
+        $"<text x=\"32\" y=\"43\" text-anchor=\"middle\" font-family=\"Segoe UI, Arial, sans-serif\" font-size=\"32\" font-weight=\"700\" fill=\"#ffffff\">{initial}</text></svg>");
 }

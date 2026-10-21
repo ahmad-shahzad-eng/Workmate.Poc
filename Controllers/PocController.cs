@@ -5,6 +5,7 @@ using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.TenantManagement;
 using Workmate.Poc.Application;
+using Workmate.Poc.Application.Branding;
 using Workmate.Poc.Application.Notifications;
 using Workmate.Poc.Domain;
 
@@ -31,17 +32,63 @@ public class PocController : AbpControllerBase
     private readonly AccountAppService _account;
     private readonly EmailLogAppService _emailLog;
     private readonly EmailTemplateAppService _emailTemplates;
+    private readonly BrandingAppService _branding;
 
     public PocController(FormAppService forms, SubmissionAppService submissions, TaskAppService tasks,
         RoutingAppService routing, ApprovalWorkflowAppService approvalWorkflows, IRepository<Employee, Guid> employees,
         ITenantRepository tenants, TenantOnboardingAppService onboarding, IPermissionChecker permissionChecker,
         EmployeeAppService employeeService, OrganizationAppService organization, AccountAppService account,
-        EmailLogAppService emailLog, EmailTemplateAppService emailTemplates)
+        EmailLogAppService emailLog, EmailTemplateAppService emailTemplates, BrandingAppService branding)
     {
         _forms = forms; _submissions = submissions; _tasks = tasks; _routing = routing;
         _approvalWorkflows = approvalWorkflows; _employees = employees; _tenants = tenants; _onboarding = onboarding;
         _permissionChecker = permissionChecker; _employeeService = employeeService; _organization = organization;
-        _account = account; _emailLog = emailLog; _emailTemplates = emailTemplates;
+        _account = account; _emailLog = emailLog; _emailTemplates = emailTemplates; _branding = branding;
+    }
+
+    // --- Branding (spec 007)
+    [HttpGet("branding")]
+    public Task<BrandingDto> GetBrandingAsync() => _branding.GetAsync();
+
+    /// <summary>Anonymous: the sign-in screen shows the picked company's name, colours and logo (FR-008).</summary>
+    [AllowAnonymous]
+    [HttpGet("branding/public")]
+    public Task<BrandingDto> GetPublicBrandingAsync([FromQuery] string? company = null, [FromQuery] Guid? tenantId = null) =>
+        _branding.GetPublicAsync(company, tenantId);
+
+    [HttpPut("branding")]
+    public Task<BrandingDto> SaveBrandingAsync([FromBody] SaveBrandingInput input) => _branding.SaveAsync(input);
+
+    /// <summary>Multipart upload (field "logo"). Read with a cap just over the limit, so a huge upload is refused
+    /// without buffering it all; the validator then gives the size message.</summary>
+    [HttpPut("branding/logo")]
+    [RequestSizeLimit(CompanyBranding.MaxLogoBytes + 64 * 1024)]
+    public async Task<BrandingDto> SetLogoAsync(IFormFile? logo)
+    {
+        if (logo == null) throw new Volo.Abp.UserFriendlyException("Choose a logo file.");
+        if (logo.Length > CompanyBranding.MaxLogoBytes) throw new Volo.Abp.UserFriendlyException("Logos can be at most 200 KB.");
+        using var buffer = new MemoryStream();
+        await logo.CopyToAsync(buffer);
+        return await _branding.SetLogoAsync(buffer.ToArray());
+    }
+
+    [HttpDelete("branding/logo")]
+    public Task RemoveLogoAsync() => _branding.RemoveLogoAsync();
+
+    [HttpDelete("branding")]
+    public Task ResetBrandingAsync() => _branding.ResetAsync();
+
+    /// <summary>Anonymous image. The CSP sandbox means even an SVG opened directly can never run script (research R8).</summary>
+    [AllowAnonymous]
+    [HttpGet("branding/logo/{tenantId:guid}")]
+    public async Task<IActionResult> GetLogoAsync(Guid tenantId)
+    {
+        var logo = await _branding.GetLogoAsync(tenantId);
+        if (logo is not { } l) return NotFound();
+        Response.Headers.CacheControl = "public, max-age=86400";
+        Response.Headers.XContentTypeOptions = "nosniff";
+        Response.Headers.ContentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+        return File(l.Bytes, l.ContentType);
     }
 
     [HttpPost("tenants")]
@@ -68,7 +115,8 @@ public class PocController : AbpControllerBase
         var all = new[]
         {
             WorkmatePermissions.FormsDesign, WorkmatePermissions.RoutingManage, WorkmatePermissions.WorkflowsDesign,
-            WorkmatePermissions.EmployeesManage, WorkmatePermissions.OrgManage, WorkmatePermissions.TenantsManage
+            WorkmatePermissions.EmployeesManage, WorkmatePermissions.OrgManage, WorkmatePermissions.BrandingManage,
+            WorkmatePermissions.TenantsManage
         };
         var result = new List<string>();
         foreach (var p in all)

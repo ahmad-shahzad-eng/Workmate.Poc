@@ -185,3 +185,13 @@ public class SetEmailSenderInput
 {
     public string? SenderName { get; set; }
 }
+
+// --- Branding (spec 007)
+public class SaveBrandingInput
+{
+    public string? DisplayName { get; set; }
+    public string? BrandColor { get; set; }
+}
+
+public record BrandingDto(string? DisplayName, string EffectiveDisplayName, string? BrandColor, string EffectiveBrandColor,
+    string OnBrandColor, string BrandTextColor, string BrandSoftColor, string? LogoUrl);

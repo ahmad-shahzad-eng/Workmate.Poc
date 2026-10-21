@@ -34,6 +34,9 @@
     <PackageReference Include="Volo.Abp.BackgroundJobs.Domain" Version="9.1.0" />
     <PackageReference Include="Volo.Abp.BackgroundJobs.EntityFrameworkCore" Version="9.1.0" />
 
+    <!-- Spec 007: ABP's free LeptonX Lite theme; 4.1.0 is the release built against ABP 9.1.0 -->
+    <PackageReference Include="Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite" Version="4.1.0" />
+
     <!-- Elsa Workflows 3 (core + management + runtime, in-memory stores by default) -->
     <PackageReference Include="Elsa" Version="3.7.0" />
     <PackageReference Include="Elsa.Persistence.EFCore.Sqlite" Version="3.7.0" />

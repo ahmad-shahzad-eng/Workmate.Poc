@@ -4,7 +4,7 @@
 PoC. Everyone signs in for real (spec 003) via OpenIddict's password grant at /connect/token — no more
 X-Demo-User header. Needs Mailpit running (spec 005): new accounts get their password only through an
 emailed link, and step 13 reads every email back from Mailpit's API. Stdlib only."""
-import json, sqlite3, sys, time, urllib.request, urllib.error, urllib.parse, os
+import json, os, re, sqlite3, sys, time, urllib.request, urllib.error, urllib.parse
 
 BASE = "http://localhost:5080/api/poc"
 TOKEN_URL = "http://localhost:5080/connect/token"
@@ -195,6 +195,50 @@ def emails_for_submission(admin_tok, sid, expected=None, wait=10):
         mine = [r for r in rows or [] if r.get("submissionId") == sid]
         if expected is None or len(mine) >= expected or time.time() > end: return mine
         time.sleep(1)
+
+# --- Branding (spec 007)
+def branding(tok, act_as_tenant=None):
+    _, b = call("GET", "/branding", tok, act_as_tenant=act_as_tenant)
+    return b or {}
+
+def public_branding(company=None, tenant_id=None):
+    q = urllib.parse.urlencode({k: v for k, v in {"company": company, "tenantId": tenant_id}.items() if v})
+    _, b = call("GET", f"/branding/public?{q}")
+    return b or {}
+
+def contrast(a, b):
+    """WCAG 2.x contrast ratio between two #rrggbb colours (checks the server's maths independently)."""
+    def lum(h):
+        c = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+    la, lb = sorted((lum(a), lum(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+def upload_logo(tok, filename, data, content_type="application/octet-stream"):
+    """PUT /branding/logo as multipart/form-data (field "logo"), stdlib only. Returns (code, payload)."""
+    boundary = "----wm" + str(int(time.time() * 1000))
+    body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"logo\"; filename=\"{filename}\"\r\n"
+            f"Content-Type: {content_type}\r\n\r\n").encode() + data + f"\r\n--{boundary}--\r\n".encode()
+    req = urllib.request.Request(BASE + "/branding/logo", data=body, method="PUT", headers={
+        "Authorization": f"Bearer {tok}", "Accept": "application/json", "Content-Type": f"multipart/form-data; boundary={boundary}"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r: raw, code = r.read().decode(), r.status
+    except urllib.error.HTTPError as e: raw, code = e.read().decode(), e.code
+    log(f"  PUT /branding/logo ({filename}, {len(data)} bytes) -> {code} {raw[:200]}")
+    try: return code, json.loads(raw) if raw else None
+    except ValueError: return code, raw
+
+def error_message(payload):
+    return ((payload or {}).get("error") or {}).get("message", "") if isinstance(payload, dict) else ""
+
+def raw_get(url):
+    """GET any URL on the app (not under /api/poc); returns (code, headers, body bytes)."""
+    try:
+        with urllib.request.urlopen(url, timeout=30) as r:
+            return r.status, dict(r.headers), r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, dict(e.headers), e.read()
 
 NEW_PASSWORD = "Demo-Pass1!"  # what demo.py chooses on every emailed set-password link
 
@@ -955,6 +999,109 @@ def s13_accounts_and_failures():
     code, resent = call("POST", f"/emails/{failed['id']}/resend", admin) if failed else (0, None)
     check("13i Resend puts the failed email back in the queue", code == 200 and (resent or {}).get("status") == "Queued", f"http {code}")
 
+def s14():
+    """Spec 007: the LeptonX Lite look (US1) and per-company branding (US2)."""
+    t = tokens_for(ACME, ["Sara", "Khalid"]); g = tokens_for(GLOBEX, ["Ali"])
+    s14_seeded_and_assets(t, g)
+    s14_company_branding(t, g)
+
+def s14_seeded_and_assets(t, g):
+    """14a seeded branding per company (FR-012); 14h the page loads only same-origin theme files (FR-013)."""
+    acme, globex = branding(t["Sara"]), branding(g["Ali"])
+    code, headers, _ = raw_get("http://localhost:5080" + acme.get("logoUrl", "/missing"))
+    check("14a Acme's seeded branding: its colour, name and an SVG logo",
+          acme.get("effectiveBrandColor") == "#0f6e6e" and acme.get("effectiveDisplayName") == ACME
+          and code == 200 and headers.get("Content-Type", "").startswith("image/svg+xml"), str(acme)[:160])
+    check("14a Globex's seeded branding is its own", globex.get("effectiveBrandColor") == "#4a4fb0"
+          and globex.get("effectiveDisplayName") == GLOBEX and globex.get("logoUrl") != acme.get("logoUrl"), str(globex)[:160])
+
+    _, _, page = raw_get("http://localhost:5080/")
+    html = page.decode()
+    urls = re.findall(r'(?:href|src)="([^"#]+)"', html)
+    external = [u for u in urls if re.match(r"https?://", u) and not u.startswith("http://localhost:5080")]
+    local = [u for u in urls if u.startswith("/")]
+    broken = [u for u in local if raw_get("http://localhost:5080" + u)[0] != 200]
+    themed = any(u.startswith("/Themes/LeptonXLite/") for u in local) and "lpx-wrapper" in html
+    check("14h the page uses the LeptonX Lite theme and loads only same-origin files, all of which exist",
+          themed and not external and not broken, f"external={external} broken={broken} files={len(local)}")
+
+def s14_company_branding(t, g):
+    """US2: an admin changes the company's branding; it stays inside that company and reaches its emails."""
+    sara, khalid = t["Sara"], t["Khalid"]
+    seeded = branding(sara)
+    _, _, seeded_logo = raw_get("http://localhost:5080" + seeded["logoUrl"])
+
+    # 14b: Khalid saves a new name and colour; Sara sees them, Globex doesn't.
+    code, saved = call("PUT", "/branding", khalid, {"displayName": "Acme Trading Co", "brandColor": "#7A1F5C"})
+    mine = branding(sara)
+    check("14b the company admin saves a display name and colour; everyone in the company reads them",
+          code == 200 and mine.get("effectiveDisplayName") == "Acme Trading Co" and mine.get("brandColor") == "#7a1f5c",
+          f"http {code} {mine.get('effectiveDisplayName')} {mine.get('brandColor')}")
+    check("14b another company's branding is unchanged (tenant isolation)", branding(g["Ali"]).get("effectiveBrandColor") == "#4a4fb0")
+
+    # 14c: the vendor admin sees whichever company they act as, and the product defaults otherwise.
+    _, vendor, _ = sign_in(VENDOR_EMAIL)
+    ids = tenant_ids()
+    as_acme, as_globex, as_host = branding(vendor, ids[ACME]), branding(vendor, ids[GLOBEX]), branding(vendor)
+    check("14c the vendor admin sees the branding of the company they act as, defaults when acting as none",
+          as_acme.get("brandColor") == "#7a1f5c" and as_globex.get("brandColor") == "#4a4fb0"
+          and as_host.get("effectiveDisplayName") == "Workmate HRM" and as_host.get("logoUrl") is None,
+          f"{as_acme.get('brandColor')} {as_globex.get('brandColor')} {as_host.get('effectiveDisplayName')}")
+
+    # 14d: bad input is refused with a reason, and the saved branding stays.
+    bad = {
+        "colour 'red'": call("PUT", "/branding", khalid, {"brandColor": "red"}),
+        "201 KB file": upload_logo(khalid, "big.png", b"\x89PNG\r\n\x1a\n" + b"0" * (201 * 1024), "image/png"),
+        "text named .png": upload_logo(khalid, "logo.png", b"just some text, not an image", "image/png"),
+        "SVG with <script>": upload_logo(khalid, "x.svg", b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>', "image/svg+xml"),
+        "SVG with onload": upload_logo(khalid, "y.svg", b'<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><rect width="5" height="5"/></svg>', "image/svg+xml"),
+    }
+    refused = {k: (c, error_message(p)) for k, (c, p) in bad.items()}
+    check("14d invalid colours, oversized or non-image files and unsafe SVGs are refused with a reason",
+          all(c == 403 and m for c, m in refused.values()) and branding(sara).get("brandColor") == "#7a1f5c", str(refused))
+
+    # 14e: text on the brand colour is always readable (WCAG AA), checked with demo.py's own formula.
+    _, light = call("PUT", "/branding", khalid, {"brandColor": "#ffff00"})
+    _, dark = call("PUT", "/branding", khalid, {"brandColor": "#0f6e6e"})
+    light, dark = light or {}, dark or {}
+    check("14e a light colour gets black text and a dark one white; brand-coloured text stays readable on white",
+          light.get("onBrandColor") == "#000000" and dark.get("onBrandColor") == "#ffffff"
+          and contrast(light.get("brandTextColor", "#ffffff"), "#ffffff") >= 4.5
+          and contrast(light["effectiveBrandColor"], light["onBrandColor"]) >= 4.5,
+          f"light={light.get('onBrandColor')}/{light.get('brandTextColor')} dark={dark.get('onBrandColor')}")
+    call("PUT", "/branding", khalid, {"displayName": "Acme Trading Co", "brandColor": "#7a1f5c"})
+
+    # 14f: only admins change branding; anonymous callers see only the public fields; logos can't run script.
+    code_sara, _ = call("PUT", "/branding", sara, {"brandColor": "#000000"})
+    code_logo, _ = upload_logo(sara, "a.png", seeded_logo, "image/svg+xml")
+    public = public_branding(company=ACME)
+    expected_keys = {"displayName", "effectiveDisplayName", "brandColor", "effectiveBrandColor", "onBrandColor",
+                     "brandTextColor", "brandSoftColor", "logoUrl"}
+    _, headers, _ = raw_get("http://localhost:5080" + public.get("logoUrl", "/missing"))
+    csp = headers.get("Content-Security-Policy", "")
+    check("14f non-admins can't change branding; the anonymous view has only public fields; logos are sandboxed",
+          code_sara == 403 and code_logo == 403 and set(public) == expected_keys and public.get("brandColor") == "#7a1f5c"
+          and "sandbox" in csp and headers.get("X-Content-Type-Options") == "nosniff",
+          f"sara {code_sara}/{code_logo} keys={sorted(set(public) ^ expected_keys)} csp={csp!r}")
+
+    # 14g: the company's emails use its colour and display name.
+    sid = submit(sara, annual)
+    mail = mail_about(email_for("Sara", ACME), request_number(sid), "received") if sid else None
+    _, html = mail_body(mail) if mail else ("", "")
+    check("14g the company's emails use its brand colour and display name", "#7a1f5c" in html and "Acme Trading Co" in html,
+          f"colour={'#7a1f5c' in html} name={'Acme Trading Co' in html}")
+
+    # 14i: reset goes back to the defaults; then restore the seeded look so reruns start the same.
+    code, _ = call("DELETE", "/branding", khalid)
+    reset = branding(sara)
+    check("14i reset returns the company to the defaults (its own name, the product colour, no logo)",
+          code == 204 and reset.get("effectiveBrandColor") == "#355dff" and reset.get("effectiveDisplayName") == ACME
+          and reset.get("logoUrl") is None, f"http {code} {reset.get('effectiveBrandColor')} {reset.get('logoUrl')}")
+    call("PUT", "/branding", khalid, {"displayName": ACME, "brandColor": "#0f6e6e"})
+    code, restored = upload_logo(khalid, "acme.svg", seeded_logo, "image/svg+xml")
+    check("14i the seeded look is restored (logo re-uploaded through the same validator)",
+          code == 200 and (restored or {}).get("effectiveBrandColor") == "#0f6e6e" and (restored or {}).get("logoUrl"), f"http {code}")
+
 def restart_before():
     """Puts one request per tenant at a pending human step, then records their ids for restart_after."""
     at = tokens_for(ACME, ACME_NAMES); state["acme_tok"] = at
@@ -1051,7 +1198,8 @@ if __name__ == "__main__":
                      ("Step 7 form creation, routing, admin-only", s7), ("Step 9 workflow designer", step9),
                      ("Step 10 server gatekeeper + conditional field (US3/US4)", s10),
                      ("Step 12 employees and organisation structure (spec 004)", s12),
-                     ("Step 13 email notifications (spec 005)", s13)]:
+                     ("Step 13 email notifications (spec 005)", s13),
+                     ("Step 14 theming and company branding (spec 007)", s14)]:
             step(n, f)
     else:
         log(f"Unknown mode {mode!r}. Use no argument, 'restart-before' or 'restart-after'.")

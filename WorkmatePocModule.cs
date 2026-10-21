@@ -8,6 +8,7 @@ using OpenIddict.Validation.AspNetCore;
 using Volo.Abp;
 using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.AspNetCore.Mvc.Libs;
+using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite;
 using Volo.Abp.AspNetCore.MultiTenancy;
 using Volo.Abp.Autofac;
 using Volo.Abp.BackgroundJobs;
@@ -59,7 +60,9 @@ namespace Workmate.Poc;
     typeof(AbpEmailingModule),
     typeof(AbpTextTemplatingScribanModule),
     typeof(AbpBackgroundJobsDomainModule),
-    typeof(AbpBackgroundJobsEntityFrameworkCoreModule))]
+    typeof(AbpBackgroundJobsEntityFrameworkCoreModule),
+    // --- Spec 007: theme files are served from this package through ABP's virtual file system
+    typeof(AbpAspNetCoreMvcUiLeptonXLiteThemeModule))]
 public class WorkmatePocModule : AbpModule
 {
     public override void PreConfigureServices(ServiceConfigurationContext context)

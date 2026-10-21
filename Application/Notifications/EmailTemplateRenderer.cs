@@ -14,7 +14,13 @@ namespace Workmate.Poc.Application.Notifications;
 public record EmailModel(
     string? RequestTitle, string? RequestNumber, string? RequestStatus,
     string? InitiatorName, string? ApproverName, string? StepTitle, string? Comment,
-    string? Link, string CompanyName, IReadOnlyDictionary<string, string?>? Fields);
+    string? Link, string CompanyName, IReadOnlyDictionary<string, string?>? Fields, EmailBrand? Brand = null);
+
+/// <summary>The company's look in the HTML layout (spec 007 FR-009). {{ company.name }} stays the company name.</summary>
+public record EmailBrand(string DisplayName, string Color, string OnColor)
+{
+    public static readonly EmailBrand Default = new("Workmate HRM", "#355dff", "#ffffff");
+}
 
 public record RenderedEmail(string Subject, string Text, string Html);
 
@@ -181,16 +187,18 @@ public class EmailTemplateRenderer : ITransientDependency
     private static string ToHtml(string text, EmailModel model)
     {
         var body = string.Join("<br>\n", text.Split('\n').Select(line => Url.Replace(Html.Encode(line), u => $"<a href=\"{u.Value}\">{u.Value}</a>")));
+        var brand = model.Brand ?? EmailBrand.Default with { DisplayName = model.CompanyName };
+        var colors = $"background:{brand.Color};color:{brand.OnColor}"; // server-computed #rrggbb values, never user text
         var sb = new StringBuilder();
         sb.Append("<!doctype html><html><body style=\"margin:0;background:#f4f5f7;font-family:Segoe UI,Arial,sans-serif;color:#1f2933\">");
         sb.Append("<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\" style=\"padding:24px 12px\">");
         sb.Append("<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden\">");
-        sb.Append($"<tr><td style=\"background:#2457a6;color:#ffffff;padding:16px 24px;font-size:18px;font-weight:600\">{Html.Encode(model.CompanyName)}</td></tr>");
+        sb.Append($"<tr><td style=\"{colors};padding:16px 24px;font-size:18px;font-weight:600\">{Html.Encode(brand.DisplayName)}</td></tr>");
         sb.Append($"<tr><td style=\"padding:24px;font-size:15px;line-height:1.5\">{body}");
         if (!string.IsNullOrEmpty(model.Link))
         {
             var href = Html.Encode(model.Link);
-            sb.Append($"<p style=\"margin:24px 0 0\"><a href=\"{href}\" style=\"display:inline-block;background:#2457a6;color:#ffffff;padding:10px 18px;border-radius:6px;text-decoration:none\">Open in Workmate</a></p>");
+            sb.Append($"<p style=\"margin:24px 0 0\"><a href=\"{href}\" style=\"display:inline-block;{colors};padding:10px 18px;border-radius:6px;text-decoration:none\">Open in Workmate</a></p>");
         }
         sb.Append("</td></tr><tr><td style=\"padding:12px 24px;font-size:12px;color:#6b7785;border-top:1px solid #e4e7eb\">Sent by Workmate.</td></tr>");
         sb.Append("</table></td></tr></table></body></html>");

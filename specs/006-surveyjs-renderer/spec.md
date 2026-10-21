@@ -10,6 +10,10 @@
 - Goal: compare the two renderers on the same forms, keep the server independent of the renderer, and leave the final choice for the go/no-go (Phase G).
 - Approach: **our form schema stays canonical** (it is what versions, validation, typed reporting values and routing read). The SurveyJS renderer receives JSON generated from it by an adapter in the browser. Switching never changes stored data.
 
+## Clarifications
+
+- Update 2026-10-22 (spec 007): the page now uses the LeptonX Lite theme. The per-company renderer setting and the demo toggle are unchanged; the native renderer is restyled by `workmate-theme.css`, and SurveyJS takes the company brand colour through its CSS variables.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Same form, either renderer (Priority: P1)

@@ -100,6 +100,21 @@ always generates one); look them up by name (`GET /api/poc/tenants`) or sign in 
 - **Reset required once** (`Poc:ResetDatabaseOnStartup=true`): `Hr_Employees.Role` was dropped and `Hr_*` tables were added.
 - Not checked in a browser this session: the Employees and Organisation tabs (their API is covered by `demo.py` step 12).
 
+### Done and verified (spec 007: `demo.py` 131/131 twice on a fresh reset; restart check 3/3 before, 12/12 after)
+**Phase L — ABP theming and per-company branding**
+- **Adopted from ABP**: the free **LeptonX Lite 4.1.0** theme (LGPL-3.0; the release built against ABP 9.1.0). Its CSS, JS, Bootstrap 5 and Bootstrap Icons are served straight from the package through ABP's virtual file system (`/Themes/LeptonXLite/Global/side-menu/…`), with **no npm step and no `wwwroot/libs`**. The page uses the theme's Application-layout markup (side menu, top bar, mobile menu, content) and its RTL stylesheets.
+- **Kept custom (clarification Q1, Q2)**: the menu and top bar are built in the browser from `/my-permissions` (the server still refuses non-admins); sign-in, forgot and set-password stay our own screens, restyled as the theme's account page; branding comes from our own API, not ABP's `IBrandingProvider`.
+- **Per-company branding**: `Ui_CompanyBranding` (display name, `#rrggbb` colour, logo ≤ 200 KB). Edited on the new **Branding** page (`Workmate.Branding.Manage`, granted with the company-admin role). The server computes WCAG-readable variants (black or white text on the brand colour, a darkened colour for text on white). Logos must be PNG/JPEG by their bytes, or SVG with no script, event handlers, embedded HTML or external references; they are served with a CSP `sandbox`. Spec 005's HTML emails use the brand colour and display name. Seeded: Acme `#0f6e6e` "A", Globex `#4a4fb0` "G".
+- **Findings for go/no-go**:
+  1. The free theme has **one colour style** ("dim"; no light/dark switch, which is commercial LeptonX), so the OS dark mode was dropped (clarification Q3).
+  2. Bootstrap's primary colour is **compiled into** `bootstrap-dim.css` (`#355dff`, 37 places), so per-company colours need an override layer (`workmate-theme.css`).
+  3. `font-bundle.css` **imports Inter from Google Fonts**, so it's left out (no CDN at run time); the system font is used.
+  4. `lepton-x.bundle.min.js` registers a **jQuery toast demo** in its init list, and the init loop stops at the first exception, so without jQuery the sidebar and mobile-menu init never ran. The page removes that one step and runs the rest itself (found with a headless-browser check).
+  5. ABP's bundle tag helper needs `wwwroot/libs`, so it isn't used.
+- **Production path (not built)**: if the product UI is ABP MVC, use the real theming pipeline: a Razor host page on LeptonX Lite's Application layout, `IMenuContributor` (permission-filtered menu), `IToolbarContributor` (user menu, "Acting as"), a per-tenant `IBrandingProvider` reading `CompanyBranding`, `abp install-libs` with `CheckLibs` back on, and a cookie sign-in scheme alongside the bearer token so the server knows the user while rendering. The open-source Account module's pages then become an option. Estimated size L (this phase was M). If the product UI is a separate SPA, this phase's approach (theme assets + branding API) is the one that carries over.
+- **Reset required once** (new `Ui_CompanyBranding` table and the `Workmate.Branding.Manage` grant).
+- Checked in a headless Chrome (screenshots: sign-in, employee, admin, Globex, phone width, RTL, Branding page; no JS errors). Not clicked through by a person yet.
+
 ### Done and verified (spec 005: `demo.py` 119/119 twice on a fresh reset; restart check 3/3 before, 12/12 after)
 **Phase J — email notifications**
 - Every workflow event (submitted, waiting for approval, sent back, approved, rejected, reassigned) and every account event (invite, password reset) writes an `EmailMessage` row and an ABP background job **in the event's own unit of work**; the persistent job sends it after commit over SMTP (Mailpit locally: `mailpit &`, inbox at http://localhost:8025) as text + HTML. Five attempts with backoff, then Failed; the row is also the company's **Email log** with Resend.
@@ -122,12 +137,12 @@ Each phase ends with something demoable, and `demo.py` gains checks for it.
 | I | Employees + org structure | Client admin manages employees, departments (OrganizationUnit), unit heads, roles catalogue; new `department-head` approver | Client runs without vendor help | M | **Done; verified** (2026-10-21, API-level; UI click-through pending); spec `specs/004-employees-org` |
 | J | Email notifications | Assigned / approved / rejected / sent back emails; per-form templates for initiator and approver side; Mailpit locally | Notifications with editable templates | M | **Done; verified** (2026-10-21, API-level; UI click-through pending); spec `specs/005-email-notifications` |
 | K | Switchable renderer | SurveyJS Form Library (MIT) next to the native renderer; demo toggle, per-form and company setting; canonical schema unchanged | Compare renderers on the same forms | S–M | **Done; verified** (2026-10-20, API-level; visual/RTL check pending a browser tool); spec `specs/006-surveyjs-renderer` |
-| L | ABP theming + company branding | Free ABP LeptonX Lite theme (4.1.0, matches ABP 9.1.0) applied to the existing page; per-company logo, name and brand colour (also in emails); full server-rendered ABP layout recorded as the production path | Whether ABP's free theme fits; per-company identity | M | Spec `specs/007-abp-theming` (clarified 2026-10-22) |
+| L | ABP theming + company branding | Free ABP LeptonX Lite theme (4.1.0, matches ABP 9.1.0) applied to the existing page; per-company logo, name and brand colour (also in emails); full server-rendered ABP layout recorded as the production path | Whether ABP's free theme fits; per-company identity | M | **Done; verified** (2026-10-22, API checks + headless-browser screenshots; person click-through pending); spec `specs/007-abp-theming` |
 | E | Version pinning (Phase 2 item 4) | Publish workflow v2 while v1 requests are in flight | Running requests keep their version | S | Planned |
 | F | Reliable start (Phase 2 item 5) | ABP distributed event bus + outbox replaces `CurrentUnitOfWork.OnCompleted` start hook | Crash between submit and start loses nothing | M | **In-scope decision pending** |
 | G | Wrap-up | Final demo run, README, findings + go/no-go in the design doc | Decision-ready | S | Planned |
 
-Order: A → B (verify) → C (done) → D (done) → H (done) → I (done) → J (done) → K (done) → E → F → G (H–K added 2026-10-20; K was done first since it had no dependencies). Hard dependencies: C before D; H before I; H and I before J.
+Order: A → B (verify) → C (done) → D (done) → H (done) → I (done) → J (done) → K (done) → L (done) → E → F → G (H–K added 2026-10-20; K was done first since it had no dependencies). Hard dependencies: C before D; H before I; H and I before J.
 **Phase D decision (2026-10-20): option B.** Workmate HRM is multi-tenant SaaS: client HR admins design workflows, so the designer must be simple, run no client code on shared servers, keep routes in our tenant-filtered tables, and survive Elsa upgrades (our route model is the contract; Elsa definitions are generated). Elsa and Elsa Studio are MIT, but ABP's Elsa Pro integration needs an ABP Team licence (ruled out). Studio may be added later for Aramis staff only. Scope added by Ahmad: each step asks the approver type (line manager, manager's manager, role → which role, specific user → which user); routing value inputs adapt to the chosen field's type. For go/no-go, record that Studio hosting/auth was not proven.
 
 **Decisions Ahmad still owes:** whether F is in PoC scope; SQLite pin.
@@ -177,6 +192,7 @@ Order: A → B (verify) → C (done) → D (done) → H (done) → I (done) → 
 | `wwwroot/js/renderers.js`, `wwwroot/lib/surveyjs/` | `createRenderer(kind, schema, values, readOnly)` contract (native + vendored SurveyJS Form Library) |
 | `Application/EmployeeAppService.cs`, `OrganizationAppService.cs`, `TaskReassignmentService.cs`, `JobRoleLookup.cs`, `Domain/Organization.cs` | Phase I (spec 004): employees, departments and heads, role catalogue, deactivation reassignment |
 | `Domain/Notifications.cs`, `Application/Notifications/*`, `Application/AccountAppService.cs` | Phase J (spec 005): email templates and sandboxed renderer, queueing + send job, Email log, forgot/set password |
+| `Domain/Branding.cs`, `Application/Branding/*`, `wwwroot/css/workmate-theme.css` | Phase L (spec 007): company branding, readable colours, safe logos; LeptonX Lite restyling |
 | `demo.py` | API demo/regression script (steps 1–7, 9–13; two-part restart check 8; needs Mailpit); real sign-in (`sign_in()`/bearer tokens, Phase H), no more `X-Demo-User` |
 
 ## 8. Continuing with spec-kit

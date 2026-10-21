@@ -3,6 +3,7 @@ using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Guids;
 using Volo.Abp.MultiTenancy;
+using Workmate.Poc.Application.Branding;
 using Workmate.Poc.Domain;
 
 namespace Workmate.Poc.Application.Notifications;
@@ -39,16 +40,17 @@ public class NotificationService : ITransientDependency
     private readonly IRepository<FormSubmission, Guid> _submissions;
     private readonly IRepository<FormDefinition, Guid> _forms;
     private readonly IRepository<Employee, Guid> _employees;
+    private readonly BrandingReader _branding;
 
     public NotificationService(ICurrentTenant currentTenant, ITenantStore tenantStore, IGuidGenerator guids,
         IConfiguration config, IBackgroundJobManager jobs, EmailTemplateRenderer renderer,
         IRepository<EmailTemplate, Guid> templates, IRepository<EmailMessage, Guid> messages,
         IRepository<CompanyEmailSettings, Guid> settings, IRepository<FormSubmission, Guid> submissions,
-        IRepository<FormDefinition, Guid> forms, IRepository<Employee, Guid> employees)
+        IRepository<FormDefinition, Guid> forms, IRepository<Employee, Guid> employees, BrandingReader branding)
     {
         _currentTenant = currentTenant; _tenantStore = tenantStore; _guids = guids; _config = config; _jobs = jobs;
         _renderer = renderer; _templates = templates; _messages = messages; _settings = settings;
-        _submissions = submissions; _forms = forms; _employees = employees;
+        _submissions = submissions; _forms = forms; _employees = employees; _branding = branding;
     }
 
     public string PublicBaseUrl => (_config["Poc:PublicBaseUrl"] ?? "http://localhost:5080").TrimEnd('/');
@@ -68,6 +70,7 @@ public class NotificationService : ITransientDependency
     {
         var (subject, body, _) = await ResolveTemplateAsync(ctx.Form.Id, evt, audience);
         var companyName = await GetCompanyNameAsync();
+        var brand = await GetEmailBrandAsync();
         var link = audience == EmailAudiences.Approver
             ? $"{PublicBaseUrl}/?view=inbox"
             : $"{PublicBaseUrl}/?view=mine&submission={ctx.Submission.Id}";
@@ -76,7 +79,7 @@ public class NotificationService : ITransientDependency
         {
             var model = new EmailModel(ctx.Form.Name, RequestNumber(ctx.Submission.Id), ctx.Submission.Status,
                 ctx.Initiator.Name, audience == EmailAudiences.Approver ? recipient.Name : ctx.ApproverName,
-                ctx.StepTitle, ctx.Comment, link, companyName, ctx.Submission.GetData());
+                ctx.StepTitle, ctx.Comment, link, companyName, ctx.Submission.GetData(), brand);
             var rendered = _renderer.Render(subject, body, model);
 
             var message = new EmailMessage(_guids.Create(), _currentTenant.Id, evt, audience, recipient.Email, rendered.Subject)
@@ -93,7 +96,7 @@ public class NotificationService : ITransientDependency
     public async Task QueueAccountAsync(string evt, Guid userId, string email)
     {
         var (subject, _, _) = await ResolveTemplateAsync(null, evt, EmailAudiences.Account);
-        var rendered = _renderer.Render(subject, "-", AccountModel(await GetCompanyNameAsync(), null));
+        var rendered = _renderer.Render(subject, "-", AccountModel(await GetCompanyNameAsync(), null, null));
         var employee = await _employees.FindAsync(e => e.UserId == userId);
 
         var message = new EmailMessage(_guids.Create(), _currentTenant.Id, evt, EmailAudiences.Account, email, rendered.Subject)
@@ -107,7 +110,7 @@ public class NotificationService : ITransientDependency
     public async Task<RenderedEmail> RenderAccountAsync(string evt, string link)
     {
         var (subject, body, _) = await ResolveTemplateAsync(null, evt, EmailAudiences.Account);
-        return _renderer.Render(subject, body, AccountModel(await GetCompanyNameAsync(), link));
+        return _renderer.Render(subject, body, AccountModel(await GetCompanyNameAsync(), link, await GetEmailBrandAsync()));
     }
 
     /// <summary>FR-003: the form's own template, else the company default, else the built-in one.</summary>
@@ -153,8 +156,15 @@ public class NotificationService : ITransientDependency
     /// <summary>R9: there's no request-number column; the first 8 hex characters of the id stand in for one.</summary>
     public static string RequestNumber(Guid submissionId) => submissionId.ToString("N")[..8].ToUpperInvariant();
 
-    private static EmailModel AccountModel(string companyName, string? link) =>
-        new(null, null, null, null, null, null, null, link, companyName, null);
+    /// <summary>The current company's effective branding, for the HTML layout (spec 007 FR-009).</summary>
+    public async Task<EmailBrand> GetEmailBrandAsync()
+    {
+        var b = await _branding.GetCurrentAsync();
+        return new EmailBrand(b.EffectiveDisplayName, b.EffectiveBrandColor, b.OnBrandColor);
+    }
+
+    private static EmailModel AccountModel(string companyName, string? link, EmailBrand? brand) =>
+        new(null, null, null, null, null, null, null, link, companyName, null, brand);
 
     private async Task InsertAndEnqueueAsync(EmailMessage message)
     {
