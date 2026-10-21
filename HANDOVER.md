@@ -91,6 +91,15 @@ always generates one); look them up by name (`GET /api/poc/tenants`) or sign in 
 - Seven real bugs found only by starting the app and calling `/connect/token` for real (not discoverable by building alone) — full list with root causes in `specs/003-login-onboarding/tasks.md`'s Phase 2/3 gates. Two worth knowing for future phases: (a) ABP's `PermissionChecker` gates `MultiTenancySide` eligibility on the **signed-in token's own tenant claim**, never on the ambient `ICurrentTenant.Id` a custom resolver changes — a host-authenticated principal can never satisfy a tenant-only permission, full stop, regardless of any grant (so "vendor admin can design for any company" needed those three permissions declared `Both`, not `Tenant`); (b) `Tenant`'s own constructor is `protected internal` to ABP's TenantManagement module, so there is no way to force a specific tenant id from application code — `demo.py` and the UI now look tenants up by `Name`, not a fixed guid.
 - Demo credentials: `<firstname>@<acme|globex>.demo` / `1q2w3E*` for every seeded person (e.g. `sara@acme.demo`); vendor admin is `aramis@workmate.vendor` / `1q2w3E*`, no company.
 
+### Done and verified (spec 004: see CHANGELOG for the final counts)
+**Phase I — employees and organisation structure**
+- `Employee.Role` is gone: each company has a job-role catalogue (`Hr_JobRoles`, seeded with Employee/Manager/HR/Finance) and an employee holds zero or more roles. Job roles are HR data for routing, deliberately separate from ABP's permission role `Workmate.CompanyAdmin`. Role names are the `role:{Name}` rule key, so they can't be renamed.
+- Company admins create, edit, deactivate and re-activate employees (sign-in account created with them; first password shown once until spec 005). Reporting loops are refused.
+- Departments are ABP `OrganizationUnit`s; the head lives on the HR side (`Hr_DepartmentHeads`). New approver type `department-head` walks up the tree when a department has no head or the requester is its head.
+- Deactivation blocks sign-in (and the person's existing token) and moves their open tasks to the task's fallback approver, with a `TaskReassigned` timeline entry. Tasks now store their fallback rule; the two code-defined workflows fall back to `role:HR`, so a leave request from someone with no line manager now goes to HR instead of getting stuck.
+- **Reset required once** (`Poc:ResetDatabaseOnStartup=true`): `Hr_Employees.Role` was dropped and `Hr_*` tables were added.
+- Not checked in a browser this session: the Employees and Organisation tabs (their API is covered by `demo.py` step 12).
+
 ## 4. The plan to complete the PoC
 
 Each phase ends with something demoable, and `demo.py` gains checks for it.
@@ -102,14 +111,14 @@ Each phase ends with something demoable, and `demo.py` gains checks for it.
 | C | Elsa persistence (Phase 2 item 1) | Elsa on EF Core (SQLite for the PoC); turn off DB reset on startup | Restart mid-approval resumes correctly; prerequisite for D | M | **Done; verified** |
 | D | Workflow designer | **Option A:** host Elsa Studio behind ABP OpenIddict + permissions (Phase 2 item 2) and enable Elsa multi-tenancy from ABP's `ICurrentTenant` (Phase 2 item 3). **Option B:** own approval-route designer (ordered steps, assignment rule, reject behaviour) that the gateway turns into an Elsa definition | Admin draws a new workflow, binds it to a form, runs it, isolated per tenant | M | **Done; verified** (option B, 2026-10-20); spec `specs/002-route-designer` |
 | H | Sign-in + client onboarding | ABP Identity/OpenIddict/TenantManagement/PermissionManagement (open source, **not** Account — see spec); no self-registration; vendor admin creates company + client admin; permissions replace `IsAdmin` | Real auth, no sign-up, tenant from the account | L | **Done; verified** (2026-10-20); spec `specs/003-login-onboarding` |
-| I | Employees + org structure | Client admin manages employees, departments (OrganizationUnit), unit heads, roles catalogue; new `department-head` approver | Client runs without vendor help | M | Spec `specs/004-employees-org` |
+| I | Employees + org structure | Client admin manages employees, departments (OrganizationUnit), unit heads, roles catalogue; new `department-head` approver | Client runs without vendor help | M | **Done; verified** (2026-10-21, API-level; UI click-through pending); spec `specs/004-employees-org` |
 | J | Email notifications | Assigned / approved / rejected / sent back emails; per-form templates for initiator and approver side; Mailpit locally | Notifications with editable templates | M | Spec `specs/005-email-notifications` |
 | K | Switchable renderer | SurveyJS Form Library (MIT) next to the native renderer; demo toggle, per-form and company setting; canonical schema unchanged | Compare renderers on the same forms | S–M | **Done; verified** (2026-10-20, API-level; visual/RTL check pending a browser tool); spec `specs/006-surveyjs-renderer` |
 | E | Version pinning (Phase 2 item 4) | Publish workflow v2 while v1 requests are in flight | Running requests keep their version | S | Planned |
 | F | Reliable start (Phase 2 item 5) | ABP distributed event bus + outbox replaces `CurrentUnitOfWork.OnCompleted` start hook | Crash between submit and start loses nothing | M | **In-scope decision pending** |
 | G | Wrap-up | Final demo run, README, findings + go/no-go in the design doc | Decision-ready | S | Planned |
 
-Order: A → B (verify) → C (done) → D (done) → H (done) → I → J → K (done) → E → F → G (H–K added 2026-10-20; K was done first since it had no dependencies). Hard dependencies: C before D; H before I; H and I before J.
+Order: A → B (verify) → C (done) → D (done) → H (done) → I (done) → J → K (done) → E → F → G (H–K added 2026-10-20; K was done first since it had no dependencies). Hard dependencies: C before D; H before I; H and I before J.
 **Phase D decision (2026-10-20): option B.** Workmate HRM is multi-tenant SaaS: client HR admins design workflows, so the designer must be simple, run no client code on shared servers, keep routes in our tenant-filtered tables, and survive Elsa upgrades (our route model is the contract; Elsa definitions are generated). Elsa and Elsa Studio are MIT, but ABP's Elsa Pro integration needs an ABP Team licence (ruled out). Studio may be added later for Aramis staff only. Scope added by Ahmad: each step asks the approver type (line manager, manager's manager, role → which role, specific user → which user); routing value inputs adapt to the chosen field's type. For go/no-go, record that Studio hosting/auth was not proven.
 
 **Decisions Ahmad still owes:** whether F is in PoC scope; SQLite pin.
@@ -157,7 +166,8 @@ Order: A → B (verify) → C (done) → D (done) → H (done) → I → J → K
 | `Controllers/PocController.cs` | `/api/poc/...` routes |
 | `wwwroot/index.html` | Demo UI incl. form designer, workflow designer and routing |
 | `wwwroot/js/renderers.js`, `wwwroot/lib/surveyjs/` | `createRenderer(kind, schema, values, readOnly)` contract (native + vendored SurveyJS Form Library) |
-| `demo.py` | API demo/regression script (steps 1–7, 9, 10, 11; two-part restart check 8); real sign-in (`sign_in()`/bearer tokens, Phase H), no more `X-Demo-User` |
+| `Application/EmployeeAppService.cs`, `OrganizationAppService.cs`, `TaskReassignmentService.cs`, `JobRoleLookup.cs`, `Domain/Organization.cs` | Phase I (spec 004): employees, departments and heads, role catalogue, deactivation reassignment |
+| `demo.py` | API demo/regression script (steps 1–7, 9–12; two-part restart check 8); real sign-in (`sign_in()`/bearer tokens, Phase H), no more `X-Demo-User` |
 
 ## 8. Continuing with spec-kit
 

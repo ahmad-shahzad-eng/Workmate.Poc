@@ -117,23 +117,24 @@
 
 **Independent Test**: Add a custom role, assign it, use it in a published workflow; deleting it is refused and names the workflow. An unused role deletes and disappears from its holders.
 
-- [ ] T027 [P] [US3] In `Application/Dtos.cs` add `record JobRoleDto(Guid Id, string Name, bool IsBuiltIn, int EmployeeCount)` and `CreateJobRoleInput { Name }`.
-- [ ] T028 [US3] In `Application/OrganizationAppService.cs` (depends on T021, T027) add:
+- [X] T027 [P] [US3] In `Application/Dtos.cs` add `record JobRoleDto(Guid Id, string Name, bool IsBuiltIn, int EmployeeCount)` and `CreateJobRoleInput { Name }`.
+- [X] T028 [US3] In `Application/OrganizationAppService.cs` (depends on T021, T027) add:
   - `GetRolesAsync()`: any signed-in user.
   - `CreateRoleAsync`: `[Authorize(EmployeesManage)]`; name trimmed and required; refuse a case-insensitive duplicate with "A role named '{x}' already exists."
   - `DeleteRoleAsync(id)`: `[Authorize(EmployeesManage)]`. Collect the names of active `ApprovalWorkflow`s whose **published** `ApprovalWorkflowVersion` has any step with `ToAssignmentRule() == "role:{name}"` (case-insensitive) or `FallbackRule == "role:{name}"`. Add `"Leave approval"`/`"HR only approval"` (the code-defined workflows) when the name is `HR` (research R6). If any, throw "Role '{name}' is used by: {names}." (US3 AC1). Else delete its `EmployeeJobRole` rows, then the role (US3 AC2, clarification Q5). Built-in roles follow the same rule.
-- [ ] T029 [US3] In `Controllers/PocController.cs`: `GET roles`, `POST roles`, `DELETE roles/{id:guid}`.
-- [ ] T030 [US3] In `wwwroot/index.html`: `rolesOf()` now reads a `state.roles` loaded from `GET roles` at sign-in (instead of deriving from users), so the route designer and Employees form list catalogue roles even when nobody holds them yet. Add a roles panel to the Employees tab (list with employee counts, add, delete, showing the refusal message).
-- [ ] T031 [US3] In `demo.py` `s12` add 12g: create role `Payroll`, give it to one employee, and publish a workflow with a `role:Payroll` step. Deleting `Payroll` is refused and names that workflow. Create role `Temp`, give it to one employee, delete it; `GET roles` no longer lists it, and the employee's `roles` no longer contains it.
+- [X] T029 [US3] In `Controllers/PocController.cs`: `GET roles`, `POST roles`, `DELETE roles/{id:guid}`.
+- [X] T030 [US3] In `wwwroot/index.html`: `rolesOf()` now reads a `state.roles` loaded from `GET roles` at sign-in (instead of deriving from users), so the route designer and Employees form list catalogue roles even when nobody holds them yet. Add a roles panel to the Employees tab (list with employee counts, add, delete, showing the refusal message).
+- [X] T031 [US3] In `demo.py` `s12` add 12g: create role `Payroll`, give it to one employee, and publish a workflow with a `role:Payroll` step. Deleting `Payroll` is refused and names that workflow. Create role `Temp`, give it to one employee, delete it; `GET roles` no longer lists it, and the employee's `roles` no longer contains it.
 - **Gate (US3 Independent Test)**: all previous checks pass; 12g passes; manual roles panel check.
 
 ---
 
 ## Phase 6: Polish
 
-- [ ] T032 [P] Update `README.md` (Employees/Organisation tabs, the new approver type, reset needed), `HANDOVER.md` (mark spec 004 done; note the reset), and `CHANGELOG.md` (one line per task, under a new `## Spec 004: employees and organisation structure` heading).
-- [ ] T033 [P] In `specs/002-route-designer/spec.md`, leave the text as is, but append to its Clarifications an "Update 2026-10-21" bullet that employees now have an active flag and deactivation reassignment (spec 004 FR-007), so the "no active/inactive concept" assumption is now superseded. Don't edit the original assumption line.
+- [X] T032 [P] Update `README.md` (Employees/Organisation tabs, the new approver type, reset needed), `HANDOVER.md` (mark spec 004 done; note the reset), and `CHANGELOG.md` (one line per task, under a new `## Spec 004: employees and organisation structure` heading).
+- [X] T033 [P] In `specs/002-route-designer/spec.md`, leave the text as is, but append to its Clarifications an "Update 2026-10-21" bullet that employees now have an active flag and deactivation reassignment (spec 004 FR-007), so the "no active/inactive concept" assumption is now superseded. Don't edit the original assumption line.
 - [ ] T034 Final loop: fresh reset → `python3 demo.py` (steps 1–12) → restart check (`restart-before`, restart, `restart-after`). Record the pass counts in CHANGELOG. Do a manual UI pass as a company admin (Employees, Organisation, route designer) and as a non-admin (the tabs are hidden).
+  - **Status 2026-10-21:** automated part done (fresh reset → `demo.py` 85/85 twice → restart check 3/3 + 11/11). **Manual UI pass not done yet** (no browser check this session), so this task stays open.
 
 ---
 

@@ -458,6 +458,7 @@ def s12():
     ctx = s12_setup()
     s12_employees(ctx)
     s12_org(ctx)
+    s12_roles(ctx)
     s12_deactivation(ctx)
 
 def s12_company(vendor_tok, name, admin_first):
@@ -573,6 +574,36 @@ def s12_org(ctx):
     code_tmp, _ = call("DELETE", f"/departments/{temp}", admin)
     check("12f a department with sub-departments or employees can't be deleted; an empty one can (US2 AC2)",
           code_fin == 403 and code_pay == 403 and code_tmp in (200, 204), f"finance={code_fin} payables={code_pay} empty={code_tmp}")
+
+def s12_set_roles(ctx, first, roles):
+    """Replaces one employee's roles, keeping everything else as it is."""
+    _, people = call("GET", "/users", ctx["admin"])
+    p = next(x for x in people if x["id"] == ctx["ids"][first])
+    return call("PUT", f"/employees/{p['id']}", ctx["admin"], {"name": p["name"], "email": p["email"], "roles": roles,
+                                                              "managerId": p["managerId"], "departmentId": p["departmentId"]})
+
+def s12_roles(ctx):
+    """US3: a role a published workflow uses can't be deleted; an unused one can, and leaves its holders."""
+    admin = ctx["admin"]
+    call("POST", "/roles", admin, {"name": "Payroll"})
+    s12_set_roles(ctx, "Hana", ["HR", "Payroll"])
+    wf_name = "Payroll check"
+    s12_publish_workflow(ctx, f"payroll-check-{RUN_SUFFIX}", wf_name,
+                         [{"title": "Payroll review", "approverType": "role", "role": "Payroll", "onReject": "end"}])
+    _, roles = call("GET", "/roles", admin)
+    payroll = next((r for r in roles or [] if r["name"] == "Payroll"), None)
+    code_used, b = call("DELETE", f"/roles/{payroll['id']}", admin) if payroll else (None, None)
+
+    _, temp = call("POST", "/roles", admin, {"name": "Temp"})
+    s12_set_roles(ctx, "Carl", ["Employee", "Temp"])
+    code_unused, _ = call("DELETE", f"/roles/{(temp or {}).get('id')}", admin)
+    _, roles_after = call("GET", "/roles", admin)
+    _, people = call("GET", "/users", admin)
+    carl = next((p for p in people or [] if p["id"] == ctx["ids"]["Carl"]), {})
+    check("12g a role used by a published workflow can't be deleted (named); an unused one is deleted and leaves its holders (US3)",
+          code_used == 403 and wf_name in json.dumps(b) and code_unused in (200, 204)
+          and all(r["name"] != "Temp" for r in roles_after or []) and carl.get("roles") == ["Employee"],
+          f"used={code_used} unused={code_unused} carl={carl.get('roles')}")
 
 def s12_publish_workflow(ctx, key, name, steps, fallback="role:HR"):
     """Creates, drafts and publishes a designed workflow; returns its Elsa definition id."""

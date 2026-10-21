@@ -95,6 +95,15 @@ public class PocController : AbpControllerBase
     [HttpDelete("departments/{id:guid}")]
     public Task DeleteDepartmentAsync(Guid id) => _organization.DeleteDepartmentAsync(id);
 
+    [HttpGet("roles")]
+    public Task<List<JobRoleDto>> GetRolesAsync() => _organization.GetRolesAsync();
+
+    [HttpPost("roles")]
+    public Task<JobRoleDto> CreateRoleAsync([FromBody] CreateJobRoleInput input) => _organization.CreateRoleAsync(input);
+
+    [HttpDelete("roles/{id:guid}")]
+    public Task DeleteRoleAsync(Guid id) => _organization.DeleteRoleAsync(id);
+
     [HttpGet("users")]
     public Task<List<EmployeeDto>> GetUsersAsync([FromQuery] bool includeInactive = false) =>
         _employeeService.GetListAsync(includeInactive);

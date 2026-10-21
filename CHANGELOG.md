@@ -163,3 +163,15 @@ Needs `Poc:ResetDatabaseOnStartup=true` once: `Hr_Employees.Role` is gone and ne
 - T025 `wwwroot/index.html`: Organisation tab (Org.Manage only): indented tree, rename, set head, add sub-department, delete; route designer offers "Head of my department"; the Employees form gets its department picker.
 - T026 `demo.py` step 12 (US2 part): 12a three-level tree with heads; 12b SC-001 a request routes line manager → department head → HR with no code; 12c a head's own request goes to the next head up; 12f non-empty departments can't be deleted, an empty one can.
 - US2 gate: `demo.py` 84/84; restart check 3/3 before, 11/11 after.
+
+### Spec 004 US3: role catalogue, and polish
+
+- T027 `Application/Dtos.cs`: `JobRoleDto`, `CreateJobRoleInput`.
+- T028 `Application/OrganizationAppService.cs`: list roles (with active-holder counts); add a role (unique, case-insensitive; no `:` since the name becomes `role:{name}`); delete a role, refused while an active workflow's published version uses it in a step or as its fallback (the two code-defined workflows count as using HR), naming those workflows; otherwise it's deleted and removed from everyone who held it.
+- T029 `Controllers/PocController.cs`: `GET|POST roles`, `DELETE roles/{id}`.
+- T030 `wwwroot/index.html`: role pickers read the catalogue (`GET roles`), so a role nobody holds yet can still be chosen; roles panel on the Employees tab (add, delete with the refusal message).
+- T031 `demo.py` 12g: a role used by a published workflow can't be deleted and the message names the workflow; an unused role is deleted and leaves its holders.
+- T032 README (demo step 12, code map), HANDOVER (Phase I state, plan row and order, code map).
+- T033 `specs/002-route-designer/spec.md`: clarification note that spec 004 supersedes its "no active/inactive employees" assumption.
+- Fix found by T034's fresh-reset run: `Application/PasswordGenerator.cs` didn't guarantee an uppercase and a lowercase letter, which ABP's default password policy requires. About 1 generated password in 130 was refused, so roughly 1 `demo.py` run in 11 failed at random (here: creating Carl in 12a). This also affected spec 003's company onboarding (11b). It now always includes one of each. The original server error wasn't captured (the log was overwritten), so this is the cause that matches, not one read from the error.
+- T034 final loop (automated part): fresh reset → `demo.py` 85/85 on two consecutive runs; restart check 3/3 before, 11/11 after. Manual UI click-through still pending.

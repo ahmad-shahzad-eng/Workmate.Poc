@@ -551,7 +551,8 @@ async function renderFormEditor(main, key) {
 const APPROVER_TYPES = [
   ["line-manager", "Line manager"], ["manager-of-manager", "Manager's manager"],
   ["role", "Role"], ["user", "Specific user"], ["department-head", "Head of my department"]];
-const rolesOf = () => [...new Set(state.users.flatMap(u => u.roles))].sort();
+// The company's role catalogue (spec 004 US3), so roles nobody holds yet can still be picked.
+const rolesOf = () => (state.roles || []).map(r => r.name);
 const employeesOf = () => state.users;
 
 async function viewWorkflows(main) {
@@ -684,9 +685,18 @@ async function viewEmployees(main) {
     <div class="split">
       <div>
         <div class="actions" style="margin-top:0"><button class="btn secondary" id="newEmp">Add employee</button></div>
-        <ul class="rows">${people.map(p => `<li><button data-id="${p.id}" aria-pressed="${p.id === e.id}">
+        <ul class="rows" id="empList">${people.map(p => `<li><button data-id="${p.id}" aria-pressed="${p.id === e.id}">
           <span>${esc(p.name)}${p.isActive ? "" : " (deactivated)"}</span><small>${esc(p.roles.join(", ") || "no role")}</small>
           <small>${esc(p.email)}</small><small>${p.managerName ? "reports to " + esc(p.managerName) : ""}</small></button></li>`).join("")}</ul>
+        <h3>Roles</h3>
+        <p class="meta">Used by "Role" approval steps. A role that a published workflow uses can't be deleted.</p>
+        <ul class="rows">${(state.roles || []).map(r => `<li class="inline" style="padding:8px 16px;justify-content:space-between">
+          <span>${esc(r.name)} <small class="meta">${r.employeeCount} active · ${r.isBuiltIn ? "built-in" : "custom"}</small></span>
+          <button class="btn secondary" data-del-role="${r.id}">Delete</button></li>`).join("")}</ul>
+        <div class="inline" style="margin-top:10px">
+          <div class="field"><label for="newRole">New role</label><input id="newRole" placeholder="Payroll"></div>
+          <div class="actions" style="margin:0"><button class="btn secondary" id="addRole">Add role</button></div>
+        </div>
       </div>
       <div class="panel">
         <h3 style="margin-top:0">${picked ? esc(picked.name) : "New employee"}</h3>
@@ -706,7 +716,15 @@ async function viewEmployees(main) {
       </div>
     </div>`;
   const show = (kind, text) => $("#msg").innerHTML = message(kind, text);
-  main.querySelectorAll(".rows button").forEach(b => b.addEventListener("click", () => { state.employeeId = b.dataset.id; viewEmployees(main); }));
+  main.querySelectorAll("#empList button").forEach(b => b.addEventListener("click", () => { state.employeeId = b.dataset.id; viewEmployees(main); }));
+  $("#addRole").addEventListener("click", async () => {
+    try { await api("/api/poc/roles", { method: "POST", body: JSON.stringify({ name: $("#newRole").value }) }); await loadUsers(); await viewEmployees(main); show("ok", "Role added."); }
+    catch (err) { show("error", err.message); }
+  });
+  main.querySelectorAll("[data-del-role]").forEach(b => b.addEventListener("click", async () => {
+    try { await api(`/api/poc/roles/${b.dataset.delRole}`, { method: "DELETE" }); await loadUsers(); await viewEmployees(main); show("ok", "Role deleted and removed from everyone who held it."); }
+    catch (err) { show("error", err.message); }
+  }));
   $("#newEmp").addEventListener("click", () => { state.employeeId = null; viewEmployees(main); });
   $("#saveEmp").addEventListener("click", async () => {
     const body = { name: $("#eName").value, email: $("#eEmail").value, jobTitle: $("#eTitle").value,
@@ -813,6 +831,7 @@ async function render() {
 
 async function loadUsers() {
   try { state.users = await api("/api/poc/users"); } catch { state.users = []; }
+  try { state.roles = await api("/api/poc/roles"); } catch { state.roles = []; }
 }
 
 document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => { state.view = b.dataset.view; state.selected = null; render(); }));

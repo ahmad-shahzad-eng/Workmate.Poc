@@ -11,8 +11,10 @@ a **company admin** is an ordinary employee in the `Workmate.CompanyAdmin` role 
 and the **vendor admin** (Aramis Support) is a host-side user of the HRM vendor — no tenant of their own — who can design for
 any company (acting within it via the UI's "Acting as" company picker) but is not an employee there and cannot submit or approve.
 Besides the two built-in workflows, company admins can build their own in **Workflow designer** (Phase D): an ordered list
-of steps, each naming who approves (line manager, manager's manager, a role, or a specific person), with a required
-fallback approver and a reject action (end, or back to the previous step) per step.
+of steps, each naming who approves (line manager, manager's manager, head of my department, a role, or a specific person),
+with a required fallback approver and a reject action (end, or back to the previous step) per step. Company admins also
+manage their own **Employees** (with sign-in accounts and a per-company role list) and **Organisation** (a department
+tree with a head per department) — spec 004.
 
 | Company | People | Routes |
 | --- | --- | --- |
@@ -171,7 +173,15 @@ to switch between the native renderer and SurveyJS, this browser only.
     starts empty and isolated. There is no sign-up path anywhere, and repeated wrong passwords lock an account out
     (ABP Identity's default lockout) even once the correct password is used again.
 
-`demo.py` runs steps 1-7, 9, 10 and 11 against the API and writes `demo.log` (`python3 demo.py` with the app freshly started).
+12. **Employees and organisation (spec 004).** As a company admin, open **Employees**: add people (each gets a sign-in;
+    the first password is shown once), give them roles from the company's role list, and set line managers — a
+    reporting loop is refused. Open **Organisation**: build departments (e.g. Head office → Finance → Payables) and set
+    a head for each, then put people in departments from Employees. In Workflow designer, a "Head of my department"
+    step goes to the requester's department head, or the next head up if the requester heads it themselves.
+    Deactivating someone blocks their sign-in and moves their open tasks to the workflow's fallback approver (the
+    timeline says so). A role that a published workflow uses can't be deleted.
+
+`demo.py` runs steps 1-7 and 9-12 against the API and writes `demo.log` (`python3 demo.py` with the app freshly started).
 Step 8 is two-part, around a manual restart:
 
 ```bash
@@ -204,6 +214,8 @@ python3 demo.py restart-after    # resumes and completes them, checks tenant iso
 | `wwwroot/lib/surveyjs/` | Vendored SurveyJS Form Library (MIT, no CDN at runtime) — rendering only, not Creator/Dashboard/PDF Generator |
 | `Application/WorkmatePermissions.cs`, `WorkmatePermissionDefinitionProvider.cs` | Real ABP permissions (Phase H) — replace the old `Employee.IsAdmin` flag |
 | `Application/TenantOnboardingAppService.cs` | Vendor admin creates a company + its first admin user (host-only) |
+| `Application/EmployeeAppService.cs`, `TaskReassignmentService.cs` | Spec 004: employees with sign-in accounts; deactivation moves open tasks to the fallback approver |
+| `Application/OrganizationAppService.cs`, `JobRoleLookup.cs`, `Domain/Organization.cs` | Spec 004: departments (ABP OrganizationUnits) with heads; the per-company job-role catalogue |
 | `Application/TenantAdminRoleSeeder.cs` | Shared "grant the `Workmate.CompanyAdmin` role + permissions, in this tenant" step — used at seed time and at onboarding time |
 | `Http/HostActAsTenantResolveContributor.cs` | The only legitimate way a signed-in user can pick a tenant other than their own: a host user (no tenant claim), via `X-Act-As-Tenant` |
 | `Data/OpenIddictDataSeeder.cs` | Registers the one public OAuth client the demo UI and `demo.py` sign in with |

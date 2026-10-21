@@ -135,3 +135,11 @@ public class UpdateDepartmentInput
     public string Name { get; set; } = default!;
     public Guid? HeadEmployeeId { get; set; }
 }
+
+// --- Role catalogue (client admin; spec 004 US3)
+public record JobRoleDto(Guid Id, string Name, bool IsBuiltIn, int EmployeeCount);
+
+public class CreateJobRoleInput
+{
+    public string Name { get; set; } = default!;
+}

@@ -95,6 +95,7 @@ In Routing, when the admin picks the field in "When field ...", the value input 
 - Q: Fallback when a step finds nobody? → A: Chosen per workflow (role or specific user), required to publish.
 - Q: Submitter as approver? → A: Never; the submitter is excluded from candidates of their own request.
 - Q: The edge case says a published workflow "can be deactivated", but no admin-facing deactivate action was built in Phase D — correct the wording, or track it as a follow-up? → A: Keep the wording as a true statement about the data model (the `IsActive` flag exists and is already enforced everywhere it matters — routing list, binding validation); track the admin-facing toggle (API + UI) as an owed follow-up, not yet built.
+- Update 2026-10-21 (spec 004): employees now have an active flag, and deactivating one moves their open tasks to the fallback approver (spec 004 FR-007). The assumption below that employees have "no active/inactive or leaver concept" is superseded; it's kept as written for the record of what Phase D built.
 
 ## Requirements *(mandatory)*
 
