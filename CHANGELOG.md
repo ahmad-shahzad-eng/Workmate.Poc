@@ -212,3 +212,4 @@ Needs `Poc:ResetDatabaseOnStartup=true` once: `Hr_Employees.Role` is gone and ne
 - README "First run": start Mailpit before the first (reset) run; note that spec 005 needs that reset once.
 - Spec 007 (Phase L, ABP theming and per-company branding): spec, research notes and quality checklist; clarified (theme look in the existing page, own sign-in screens restyled, single colour style). HANDOVER plan row L.
 - Spec 007 plan: research (R1–R14, theme assets, layout markup and colour variables checked in a throwaway spike), data model, API/UI contract, quickstart. Approach: LeptonX Lite 4.1.0 look in the existing page, per-company branding via new `Workmate.Branding.Manage`.
+- Spec 007 tasks: 25 tasks (Setup 2, Foundational 8, US1 6, US2 5, US3 2, Polish 2).
